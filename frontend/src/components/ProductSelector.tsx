@@ -1,81 +1,158 @@
-import React from "react";
-
-const categorias = [
-  "Bolsas Negras",
-  "Bolsas Transparente Recuperada",
-  "Bolsas Camisetas",
-  "Bolsas Virgen Transparente",
-  "Productos de limpieza",
-  "Aseo y cocina",
-  "Vasos plásticos",
-  "Vasos de Poli-papel",
-  "Vasos Espumados",
-  "Vasos PET",
-  "Envases de Alimento",
-  "Porta-colaciones",
-  "Otros",
-];
+import { useState, type ChangeEvent } from "react";
 
 interface Producto {
-  nombre: string;
+  id: string;
+  name: string;
   cantidad: number;
-  categoria: string;
+  unidad: string;
 }
 
 interface ProductSelectorProps {
   productos: Producto[];
   setProductos: (productos: Producto[]) => void;
+  existingProductos: Producto[];
 }
 
-const ProductSelector: React.FC<ProductSelectorProps> = ({ productos, setProductos }) => {
-  const handleAdd = () => {
-    setProductos([...productos, { nombre: "", cantidad: 1, categoria: "" }]);
+const ProductSelector: React.FC<ProductSelectorProps> = ({
+  productos,
+  setProductos,
+  existingProductos,
+}) => {
+  const [newProduct, setNewProduct] = useState<Producto>({
+    id: "",
+    name: "",
+    cantidad: 0,
+    unidad: "unidades",
+  });
+  const [showNewProduct, setShowNewProduct] = useState(false);
+  const [searchProduct, setSearchProduct] = useState("");
+
+  const handleAddProduct = () => {
+    if (newProduct.name && newProduct.cantidad > 0) {
+      const updatedProduct = {
+        ...newProduct,
+        id: newProduct.id || Date.now().toString(),
+      };
+      setProductos([...productos, updatedProduct]);
+      setNewProduct({ id: "", name: "", cantidad: 0, unidad: "unidades" });
+    }
   };
 
-  const handleChange = (i: number, field: keyof Producto, value: string | number) => {
-    const newList = [...productos];
-    if (field === "cantidad") {
-      newList[i].cantidad = Number(value); // Asignación directa a 'cantidad' (number)
-    } else if (field === "nombre" || field === "categoria") {
-      newList[i][field] = value as string; // Asignación a 'nombre' o 'categoria' (string)
+  const handleSelectProduct = (selectedId: string) => {
+    const selectedProduct = existingProductos.find((p) => p.id === selectedId);
+    if (selectedProduct) {
+      setNewProduct({
+        ...selectedProduct,
+        cantidad: selectedProduct.cantidad,
+      });
     }
-    setProductos(newList);
   };
+
+  const handleChangeProduct = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setNewProduct((prev) => ({
+      ...prev,
+      [name]: name === "cantidad" ? parseFloat(value) || 0 : value,
+    }));
+  };
+
+  const filteredProducts = existingProductos.filter((p) =>
+    p.name.toLowerCase().includes(searchProduct.toLowerCase())
+  );
 
   return (
     <div className="space-y-2">
-      <p className="font-semibold">Productos</p>
-      {productos.map((p, i) => (
-        <div key={i} className="flex gap-2">
+      {productos.map((p, index) => (
+        <div key={index} className="border p-2">
+          {p.name} - {p.cantidad} {p.unidad}
+        </div>
+      ))}
+      <input
+        type="text"
+        placeholder="Buscar producto..."
+        value={searchProduct}
+        onChange={(e) => setSearchProduct(e.target.value)}
+        className="w-full border p-2"
+      />
+      <select
+        value={newProduct.id}
+        onChange={(e) => handleSelectProduct(e.target.value)}
+        className="w-full border p-2"
+      >
+        <option value="">Selecciona producto existente</option>
+        {filteredProducts.map((p) => (
+          <option key={p.id} value={p.id}>
+            {p.name}
+          </option>
+        ))}
+      </select>
+      <div className="flex gap-2">
+        <input
+          type="number"
+          name="cantidad"
+          placeholder="Cantidad"
+          value={newProduct.cantidad}
+          onChange={handleChangeProduct}
+          className="w-1/3 border p-2"
+        />
+        <select
+          name="unidad"
+          value={newProduct.unidad}
+          onChange={handleChangeProduct}
+          className="w-1/3 border p-2"
+        >
+          <option value="unidades">Unidades</option>
+          <option value="kg">Kilogramos</option>
+          <option value="l">Litros</option>
+        </select>
+        <button
+          onClick={handleAddProduct}
+          className="bg-green-500 text-white px-2 py-1"
+          disabled={!newProduct.name || newProduct.cantidad <= 0}
+        >
+          Agregar
+        </button>
+      </div>
+      {!showNewProduct && (
+        <button
+          onClick={() => setShowNewProduct(true)}
+          className="bg-blue-500 text-white px-2 py-1"
+        >
+          Nuevo Producto
+        </button>
+      )}
+      {showNewProduct && (
+        <div className="flex gap-2">
           <input
-            placeholder="Nombre"
-            className="border p-1 flex-1"
-            value={p.nombre}
-            onChange={e => handleChange(i, "nombre", e.target.value)}
+            type="text"
+            placeholder="Nombre del producto"
+            value={newProduct.name}
+            onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
+            className="w-1/3 border p-2"
           />
           <input
             type="number"
-            className="border p-1 w-20"
-            value={p.cantidad}
-            onChange={e => handleChange(i, "cantidad", e.target.value)}
+            name="cantidad"
+            placeholder="Cantidad"
+            value={newProduct.cantidad}
+            onChange={handleChangeProduct}
+            className="w-1/3 border p-2"
           />
           <select
-            className="border p-1"
-            value={p.categoria}
-            onChange={e => handleChange(i, "categoria", e.target.value)}
+            name="unidad"
+            value={newProduct.unidad}
+            onChange={handleChangeProduct}
+            className="w-1/3 border p-2"
           >
-            <option value="">Categoría</option>
-            {categorias.map((cat, idx) => (
-              <option key={idx} value={cat}>
-                {cat}
-              </option>
-            ))}
+            <option value="unidades">Unidades</option>
+            <option value="kg">Kilogramos</option>
+            <option value="l">Litros</option>
           </select>
+          <button onClick={handleAddProduct} className="bg-green-500 text-white px-2 py-1">
+            Agregar
+          </button>
         </div>
-      ))}
-      <button type="button" onClick={handleAdd} className="text-blue-600 hover:underline">
-        + Agregar producto
-      </button>
+      )}
     </div>
   );
 };

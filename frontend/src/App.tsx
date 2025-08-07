@@ -12,6 +12,7 @@ import ProductList from "./pages/ProductList"
 import CreateDispatch from "./pages/CreateDispatch"
 import Clients from "./pages/Clients"
 import Drivers from "./pages/Drivers"
+import Tracking from "./pages/Tracking"
 import React from "react"
 
 const App: React.FC = () => {
@@ -29,6 +30,7 @@ const App: React.FC = () => {
         <Route path="/CreateDispatch" element={<CreateDispatch />} />
         <Route path="/Clients" element={<Clients />} />
         <Route path="/Drivers" element={<Drivers />} />
+        <Route path="/tracking" element={<Tracking />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>

@@ -1,4 +1,3 @@
-// src/pages/Dashboard.tsx
 import { useEffect, useState } from "react";
 import NavbarUser from "../components/NavbarUser";
 import ChartMonthlyOrders from "../components/ChartMonthlyOrders";
@@ -24,10 +23,22 @@ const Dashboard: React.FC = () => {
   ];
 
   useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      console.error("No token found in localStorage");
+      setChartData([]);
+      return;
+    }
+
     axios
-      .get("http://localhost:5000/api/dispatches/monthly")
+      .get(`${import.meta.env.VITE_API_URL}/api/dispatches/monthly`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
       .then((res) => setChartData(res.data || []))
-      .catch(() => setChartData([]));
+      .catch((err) => {
+        console.error("Error fetching monthly dispatches:", err);
+        setChartData([]);
+      });
   }, []);
 
   return (

@@ -28,11 +28,13 @@ def login():
     if not user or not user.check_password(data["password"]):
         return jsonify({"msg": "Credenciales inválidas"}), 401
 
-    token = create_access_token(identity=user.id)
+    token = create_access_token(identity=str(user.id))  # Convertir a cadena
     return jsonify({"token": token, "name": user.name})
 
 @auth_bp.route("/recover", methods=["POST"])
 def recover():
+    print("📨 ENTRANDO A recover (envía correo)")
+
     data = request.json
     user = User.query.filter_by(email=data["email"]).first()
     if not user:

@@ -46,21 +46,22 @@ export default function AddProduct() {
 
   const onSubmit = async (data: ProductForm) => {
     try {
-      const token = localStorage.getItem("token");
-      console.log("Token:", token);
-      console.log("Data enviada (objeto):", data); // Loguear el objeto antes de enviar
+        const token = localStorage.getItem("token");
+        console.log("Token:", token);
+        // Excluir el campo subject si está vacío
+        const { subject, ...dataToSend } = data;
+        console.log("Data enviada (objeto):", dataToSend);
 
-      const response = await axios.post(`${import.meta.env.VITE_API_URL}/api/products`, data, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        withCredentials: true,
-      });
+        const response = await axios.post(`${import.meta.env.VITE_API_URL}/api/products`, dataToSend, {
+          headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+          }
+        });
 
-      console.log("Respuesta del servidor:", response.data);
-      setMessage("Producto agregado exitosamente");
-      reset();
+        console.log("Respuesta del servidor:", response.data);
+        setMessage("Producto agregado exitosamente");
+        reset();
     } catch (err: any) {
       const errorMessage = err.response?.data?.error || err.response?.data?.msg || err.message || "Error desconocido";
       setMessage(errorMessage);

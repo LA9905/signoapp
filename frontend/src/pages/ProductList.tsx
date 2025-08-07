@@ -1,4 +1,3 @@
-// src/pages/ProductList.tsx
 import { useEffect, useState } from "react";
 import axios from "axios";
 
@@ -14,10 +13,24 @@ const ProductList = () => {
   const [search, setSearch] = useState("");
 
   useEffect(() => {
+    const token = localStorage.getItem("token"); // Obtener el token almacenado
+    if (!token) {
+      console.error("No token found in localStorage");
+      return;
+    }
+
     axios
-      .get(`${import.meta.env.VITE_API_URL}/api/products`) // Corregido a /api/products
-      .then((res) => setProducts(res.data))
-      .catch((err) => console.error(err));
+      .get(`${import.meta.env.VITE_API_URL}/api/products`, {
+        headers: {
+          Authorization: `Bearer ${token}`, // Incluir el token en el encabezado
+          "Content-Type": "application/json",
+        },
+      })
+      .then((res) => {
+        console.log("Productos recibidos:", res.data); // Depuración
+        setProducts(res.data);
+      })
+      .catch((err) => console.error("Error fetching products:", err));
   }, []);
 
   const filtered = products.filter((p: Product) =>
