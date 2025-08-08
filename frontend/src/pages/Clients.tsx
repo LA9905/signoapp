@@ -67,7 +67,7 @@ const Clients = () => {
       <ul className="space-y-2">
         {clients.map((client: any) => (
           <li key={client.id} className="border p-3 rounded shadow">
-            <strong>{client.name}</strong> (Creado por: {client.created_by})
+            <strong>{client.name}</strong>
           </li>
         ))}
       </ul>

@@ -13,7 +13,7 @@ const ProductList = () => {
   const [search, setSearch] = useState("");
 
   useEffect(() => {
-    const token = localStorage.getItem("token"); // Obtener el token almacenado
+    const token = localStorage.getItem("token");
     if (!token) {
       console.error("No token found in localStorage");
       return;
@@ -22,12 +22,12 @@ const ProductList = () => {
     axios
       .get(`${import.meta.env.VITE_API_URL}/api/products`, {
         headers: {
-          Authorization: `Bearer ${token}`, // Incluir el token en el encabezado
+          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
       })
       .then((res) => {
-        console.log("Productos recibidos:", res.data); // Depuración
+        console.log("Productos recibidos:", res.data);
         setProducts(res.data);
       })
       .catch((err) => console.error("Error fetching products:", err));
@@ -36,6 +36,14 @@ const ProductList = () => {
   const filtered = products.filter((p: Product) =>
     p.name.toLowerCase().includes(search.toLowerCase())
   );
+
+  const groupedProducts = filtered.reduce((acc, product) => {
+    if (!acc[product.category]) {
+      acc[product.category] = [];
+    }
+    acc[product.category].push(product);
+    return acc;
+  }, {} as { [key: string]: Product[] });
 
   return (
     <div className="p-4">
@@ -47,13 +55,18 @@ const ProductList = () => {
         value={search}
         onChange={(e) => setSearch(e.target.value)}
       />
-      <ul className="space-y-2">
-        {filtered.map((product: Product) => (
-          <li key={product.id} className="border p-3 rounded shadow">
-            <strong>{product.name}</strong> — {product.category} (Creado por: {product.created_by})
-          </li>
-        ))}
-      </ul>
+      {Object.keys(groupedProducts).map((category) => (
+        <div key={category} className="mb-4">
+          <h3 className="text-lg font-semibold mb-2">{category}</h3>
+          <ul className="space-y-2">
+            {groupedProducts[category].map((product: Product) => (
+              <li key={product.id} className="border p-3 rounded shadow">
+                <strong>{product.name}</strong>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
     </div>
   );
 };

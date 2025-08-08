@@ -5,12 +5,13 @@ interface Producto {
   name: string;
   cantidad: number;
   unidad: string;
+  category?: string; // ← NUEVO
 }
 
 interface ProductSelectorProps {
   productos: Producto[];
   setProductos: (productos: Producto[]) => void;
-  existingProductos: Producto[];
+  existingProductos: Producto[]; // puede traer category en los existentes
 }
 
 const ProductSelector: React.FC<ProductSelectorProps> = ({
@@ -26,15 +27,20 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
   });
   const [showNewProduct, setShowNewProduct] = useState(false);
   const [searchProduct, setSearchProduct] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("Otros");
 
   const handleAddProduct = () => {
     if (newProduct.name && newProduct.cantidad > 0) {
-      const updatedProduct = {
+      const updatedProduct: Producto = {
         ...newProduct,
         id: newProduct.id || Date.now().toString(),
+        category: selectedCategory, // ← guardar la categoría elegida
       };
       setProductos([...productos, updatedProduct]);
+
       setNewProduct({ id: "", name: "", cantidad: 0, unidad: "unidades" });
+      setSelectedCategory("Otros");
+      setShowNewProduct(false);
     }
   };
 
@@ -45,6 +51,10 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
         ...selectedProduct,
         cantidad: selectedProduct.cantidad,
       });
+      // si el existente trae category, reflejarla en el selector (opcional)
+      if (selectedProduct.category) {
+        setSelectedCategory(selectedProduct.category);
+      }
     }
   };
 
@@ -56,9 +66,28 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
     }));
   };
 
+  const handleChangeCategory = (e: ChangeEvent<HTMLSelectElement>) => {
+    setSelectedCategory(e.target.value);
+  };
+
   const filteredProducts = existingProductos.filter((p) =>
     p.name.toLowerCase().includes(searchProduct.toLowerCase())
   );
+
+  const categories = [
+    "Bolsas Negras",
+    "Bolsas Transparente Recuperada",
+    "Bolsas Camisetas",
+    "Bolsas Virgen Transparente",
+    "Productos de limpieza, aseo y cocina",
+    "Vasos plásticos",
+    "Vasos de Poli-papel",
+    "Vasos Espumados",
+    "Vasos PET",
+    "Envases de Alimento",
+    "Porta-colaciones",
+    "Otros",
+  ];
 
   return (
     <div className="space-y-2">
@@ -67,6 +96,7 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
           {p.name} - {p.cantidad} {p.unidad}
         </div>
       ))}
+
       <input
         type="text"
         placeholder="Buscar producto..."
@@ -74,6 +104,7 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
         onChange={(e) => setSearchProduct(e.target.value)}
         className="w-full border p-2"
       />
+
       <select
         value={newProduct.id}
         onChange={(e) => handleSelectProduct(e.target.value)}
@@ -86,6 +117,7 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
           </option>
         ))}
       </select>
+
       <div className="flex gap-2">
         <input
           type="number"
@@ -113,6 +145,7 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
           Agregar
         </button>
       </div>
+
       {!showNewProduct && (
         <button
           onClick={() => setShowNewProduct(true)}
@@ -121,6 +154,7 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
           Nuevo Producto
         </button>
       )}
+
       {showNewProduct && (
         <div className="flex gap-2">
           <input
@@ -128,21 +162,33 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
             placeholder="Nombre del producto"
             value={newProduct.name}
             onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
-            className="w-1/3 border p-2"
+            className="w-1/4 border p-2"
           />
+          <select
+            name="category"
+            value={selectedCategory}
+            onChange={handleChangeCategory}
+            className="w-1/4 border p-2"
+          >
+            {categories.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
           <input
             type="number"
             name="cantidad"
             placeholder="Cantidad"
             value={newProduct.cantidad}
             onChange={handleChangeProduct}
-            className="w-1/3 border p-2"
+            className="w-1/4 border p-2"
           />
           <select
             name="unidad"
             value={newProduct.unidad}
             onChange={handleChangeProduct}
-            className="w-1/3 border p-2"
+            className="w-1/4 border p-2"
           >
             <option value="unidades">Unidades</option>
             <option value="kg">Kilogramos</option>

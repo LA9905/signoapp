@@ -10,7 +10,7 @@ const Dashboard: React.FC = () => {
   const [chartData, setChartData] = useState<number[]>([]);
 
   const handleStart = () => {
-    navigate("/create-dispatch");
+    navigate("/CreateDispatch");
   };
 
   const menuItems = [

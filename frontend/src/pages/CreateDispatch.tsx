@@ -2,7 +2,7 @@ import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import ProductSelector from "../components/ProductSelector.tsx";
 import ClientSelector from "../components/ClientSelector.tsx";
-import axios, { AxiosError } from "axios"; // Importamos AxiosError
+import axios, { AxiosError } from "axios";
 
 interface Chofer {
   id: string;
@@ -14,6 +14,7 @@ interface Producto {
   name: string;
   cantidad: number;
   unidad: string;
+  category?: string; // ← NUEVO: categoría opcional para productos nuevos
 }
 
 interface Cliente {
@@ -94,12 +95,15 @@ const CreateDispatch = () => {
       .then((res) => {
         console.log("Respuesta de /api/products:", res.data);
         if (Array.isArray(res.data)) {
-          setProductos(res.data.map((p: any) => ({
-            id: p.id.toString(),
-            name: p.name,
-            cantidad: 0,
-            unidad: "unidades",
-          })));
+          setProductos(
+            res.data.map((p: any) => ({
+              id: p.id.toString(),
+              name: p.name,
+              cantidad: 0,
+              unidad: "unidades",
+              category: p.category, // ← incluir categoría para existentes
+            }))
+          );
         } else {
           console.error("Unexpected data format for products:", res.data);
           setProductos([]);
@@ -143,6 +147,11 @@ const CreateDispatch = () => {
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (!form.orden || !form.cliente || !form.chofer || form.productos.length === 0) {
+      setMensaje("Todos los campos (orden, cliente, chofer y al menos un producto) son requeridos");
+      return;
+    }
+
     try {
       const token = localStorage.getItem("token");
       if (!token) throw new Error("No token found");
@@ -159,17 +168,54 @@ const CreateDispatch = () => {
       };
       console.log("Payload enviado a /api/dispatches:", payload);
 
-      await axios.post(
+      // Registrar productos NUEVOS antes del despacho
+      const newProducts = form.productos.filter((p) =>
+        !productos.some((ep: Producto) => ep.id === p.id)
+      );
+
+      for (const product of newProducts) {
+        await axios.post(
+          `${import.meta.env.VITE_API_URL}/api/products`,
+          {
+            name: product.name,
+            category: product.category || "Otros",
+          },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+      }
+
+      // Crear despacho y obtener su ID
+      const createResp = await axios.post(
         `${import.meta.env.VITE_API_URL}/api/dispatches`,
         payload,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
+        { headers: { Authorization: `Bearer ${token}` } }
       );
+
+      const dispatchId: number = createResp.data?.id;
       setMensaje("Despacho creado correctamente");
+
+      // Solicitar el PDF (inline) y abrirlo en una pestaña para imprimir
+      if (dispatchId) {
+        const pdfResp = await axios.get(
+          `${import.meta.env.VITE_API_URL}/api/print/${dispatchId}?inline=1`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+            responseType: "blob",
+          }
+        );
+        const blob = new Blob([pdfResp.data], { type: "application/pdf" });
+        const url = URL.createObjectURL(blob);
+        window.open(url, "_blank");
+
+        // Algunos navegadores no permiten window.print() inmediato, se deja al usuario
+        // Si quieres forzar, puedes intentar:
+        // win?.addEventListener("load", () => win.print());
+      }
+
+      // Redirigir después de un momento
       setTimeout(() => navigate("/dashboard"), 2000);
     } catch (err) {
-      const error = err as AxiosError; // Tipamos err como AxiosError
+      const error = err as AxiosError;
       console.error("Error en handleSubmit:", error.response ? error.response.data : error.message);
       setMensaje("Error al crear despacho");
     }

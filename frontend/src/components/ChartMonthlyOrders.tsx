@@ -1,4 +1,3 @@
-// ChartMonthlyOrders.tsx
 import { Bar } from "react-chartjs-2";
 import { Chart as ChartJS, BarElement, CategoryScale, LinearScale } from "chart.js";
 
@@ -14,7 +13,7 @@ const ChartMonthlyOrders: React.FC<Props> = ({ dataPoints }) => {
   }
 
   const data = {
-    labels: ["1", "5", "10", "15", "20", "25", "30"],
+    labels: Array.from({ length: 31 }, (_, i) => (i + 1).toString()), // Días 1 al 31
     datasets: [
       {
         label: "Despachos",
