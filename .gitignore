@@ -1,3 +1,7 @@
+# Ignorar todos los .env en cualquier carpeta
+**/.env
+**/.env.*
+
 # Logs
 logs
 *.log
@@ -7,12 +11,13 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Dependencias y builds
 node_modules
 dist
 dist-ssr
 *.local
 
-# Editor directories and files
+# Configuración de editores
 .vscode/*
 !.vscode/extensions.json
 .idea
@@ -22,9 +27,3 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-
-.env
-.env
-.env.local
-.env.development
-.env.production
