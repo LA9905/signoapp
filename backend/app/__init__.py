@@ -17,7 +17,16 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object("config.Config")
 
-    CORS(app, resources={r"/api/*": {"origins": "http://localhost:5173"}}, supports_credentials=True)
+    CORS(
+    app,
+    resources={r"/api/*": {
+        "origins": [
+            "http://localhost:5173",
+            "https://signoapp-frontend.onrender.com"
+        ]
+    }},
+    supports_credentials=True
+)
     db.init_app(app)
     jwt.init_app(app)
     mail.init_app(app)
