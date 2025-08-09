@@ -22,7 +22,7 @@ def create_app():
     resources={r"/api/*": {
         "origins": [
             "http://localhost:5173",
-            "https://signoapp-frontend.onrender.com"
+            "https://signoapp-front.onrender.com"
         ]
     }},
     supports_credentials=True
