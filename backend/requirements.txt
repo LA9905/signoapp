@@ -22,4 +22,5 @@ Flask-Migrate==4.1.0
 cloudinary==1.44.1
 reportlab==4.4.3
 pdfgen==1.0.5
-barcode==1.0.4
+python-barcode==0.15.1
+setuptools>=68
