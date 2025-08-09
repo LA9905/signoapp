@@ -1,48 +1,55 @@
 import { useEffect, useState, type FormEvent, type ChangeEvent } from 'react';
-import axios from 'axios';
+import { FaRegEdit, FaTrashAlt, FaSave, FaTimes } from "react-icons/fa";
+import { useClients } from "../context/ClientsContext";
 
 const Clients = () => {
-  const [clients, setClients] = useState([]);
+  const { clients, refresh, createClient, updateClient, deleteClient } = useClients();
   const [name, setName] = useState("");
-
-  const fetchClients = () => {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      console.error("No token found in localStorage");
-      return;
-    }
-
-    axios
-      .get(`${import.meta.env.VITE_API_URL}/api/clients`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      })
-      .then((res) => setClients(res.data))
-      .catch((err) => console.error("Error fetching clients:", err));
-  };
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editName, setEditName] = useState("");
 
   useEffect(() => {
-    fetchClients();
-  }, []);
+    refresh().catch((e) => console.error("Error loading clients:", e));
+  }, [refresh]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     try {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        console.error("No token found in localStorage");
-        return;
-      }
-
-      await axios.post(`${import.meta.env.VITE_API_URL}/api/clients`, { name }, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      await createClient(name.trim());
       setName("");
-      fetchClients();
     } catch (err) {
       console.error("Error adding client:", err);
+      alert("No se pudo crear el cliente");
+    }
+  };
+
+  const startEdit = (id: number, currentName: string) => {
+    setEditingId(id);
+    setEditName(currentName);
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditName("");
+  };
+
+  const saveEdit = async (id: number) => {
+    try {
+      await updateClient(id, editName.trim());
+      cancelEdit();
+    } catch (err: any) {
+      console.error("Error updating client:", err);
+      alert(err?.response?.data?.error || "No se pudo actualizar el cliente");
+    }
+  };
+
+  const remove = async (id: number) => {
+    if (!window.confirm("¿Eliminar este cliente?")) return;
+    try {
+      await deleteClient(id);
+    } catch (err: any) {
+      console.error("Error deleting client:", err);
+      alert(err?.response?.data?.error || "No se pudo eliminar el cliente");
     }
   };
 
@@ -65,11 +72,67 @@ const Clients = () => {
       </form>
 
       <ul className="space-y-2">
-        {clients.map((client: any) => (
-          <li key={client.id} className="border p-3 rounded shadow">
-            <strong>{client.name}</strong>
-          </li>
-        ))}
+        {clients.map((client) => {
+          const isEditing = editingId === client.id;
+          return (
+            <li key={client.id} className="border p-3 rounded shadow flex items-center justify-between gap-3">
+              <div className="flex-1">
+                {!isEditing ? (
+                  <strong>{client.name}</strong>
+                ) : (
+                  <input
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    className="border p-2 rounded w-full"
+                    placeholder="Nombre del cliente"
+                  />
+                )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                {!isEditing ? (
+                  <>
+                    <button
+                      className="px-2 py-2 rounded border border-gray-600 text-white hover:text-blue-400"
+                      title="Editar"
+                      aria-label="Editar"
+                      onClick={() => startEdit(client.id, client.name)}
+                    >
+                      <FaRegEdit size={16} />
+                    </button>
+                    <button
+                      className="px-2 py-2 rounded border border-gray-600 text-white hover:text-red-400"
+                      title="Eliminar"
+                      aria-label="Eliminar"
+                      onClick={() => remove(client.id)}
+                    >
+                      <FaTrashAlt size={16} />
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      className="px-2 py-2 rounded border border-gray-600 text-white hover:text-emerald-300"
+                      title="Guardar"
+                      aria-label="Guardar"
+                      onClick={() => saveEdit(client.id)}
+                    >
+                      <FaSave size={16} />
+                    </button>
+                    <button
+                      className="px-2 py-2 rounded border border-gray-600 text-white hover:text-gray-300"
+                      title="Cancelar"
+                      aria-label="Cancelar"
+                      onClick={cancelEdit}
+                    >
+                      <FaTimes size={16} />
+                    </button>
+                  </>
+                )}
+              </div>
+            </li>
+          );
+        })}
       </ul>
     </div>
   );

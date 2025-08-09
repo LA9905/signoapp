@@ -5,6 +5,8 @@ from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from flask_mail import Mail
 from flask_migrate import Migrate
+from datetime import timedelta
+from flask import Flask, send_from_directory
 
 db = SQLAlchemy()
 jwt = JWTManager()
@@ -21,12 +23,10 @@ def create_app():
     mail.init_app(app)
     migrate.init_app(app, db)
 
-    # Importar modelos antes de crear tablas
     with app.app_context():
         from .models import user_model, product_model
         db.create_all()
 
-    # Registrar Blueprints
     from .routes.auth_routes import auth_bp
     from .routes.product_routes import product_bp
     from .routes.print_routes import print_bp
@@ -40,5 +40,13 @@ def create_app():
     app.register_blueprint(driver_bp, url_prefix='/api')
     app.register_blueprint(client_bp, url_prefix="/api")
     app.register_blueprint(dispatch_bp, url_prefix="/api")
+    app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=1)
+
+    # === servir uploads (avatares) ===
+    @app.route('/uploads/<path:filename>')
+    def uploads(filename):
+        from pathlib import Path
+        base = Path(app.root_path).parent / "uploads"
+        return send_from_directory(str(base), filename, max_age=0)
 
     return app

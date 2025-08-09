@@ -1,40 +1,102 @@
-// src/App.tsx
-import { BrowserRouter, Routes, Route } from "react-router-dom"
-import Home from "./pages/Home"
-import Login from "./pages/Login"
-import Register from "./pages/Register"
-import Dashboard from "./pages/Dashboard"
-import NotFound from "./pages/NotFound"
-import Recover from "./pages/Recover"
-import ResetPassword from "./pages/ResetPassword"
-import AddProduct from "./pages/AddProduct"
-import ProductList from "./pages/ProductList"
-import CreateDispatch from "./pages/CreateDispatch"
-import Clients from "./pages/Clients"
-import Drivers from "./pages/Drivers"
-import Tracking from "./pages/Tracking"
-import React from "react"
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import Home from "./pages/Home";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
+import Dashboard from "./pages/Dashboard";
+import NotFound from "./pages/NotFound";
+import Recover from "./pages/Recover";
+import ResetPassword from "./pages/ResetPassword";
+import AddProduct from "./pages/AddProduct";
+import ProductList from "./pages/ProductList";
+import CreateDispatch from "./pages/CreateDispatch";
+import Clients from "./pages/Clients";
+import Drivers from "./pages/Drivers";
+import Tracking from "./pages/Tracking";
+import EditProfile from "./pages/EditProfile"; // si ya lo tienes
+import React from "react";
+import ProtectedShell from "./layouts/ProtectedShell";
 
 const App: React.FC = () => {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Públicas */}
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
-        <Route path="/dashboard/*" element={<Dashboard />} />
         <Route path="/recover" element={<Recover />} />
         <Route path="/reset-password" element={<ResetPassword />} />
-        <Route path="/add-product" element={<AddProduct />} />
-        <Route path="/products" element={<ProductList />} />
-        <Route path="/CreateDispatch" element={<CreateDispatch />} />
-        <Route path="/Clients" element={<Clients />} />
-        <Route path="/Drivers" element={<Drivers />} />
-        <Route path="/tracking" element={<Tracking />} />
+
+        {/* Protegidas (envueltas con Shell) */}
+        <Route
+          path="/dashboard/*"
+          element={
+            <ProtectedShell>
+              <Dashboard />
+            </ProtectedShell>
+          }
+        />
+        <Route
+          path="/add-product"
+          element={
+            <ProtectedShell>
+              <AddProduct />
+            </ProtectedShell>
+          }
+        />
+        <Route
+          path="/products"
+          element={
+            <ProtectedShell>
+              <ProductList />
+            </ProtectedShell>
+          }
+        />
+        <Route
+          path="/CreateDispatch"
+          element={
+            <ProtectedShell>
+              <CreateDispatch />
+            </ProtectedShell>
+          }
+        />
+        <Route
+          path="/Clients"
+          element={
+            <ProtectedShell>
+              <Clients />
+            </ProtectedShell>
+          }
+        />
+        <Route
+          path="/Drivers"
+          element={
+            <ProtectedShell>
+              <Drivers />
+            </ProtectedShell>
+          }
+        />
+        <Route
+          path="/tracking"
+          element={
+            <ProtectedShell>
+              <Tracking />
+            </ProtectedShell>
+          }
+        />
+        <Route
+          path="/edit-profile"
+          element={
+            <ProtectedShell>
+              <EditProfile />
+            </ProtectedShell>
+          }
+        />
+
         <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>
-  )
-}
+  );
+};
 
-export default App
+export default App;

@@ -47,3 +47,52 @@ def create_product():
 def list_products():
     products = Product.query.all()
     return jsonify([p.to_dict() for p in products]), 200
+
+
+@product_bp.route('/products/<int:product_id>', methods=['PUT', 'PATCH'])
+@jwt_required()
+def update_product(product_id):
+    try:
+        data = request.get_json() or {}
+        name = data.get("name")
+        category = data.get("category")
+
+        if not name or not category:
+            return jsonify({"error": "Los campos 'name' y 'category' son requeridos"}), 400
+
+        product = Product.query.get(product_id)
+        if not product:
+            return jsonify({"error": "Producto no encontrado"}), 404
+
+        # Evitar duplicados (mismo nombre+categoría en otro ID)
+        dup = Product.query.filter(
+            Product.id != product_id,
+            Product.name == name,
+            Product.category == category
+        ).first()
+        if dup:
+            return jsonify({"error": "Ya existe un producto con ese nombre en esta categoría"}), 400
+
+        product.name = name
+        product.category = category
+        db.session.commit()
+        return jsonify(product.to_dict()), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": "Error actualizando producto", "details": str(e)}), 500
+
+
+@product_bp.route('/products/<int:product_id>', methods=['DELETE'])
+@jwt_required()
+def delete_product(product_id):
+    try:
+        product = Product.query.get(product_id)
+        if not product:
+            return jsonify({"error": "Producto no encontrado"}), 404
+
+        db.session.delete(product)
+        db.session.commit()
+        return jsonify({"message": "Producto eliminado"}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": "Error eliminando producto", "details": str(e)}), 500

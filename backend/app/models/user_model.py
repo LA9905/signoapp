@@ -7,6 +7,9 @@ class User(db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.Text, nullable=False)
     recovery_code = db.Column(db.String(6), nullable=True)
+    # NUEVOS:
+    avatar_url = db.Column(db.String(255), nullable=True)
+    update_code = db.Column(db.String(6), nullable=True)  # código para confirmar edición de perfil
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)

@@ -1,36 +1,35 @@
-import { useState } from "react"
-import axios from "axios"
-import { useNavigate } from "react-router-dom"
+import { useState } from "react";
+import axios from "axios";
+import { useNavigate, Link } from "react-router-dom";
 
 const Login = () => {
-  const navigate = useNavigate()
-  const [form, setForm] = useState({ email: "", password: "" })
-  const [error, setError] = useState("")
+  const navigate = useNavigate();
+  const [form, setForm] = useState({ email: "", password: "" });
+  const [error, setError] = useState("");
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setForm({ ...form, [e.target.name]: e.target.value })
-  }
+    setForm({ ...form, [e.target.name]: e.target.value });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
     try {
-      const res = await axios.post("http://localhost:5000/api/auth/login", form)
-      localStorage.setItem("token", res.data.token)
-      localStorage.setItem("name", res.data.name)
-      navigate("/dashboard")
+      const res = await axios.post(`${import.meta.env.VITE_API_URL}/api/auth/login`, form);
+      localStorage.setItem("token", res.data.token);
+      localStorage.setItem("name", res.data.name);
+      if (res.data.avatar_url) localStorage.setItem("avatar_url", res.data.avatar_url);
+      navigate("/dashboard");
     } catch (err: any) {
-      setError(err.response?.data?.msg || "Error al iniciar sesión")
+      setError(err.response?.data?.msg || "Error al iniciar sesión");
     }
-  }
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#0f0f0f] px-4">
       <div className="w-[60%] sm:w-3/4 md:w-1/2 max-w-md bg-[#1e1e1e] p-8 rounded-lg shadow-md text-white">
         <h2 className="text-3xl font-bold mb-6 text-center text-blue-300">Iniciar sesión</h2>
 
-        {error && (
-          <p className="text-red-500 mb-4 text-center">{error}</p>
-        )}
+        {error && <p className="text-red-500 mb-4 text-center">{error}</p>}
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
@@ -59,23 +58,24 @@ const Login = () => {
             />
           </div>
 
-          <button
-            type="submit"
-            className="w-full py-2 bg-blue-400 hover:bg-blue-500 rounded font-semibold transition-colors"
-          >
+          <button type="submit" className="w-full py-2 bg-blue-400 hover:bg-blue-500 rounded font-semibold transition-colors">
             Ingresar
           </button>
         </form>
 
-        <p className="mt-6 text-sm text-center">
-          ¿No tienes una cuenta?{" "}
-          <a href="/register" className="text-blue-300 hover:underline">
-            Regístrate
-          </a>
-        </p>
+        <div className="mt-6 text-sm text-center space-y-2">
+          <div>
+            ¿No tienes una cuenta?{" "}
+            <Link to="/register" className="text-blue-300 hover:underline">Regístrate</Link>
+          </div>
+          <div>
+            ¿Olvidaste tu contraseña?{" "}
+            <Link to="/recover" className="text-blue-300 hover:underline">Recupérala aquí</Link>
+          </div>
+        </div>
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default Login
+export default Login;

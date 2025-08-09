@@ -95,12 +95,6 @@ export default function AddProduct() {
           {errors.category && <p className="text-red-500">{errors.category.message}</p>}
         </div>
 
-        <div>
-          <label>Subject (opcional para pruebas)</label>
-          <input {...register("subject")} className="w-full border p-2 rounded" placeholder="Dejar vacío" />
-          {errors.subject && <p className="text-red-500">{errors.subject.message}</p>}
-        </div>
-
         <button
           type="submit"
           className="bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600"

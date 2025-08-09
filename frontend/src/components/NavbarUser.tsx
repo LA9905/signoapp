@@ -1,11 +1,13 @@
-// src/components/NavbarUser.tsx
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import axios from "axios";
 import { useNavigate } from "react-router-dom";
 
-const NavbarUser = () => {
+const NavbarUser: React.FC = () => {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
-  const name = localStorage.getItem("name");
+  const nameLS = localStorage.getItem("name");
+  const [name, setName] = useState<string | null>(nameLS);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
 
   const handleLogout = () => {
@@ -24,24 +26,34 @@ const NavbarUser = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    axios
+      .get(`${import.meta.env.VITE_API_URL}/api/auth/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      .then((res) => {
+        setName(res.data?.name || nameLS);
+        setAvatarUrl(res.data?.avatar_url || null);
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <div className="flex justify-between items-center bg-blue-100 px-4 py-3 shadow">
-      <img
-        src="/logo.jpg"
-        alt="Logo empresa"
-        className="h-6 w-auto object-contain" // Reducido a h-6 (24px)
-      />
+      <img src="/logo.jpg" alt="Logo empresa" className="h-6 w-auto object-contain" />
 
       <div className="relative" ref={dropdownRef}>
         <button
           onClick={() => setOpen(!open)}
           className="flex items-center gap-2 focus:outline-none"
         >
-          <div className="w-8 h-8 overflow-hidden"> {/* Contenedor fijo para forzar tamaño */}
+          <div className="avatar">
             <img
-              src="/avatar3.png"
+              src={avatarUrl || "/avatar3.png"}
               alt="Perfil"
-              className="w-full h-full object-cover rounded-full border border-gray-400"
             />
           </div>
           <span className="font-semibold text-sm text-gray-800">{name}</span>
