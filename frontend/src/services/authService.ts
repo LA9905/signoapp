@@ -1,4 +1,3 @@
-// src/services/authService.ts
 import { api } from "./http";
 
 export type LoginResp = { token: string; name: string };
@@ -18,16 +17,15 @@ export const resetPassword = (email: string, code: string, new_password: string)
 
 export const me = () => api.get<MeResp>("/auth/me");
 
-// --- Perfil (código y actualización con multipart) ---
 export const requestUpdateCode = (target_email?: string) =>
   api.post<{ msg: string }>("/auth/profile/request-code", { target_email });
 
 export type UpdateProfilePayload = {
-  code: string;            // requerido
+  code: string;
   name?: string;
   email?: string;
   password?: string;
-  avatarFile?: File;       // opcional
+  avatarFile?: File;
 };
 
 export const updateProfile = (payload: UpdateProfilePayload) => {
@@ -42,3 +40,6 @@ export const updateProfile = (payload: UpdateProfilePayload) => {
     headers: { "Content-Type": "multipart/form-data" },
   });
 };
+
+export const deleteAccount = () =>
+  api.delete<{ msg: string }>("/auth/delete-account");
