@@ -1,12 +1,11 @@
 # app/__init__.py
-from flask import Flask
+from flask import Flask, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from flask_mail import Mail
 from flask_migrate import Migrate
 from datetime import timedelta
-from flask import Flask, send_from_directory
 
 db = SQLAlchemy()
 jwt = JWTManager()
@@ -18,22 +17,30 @@ def create_app():
     app.config.from_object("config.Config")
 
     CORS(
-    app,
-    resources={r"/api/*": {
-        "origins": [
-            "http://localhost:5173",
-            "https://signoapp-front.onrender.com"
-        ]
-    }},
-    supports_credentials=True
-)
+        app,
+        resources={r"/api/*": {
+            "origins": [
+                "http://localhost:5173",
+                "https://signoapp-front.onrender.com"
+            ]
+        }},
+        supports_credentials=True
+    )
+
     db.init_app(app)
     jwt.init_app(app)
     mail.init_app(app)
     migrate.init_app(app, db)
 
+    # 👇 IMPORTA TODOS los modelos ANTES de create_all
     with app.app_context():
-        from .models import user_model, product_model
+        from .models import (
+            user_model,
+            product_model,
+            client_model,     
+            driver_model,     
+            dispatch_model,   
+        )
         db.create_all()
 
     from .routes.auth_routes import auth_bp
@@ -46,12 +53,12 @@ def create_app():
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
     app.register_blueprint(product_bp, url_prefix="/api")
     app.register_blueprint(print_bp, url_prefix="/api")
-    app.register_blueprint(driver_bp, url_prefix='/api')
+    app.register_blueprint(driver_bp, url_prefix="/api")
     app.register_blueprint(client_bp, url_prefix="/api")
     app.register_blueprint(dispatch_bp, url_prefix="/api")
+
     app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=1)
 
-    # === servir uploads (avatares) ===
     @app.route('/uploads/<path:filename>')
     def uploads(filename):
         from pathlib import Path
