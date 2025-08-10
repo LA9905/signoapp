@@ -1,32 +1,70 @@
-SignoApp – Gestión de Despachos (Flask + React + TS)
-Aplicación web para crear y gestionar despachos: productos, clientes, choferes, generación de PDF con código de barras, seguimiento/edición, perfiles de usuario con avatar en Cloudinary, recuperación y cambio de contraseña por código por email, y rutas protegidas con JWT.
+🚚 SignoApp – Gestión de Despachos
+Aplicación web para crear y gestionar despachos, incluyendo:
 
-Stack
-Frontend: React + TypeScript + Vite, Tailwind.
+Gestión de productos, clientes y choferes.
 
-Backend: Flask (factory), SQLAlchemy, Flask-Migrate, JWT, ReportLab (PDF + Code128), Cloudinary (avatars), Flask-Mail (códigos).
+Generación de PDF con código de barras.
 
-DB: PostgreSQL.
+Seguimiento y edición de despachos.
 
-Deploy: Render (backend + DB + static site).
+Perfiles de usuario con avatar almacenado en Cloudinary.
 
-Estructura (resumen)
+Recuperación y cambio de contraseña mediante código enviado por email.
+
+Rutas protegidas con autenticación JWT.
+
+🛠 Stack Tecnológico
+Frontend
+
+React + TypeScript + Vite
+
+Tailwind CSS
+
+Backend
+
+Flask (App Factory)
+
+SQLAlchemy + Flask-Migrate
+
+Flask-JWT-Extended (JWT)
+
+ReportLab (PDF + Code128)
+
+Cloudinary (gestión de imágenes)
+
+Flask-Mail (envío de códigos por email)
+
+Base de Datos
+
+PostgreSQL
+
+Deploy
+
+Render (backend, base de datos y frontend como sitio estático)
+
+📂 Estructura del Proyecto
+bash
+Copiar
+Editar
 /backend
-  app/
-    __init__.py         # create_app() + CORS + health
-    models/             # User, Product, Client, Driver, Dispatch...
-    routes/             # auth, products, print, drivers, clients, dispatches
-    utils/              # mailer, print_utils (PDF)
-  config.py
-  requirements.txt
-
+│   app/__init__.py        # create_app() + CORS + JWT + migraciones
+│   app/models/            # User, Product, Client, Driver, Dispatch...
+│   app/routes/            # auth, products, print, drivers, clients, dispatches
+│   app/utils/             # mailer, print_utils (PDF)
+│   config.py               # configuración principal
+│   requirements.txt
+│   start.py / wsgi.py
+│
 /frontend
-  src/                  # React + TS code (Login, Dashboard, Tracking, EditProfile...)
-  public/_redirects     # /* /index.html 200
-  package.json
-
-Variables de entorno
+│   src/                   # Componentes y páginas React + TS
+│   public/_redirects      # Netlify/Render routing
+│   package.json
+🔑 Variables de Entorno
 Backend (.env)
+
+env
+Copiar
+Editar
 DATABASE_URL=postgresql://USER:PASS@HOST:5432/DBNAME
 SECRET_KEY=...
 JWT_SECRET_KEY=...
@@ -35,31 +73,47 @@ MAIL_PASSWORD=app_password_gmail
 MAIL_DEFAULT_SENDER=tu_correo@gmail.com
 CLOUDINARY_URL=cloudinary://<api_key>:<api_secret>@<cloud_name>
 JWT_HOURS=8
-
 Frontend (.env)
-VITE_API_URL=http://localhost:5000
 
-Levantar en local (desarrollo)
+env
+Copiar
+Editar
+VITE_API_URL=http://localhost:5000
+🚀 Levantar en Local
 Backend
+
+bash
+Copiar
+Editar
 cd backend
 python -m venv venv
+
+# Activar entorno virtual
 # Windows
 venv\Scripts\activate
 # macOS/Linux
 source venv/bin/activate
-# bash
-source venv/Scripts/activate
 
 pip install -r requirements.txt
-# crea tablas automáticamente (db.create_all()) o usa migraciones
+
+# Levantar servidor
 python start.py
-
-# o con flask:
-# export FLASK_APP=app
-# flask run
-
+# o con Flask CLI
+export FLASK_APP=app
+flask run
 Frontend
+
+bash
+Copiar
+Editar
 cd frontend
 npm install
 npm run dev
-# abre http://localhost:5173
+# abrir http://localhost:5173
+🌐 Deploy en Render
+Backend y DB desplegados como servicios independientes.
+
+Frontend desplegado como Static Site apuntando a la API del backend mediante VITE_API_URL.
+
+📜 Licencia
+Este proyecto es de uso interno y educativo.
