@@ -76,7 +76,7 @@ export default function AddProduct() {
   };
 
   return (
-    <div className="max-w-md mx-auto mt-10 p-6 bg-white shadow rounded">
+    <div className="max-w-md mx-auto mt-10 p-6 bg-gray-700 shadow rounded">
       <h2 className="text-xl font-bold mb-4 text-blue-600">Agregar Producto</h2>
 
       {error && <p className="mb-3 text-red-600">{error}</p>}
