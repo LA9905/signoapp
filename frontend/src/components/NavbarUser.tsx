@@ -1,6 +1,7 @@
+// src/components/NavbarUser.tsx
 import React, { useState, useEffect, useRef } from "react";
-import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import { api } from "../services/http";
 
 const NavbarUser: React.FC = () => {
   const navigate = useNavigate();
@@ -27,17 +28,17 @@ const NavbarUser: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (!token) return;
-    axios
-      .get(`${import.meta.env.VITE_API_URL}/api/auth/me`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
+    // usa el cliente `api` que ya tiene baseURL y token
+    api
+      .get("/auth/me")
       .then((res) => {
         setName(res.data?.name || nameLS);
         setAvatarUrl(res.data?.avatar_url || null);
+        if (res.data?.name) localStorage.setItem("name", res.data.name);
       })
-      .catch(() => {});
+      .catch(() => {
+        // si falla, no forzamos logout aquí; el interceptor global ya maneja 401/403
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -51,10 +52,7 @@ const NavbarUser: React.FC = () => {
           className="flex items-center gap-2 focus:outline-none"
         >
           <div className="avatar">
-            <img
-              src={avatarUrl || "/avatar3.png"}
-              alt="Perfil"
-            />
+            <img src={avatarUrl || "/avatar3.png"} alt="Perfil" />
           </div>
           <span className="font-semibold text-sm text-gray-800">{name}</span>
         </button>

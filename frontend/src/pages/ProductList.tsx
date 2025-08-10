@@ -1,6 +1,7 @@
+// src/pages/ProductList.tsx
 import { useEffect, useState } from "react";
-import axios from "axios";
 import { FaRegEdit, FaTrashAlt, FaSave, FaTimes } from "react-icons/fa";
+import { api } from "../services/http";
 
 interface Product {
   id: number;
@@ -30,26 +31,28 @@ const ProductList = () => {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editName, setEditName] = useState("");
   const [editCategory, setEditCategory] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const token = localStorage.getItem("token");
+  const fetchProducts = async () => {
+    try {
+      setLoading(true);
+      const res = await api.get<Product[]>("/products");
+      setProducts(res.data);
+    } catch (err) {
+      console.error("Error fetching products:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    if (!token) {
-      console.error("No token found in localStorage");
-      return;
-    }
-    axios
-      .get(`${import.meta.env.VITE_API_URL}/api/products`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      })
-      .then((res) => setProducts(res.data))
-      .catch((err) => console.error("Error fetching products:", err));
+    fetchProducts();
+    const onFocus = () => fetchProducts();
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
   }, []);
 
-  const filtered = products.filter((p: Product) =>
+  const filtered = products.filter((p) =>
     p.name.toLowerCase().includes(search.toLowerCase())
   );
 
@@ -57,7 +60,7 @@ const ProductList = () => {
     if (!acc[product.category]) acc[product.category] = [];
     acc[product.category].push(product);
     return acc;
-  }, {} as { [key: string]: Product[] });
+  }, {} as Record<string, Product[]>);
 
   const startEdit = (p: Product) => {
     setEditingId(p.id);
@@ -72,39 +75,40 @@ const ProductList = () => {
   };
 
   const saveEdit = async (id: number) => {
-    if (!token) return;
+    const name = editName.trim();
+    if (!name || !editCategory) {
+      alert("Nombre y categoría son requeridos");
+      return;
+    }
     try {
-      const resp = await axios.put(
-        `${import.meta.env.VITE_API_URL}/api/products/${id}`,
-        { name: editName.trim(), category: editCategory },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      const updated = resp.data as Product;
+      const resp = await api.put<Product>(`/products/${id}`, {
+        name,
+        category: editCategory,
+      });
+      const updated = resp.data;
       setProducts((prev) => prev.map((p) => (p.id === id ? updated : p)));
       cancelEdit();
     } catch (err: any) {
-      console.error("Error updating product:", err.response?.data || err.message);
-      alert(err.response?.data?.error || "No se pudo actualizar el producto");
+      console.error("Error updating product:", err?.response?.data || err?.message);
+      alert(err?.response?.data?.error || "No se pudo actualizar el producto");
     }
   };
 
   const deleteProduct = async (id: number) => {
-    if (!token) return;
     if (!window.confirm("¿Eliminar este producto? Esta acción es permanente.")) return;
     try {
-      await axios.delete(`${import.meta.env.VITE_API_URL}/api/products/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      await api.delete(`/products/${id}`);
       setProducts((prev) => prev.filter((p) => p.id !== id));
     } catch (err: any) {
-      console.error("Error deleting product:", err.response?.data || err.message);
-      alert(err.response?.data?.error || "No se pudo eliminar el producto");
+      console.error("Error deleting product:", err?.response?.data || err?.message);
+      alert(err?.response?.data?.error || "No se pudo eliminar el producto");
     }
   };
 
   return (
     <div className="p-4">
       <h2 className="text-2xl font-semibold mb-4">Listado de Productos</h2>
+
       <input
         type="text"
         placeholder="Buscar producto..."
@@ -112,11 +116,14 @@ const ProductList = () => {
         value={search}
         onChange={(e) => setSearch(e.target.value)}
       />
+
+      {loading && <p className="text-sm text-gray-500 mb-2">Cargando...</p>}
+
       {Object.keys(groupedProducts).map((category) => (
         <div key={category} className="mb-4">
           <h3 className="text-lg font-semibold mb-2">{category}</h3>
           <ul className="space-y-2">
-            {groupedProducts[category].map((product: Product) => {
+            {groupedProducts[category].map((product) => {
               const isEditing = editingId === product.id;
               return (
                 <li

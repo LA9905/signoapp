@@ -1,9 +1,11 @@
+// src/pages/CreateDispatch.tsx
 import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import ProductSelector from "../components/ProductSelector.tsx";
 import ClientSelector from "../components/ClientSelector.tsx";
 import DriverSelector from "../components/DriverSelector.tsx";
-import axios, { AxiosError } from "axios";
+import { api } from "../services/http";
+import type { AxiosError } from "axios";
 
 interface Producto {
   id: string;
@@ -15,8 +17,8 @@ interface Producto {
 
 interface FormularioDespacho {
   orden: string;
-  chofer: string;   // ← id del chofer como string
-  cliente: string;  // ← nombre del cliente
+  chofer: string;   // id del chofer como string
+  cliente: string;  // nombre del cliente
   productos: Producto[];
 }
 
@@ -32,21 +34,14 @@ const CreateDispatch = () => {
   const [mensaje, setMensaje] = useState<string>("");
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      console.error("No token found in localStorage");
-      return;
-    }
-
-    axios
-      .get(`${import.meta.env.VITE_API_URL}/api/products`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
+    // Carga inicial de productos existentes
+    api
+      .get("/products")
       .then((res) => {
         if (Array.isArray(res.data)) {
           setProductos(
             res.data.map((p: any) => ({
-              id: p.id.toString(),
+              id: String(p.id),
               name: p.name,
               cantidad: 0,
               unidad: "unidades",
@@ -54,7 +49,7 @@ const CreateDispatch = () => {
             }))
           );
         } else {
-          console.error("Unexpected data format for products:", res.data);
+          console.error("Formato inesperado al obtener productos:", res.data);
           setProductos([]);
         }
       })
@@ -76,13 +71,10 @@ const CreateDispatch = () => {
     }
 
     try {
-      const token = localStorage.getItem("token");
-      if (!token) throw new Error("No token found");
-
       const payload = {
         orden: form.orden,
-        cliente: form.cliente,   // nombre del cliente
-        chofer: form.chofer,     // id del chofer (string)
+        cliente: form.cliente, // nombre del cliente
+        chofer: form.chofer,   // id del chofer (string)
         productos: form.productos.map((p) => ({
           nombre: p.name,
           cantidad: p.cantidad,
@@ -91,44 +83,35 @@ const CreateDispatch = () => {
       };
       console.log("Payload enviado a /api/dispatches:", payload);
 
-      // Registrar productos NUEVOS (no existentes)
+      // Registrar productos NUEVOS (no existentes en la lista inicial)
       const newProducts = form.productos.filter(
         (p) => !productos.some((ep: Producto) => ep.id === p.id)
       );
 
       for (const product of newProducts) {
-        await axios.post(
-          `${import.meta.env.VITE_API_URL}/api/products`,
-          {
-            name: product.name,
-            category: product.category || "Otros",
-          },
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
+        await api.post("/products", {
+          name: product.name,
+          category: product.category || "Otros",
+        });
       }
 
       // Crear despacho y obtener su ID
-      const createResp = await axios.post(
-        `${import.meta.env.VITE_API_URL}/api/dispatches`,
-        payload,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
+      const createResp = await api.post("/dispatches", payload);
       const dispatchId: number = createResp.data?.id;
+
       setMensaje("Despacho creado correctamente");
 
-      // Abrir PDF en pestaña nueva
+      // Abrir PDF en pestaña nueva (inline=1)
       if (dispatchId) {
-        const pdfResp = await axios.get(
-          `${import.meta.env.VITE_API_URL}/api/print/${dispatchId}?inline=1`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-            responseType: "blob",
-          }
-        );
+        const pdfResp = await api.get(`/print/${dispatchId}`, {
+          params: { inline: "1" },
+          responseType: "blob",
+        });
         const blob = new Blob([pdfResp.data], { type: "application/pdf" });
         const url = URL.createObjectURL(blob);
         window.open(url, "_blank");
+        // No revocamos inmediatamente el URL.createObjectURL para no cerrar el PDF
+        // El navegador lo liberará al cerrar la pestaña nueva.
       }
 
       setTimeout(() => navigate("/dashboard"), 2000);
@@ -147,28 +130,29 @@ const CreateDispatch = () => {
       <form onSubmit={handleSubmit} className="space-y-4">
         <input
           name="orden"
+          value={form.orden}
           onChange={handleChange}
           placeholder="Número de orden de compra"
           className="w-full border p-2 rounded"
           required
         />
 
-        {/* Cliente (como antes) */}
+        {/* Cliente (nombre) */}
         <ClientSelector
           value={form.cliente}
           onChange={(cliente: string) => setForm({ ...form, cliente })}
         />
 
-        {/* Chofer (global con contexto) */}
+        {/* Chofer (id como string) */}
         <DriverSelector
           value={form.chofer}
           onChange={(id: string) => setForm({ ...form, chofer: id })}
         />
 
-        {/* Productos (como antes) */}
+        {/* Productos */}
         <ProductSelector
           productos={form.productos}
-          setProductos={(productos: Producto[]) => setForm({ ...form, productos })}
+          setProductos={(prods: Producto[]) => setForm({ ...form, productos: prods })}
           existingProductos={productos}
         />
 

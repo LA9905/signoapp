@@ -1,10 +1,11 @@
+// src/context/DriversContext.tsx
 import React, { createContext, useContext, useState, useCallback } from "react";
-import axios from "axios";
+import { api } from "../services/http";
 
 export interface Driver {
   id: number;
   name: string;
-  created_by: string;
+  created_by: number | string; // tolerante: puede venir id o nombre según la API
 }
 
 interface DriversContextType {
@@ -17,46 +18,29 @@ interface DriversContextType {
 
 const DriversContext = createContext<DriversContextType | null>(null);
 
-function getAuthHeaders() {
-  const token = localStorage.getItem("token");
-  return token ? { Authorization: `Bearer ${token}` } : {};
-}
-
 export const DriversProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [drivers, setDrivers] = useState<Driver[]>([]);
 
   const refresh = useCallback(async () => {
-    const res = await axios.get(`${import.meta.env.VITE_API_URL}/api/drivers`, {
-      headers: getAuthHeaders(),
-    });
+    const res = await api.get<Driver[]>("/drivers");
     setDrivers(res.data);
   }, []);
 
   const createDriver = useCallback(async (name: string) => {
-    const res = await axios.post(
-      `${import.meta.env.VITE_API_URL}/api/drivers`,
-      { name },
-      { headers: getAuthHeaders() }
-    );
-    setDrivers(prev => [...prev, res.data]);
-    return res.data as Driver;
+    const res = await api.post<Driver>("/drivers", { name });
+    setDrivers((prev) => [...prev, res.data]);
+    return res.data;
   }, []);
 
   const updateDriver = useCallback(async (id: number, name: string) => {
-    const res = await axios.put(
-      `${import.meta.env.VITE_API_URL}/api/drivers/${id}`,
-      { name },
-      { headers: getAuthHeaders() }
-    );
-    setDrivers(prev => prev.map(d => (d.id === id ? res.data : d)));
-    return res.data as Driver;
+    const res = await api.put<Driver>(`/drivers/${id}`, { name });
+    setDrivers((prev) => prev.map((d) => (d.id === id ? res.data : d)));
+    return res.data;
   }, []);
 
   const deleteDriver = useCallback(async (id: number) => {
-    await axios.delete(`${import.meta.env.VITE_API_URL}/api/drivers/${id}`, {
-      headers: getAuthHeaders(),
-    });
-    setDrivers(prev => prev.filter(d => d.id !== id));
+    await api.delete(`/drivers/${id}`);
+    setDrivers((prev) => prev.filter((d) => d.id !== id));
   }, []);
 
   React.useEffect(() => {

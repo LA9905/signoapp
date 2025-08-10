@@ -1,26 +1,47 @@
-import { useState } from "react";
-import axios from "axios";
+// src/pages/Login.tsx
+import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { api } from "../services/http";
 
 const Login = () => {
   const navigate = useNavigate();
   const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  // Si ya hay token, vete al dashboard
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (token) navigate("/dashboard", { replace: true });
+  }, [navigate]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError("");
+    const payload = {
+      email: form.email.trim(),
+      password: form.password,
+    };
+    if (!payload.email || !payload.password) {
+      setError("Completa correo y contraseña");
+      return;
+    }
+
     try {
-      const res = await axios.post(`${import.meta.env.VITE_API_URL}/api/auth/login`, form);
+      setSubmitting(true);
+      const res = await api.post("/auth/login", payload);
       localStorage.setItem("token", res.data.token);
       localStorage.setItem("name", res.data.name);
       if (res.data.avatar_url) localStorage.setItem("avatar_url", res.data.avatar_url);
-      navigate("/dashboard");
+      navigate("/dashboard", { replace: true });
     } catch (err: any) {
-      setError(err.response?.data?.msg || "Error al iniciar sesión");
+      setError(err?.response?.data?.msg || "Error al iniciar sesión");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -42,6 +63,7 @@ const Login = () => {
               value={form.email}
               onChange={handleChange}
               className="w-full px-4 py-2 rounded bg-[#2a2a2a] border border-gray-600 text-white focus:outline-none focus:ring-2 focus:ring-blue-300"
+              autoComplete="email"
             />
           </div>
 
@@ -55,11 +77,16 @@ const Login = () => {
               value={form.password}
               onChange={handleChange}
               className="w-full px-4 py-2 rounded bg-[#2a2a2a] border border-gray-600 text-white focus:outline-none focus:ring-2 focus:ring-blue-300"
+              autoComplete="current-password"
             />
           </div>
 
-          <button type="submit" className="w-full py-2 bg-blue-400 hover:bg-blue-500 rounded font-semibold transition-colors">
-            Ingresar
+          <button
+            type="submit"
+            disabled={submitting}
+            className="w-full py-2 bg-blue-400 hover:bg-blue-500 rounded font-semibold transition-colors disabled:opacity-60"
+          >
+            {submitting ? "Ingresando..." : "Ingresar"}
           </button>
         </form>
 

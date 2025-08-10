@@ -1,8 +1,9 @@
+// src/pages/AddProduct.tsx
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import axios from "axios";
 import { useEffect, useState } from "react";
+import { api } from "../services/http";
 
 const schema = z.object({
   name: z.string().min(1, "El nombre es requerido"),
@@ -31,43 +32,45 @@ export default function AddProduct() {
   const {
     register,
     handleSubmit,
-    formState: { errors },
+    formState: { errors, isSubmitting },
     reset,
   } = useForm<ProductForm>({
     resolver: zodResolver(schema),
   });
 
   const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    console.log("AddProduct montado");
+    // sólo para debug: confirma la baseURL en prod/dev
+    if (import.meta.env.PROD) {
+      console.log("AddProduct montado");
+    }
   }, []);
 
   const onSubmit = async (data: ProductForm) => {
+    setMessage("");
+    setError("");
+
     try {
-      const token = localStorage.getItem("token");
-      console.log("Token:", token);
       const { subject, ...dataToSend } = data;
-      console.log("Data enviada (objeto):", dataToSend);
-
-      const response = await axios.post(`${import.meta.env.VITE_API_URL}/api/products`, dataToSend, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      console.log("Respuesta del servidor:", response.data);
-      setMessage("Producto agregado exitosamente");
+      // El interceptor añade el token desde localStorage si existe
+      const res = await api.post("/products", dataToSend);
+      console.log("Respuesta del servidor:", res.data);
+      setMessage("✅ Producto agregado exitosamente");
       reset();
     } catch (err: any) {
-      const errorMessage = err.response?.data?.error || err.response?.data?.msg || err.message || "Error desconocido";
-      setMessage(errorMessage);
+      const msg =
+        err?.response?.data?.error ||
+        err?.response?.data?.msg ||
+        err?.message ||
+        "Error desconocido";
+      setError(msg);
       console.error("Error detallado:", {
-        message: err.message,
-        response: err.response?.data,
-        status: err.response?.status,
-        stack: err.stack,
+        message: err?.message,
+        response: err?.response?.data,
+        status: err?.response?.status,
+        stack: err?.stack,
       });
     }
   };
@@ -75,15 +78,23 @@ export default function AddProduct() {
   return (
     <div className="max-w-md mx-auto mt-10 p-6 bg-white shadow rounded">
       <h2 className="text-xl font-bold mb-4 text-blue-600">Agregar Producto</h2>
+
+      {error && <p className="mb-3 text-red-600">{error}</p>}
+      {message && <p className="mb-3 text-emerald-600">{message}</p>}
+
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div>
-          <label>Nombre del producto</label>
-          <input {...register("name")} className="w-full border p-2 rounded" />
-          {errors.name && <p className="text-red-500">{errors.name.message}</p>}
+          <label className="block mb-1">Nombre del producto</label>
+          <input
+            {...register("name")}
+            className="w-full border p-2 rounded"
+            placeholder="Ej: Bolsa 50x70"
+          />
+          {errors.name && <p className="text-red-500 text-sm">{errors.name.message}</p>}
         </div>
 
         <div>
-          <label>Categoría</label>
+          <label className="block mb-1">Categoría</label>
           <select {...register("category")} className="w-full border p-2 rounded">
             <option value="">Seleccionar</option>
             {categories.map((c) => (
@@ -92,17 +103,18 @@ export default function AddProduct() {
               </option>
             ))}
           </select>
-          {errors.category && <p className="text-red-500">{errors.category.message}</p>}
+          {errors.category && (
+            <p className="text-red-500 text-sm">{errors.category.message}</p>
+          )}
         </div>
 
         <button
           type="submit"
-          className="bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600"
+          disabled={isSubmitting}
+          className="bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600 disabled:opacity-60"
         >
-          Agregar
+          {isSubmitting ? "Guardando..." : "Agregar"}
         </button>
-
-        {message && <p className="mt-2 text-center text-sm">{message}</p>}
       </form>
     </div>
   );

@@ -1,6 +1,7 @@
+// src/pages/Drivers.tsx
 import { useEffect, useState, type FormEvent, type ChangeEvent } from "react";
-import axios from "axios";
 import { FiEdit2, FiTrash2, FiCheck, FiX } from "react-icons/fi";
+import { api } from "../services/http";
 
 type Driver = { id: number; name: string; created_by?: string };
 
@@ -11,23 +12,15 @@ const btnBase =
 const Drivers = () => {
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [name, setName] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
   const [editingId, setEditingId] = useState<number | null>(null);
   const [tmpName, setTmpName] = useState("");
-
-  const token = localStorage.getItem("token");
+  const [savingEdit, setSavingEdit] = useState(false);
 
   const fetchDrivers = () => {
-    if (!token) {
-      console.error("No token found in localStorage");
-      return;
-    }
-    axios
-      .get(`${import.meta.env.VITE_API_URL}/api/drivers`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      })
+    api
+      .get<Driver[]>("/drivers")
       .then((res) => setDrivers(res.data))
       .catch((err) => console.error("Error fetching drivers:", err));
   };
@@ -37,22 +30,22 @@ const Drivers = () => {
     const onFocus = () => fetchDrivers();
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!token) return;
+    const trimmed = name.trim();
+    if (!trimmed) return;
+
     try {
-      await axios.post(
-        `${import.meta.env.VITE_API_URL}/api/drivers`,
-        { name },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      setSubmitting(true);
+      await api.post<Driver>("/drivers", { name: trimmed });
       setName("");
       fetchDrivers();
     } catch (err) {
       console.error("Error adding driver:", err);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -64,42 +57,38 @@ const Drivers = () => {
   const cancelEdit = () => {
     setEditingId(null);
     setTmpName("");
+    setSavingEdit(false);
   };
 
   const saveEdit = async (id: number) => {
-    if (!token) return;
     const newName = tmpName.trim();
     if (!newName) {
       alert("El nombre no puede estar vacío.");
       return;
     }
     try {
-      const resp = await axios.put(
-        `${import.meta.env.VITE_API_URL}/api/drivers/${id}`,
-        { name: newName },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      const updated = resp.data as Driver;
+      setSavingEdit(true);
+      const resp = await api.put<Driver>(`/drivers/${id}`, { name: newName });
+      const updated = resp.data;
       setDrivers((prev) => prev.map((d) => (d.id === id ? updated : d)));
       cancelEdit();
     } catch (err: any) {
-      console.error("Error updating driver:", err.response?.data || err.message);
-      alert(err.response?.data?.error || "No se pudo actualizar el chofer");
+      console.error("Error updating driver:", err?.response?.data || err?.message);
+      alert(err?.response?.data?.error || "No se pudo actualizar el chofer");
+    } finally {
+      setSavingEdit(false);
     }
   };
 
   const deleteDriver = async (id: number) => {
-    if (!token) return;
     if (!window.confirm("¿Eliminar este chofer? Esta acción es permanente.")) return;
     try {
-      await axios.delete(`${import.meta.env.VITE_API_URL}/api/drivers/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      await api.delete(`/drivers/${id}`);
       setDrivers((prev) => prev.filter((d) => d.id !== id));
     } catch (err: any) {
-      console.error("Error deleting driver:", err.response?.data || err.message);
-      if (err.response?.status === 409) {
-        alert(err.response?.data?.error || "No se puede eliminar: chofer con despachos asociados.");
+      console.error("Error deleting driver:", err?.response?.data || err?.message);
+      if (err?.response?.status === 409) {
+        alert(err?.response?.data?.error || "No se puede eliminar: chofer con despachos asociados.");
       } else {
         alert("No se pudo eliminar el chofer");
       }
@@ -119,8 +108,12 @@ const Drivers = () => {
           className="flex-1 border p-2 rounded"
           required
         />
-        <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
-          Agregar
+        <button
+          type="submit"
+          disabled={submitting}
+          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-60"
+        >
+          {submitting ? "Agregando..." : "Agregar"}
         </button>
       </form>
 
@@ -165,10 +158,11 @@ const Drivers = () => {
                 ) : (
                   <>
                     <button
-                      className={`${btnBase} hover:bg-emerald-600`}
+                      className={`${btnBase} hover:bg-emerald-600 disabled:opacity-60`}
                       title="Guardar"
                       aria-label="Guardar"
                       onClick={() => saveEdit(driver.id)}
+                      disabled={savingEdit}
                     >
                       <FiCheck size={20} />
                     </button>

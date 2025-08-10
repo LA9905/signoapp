@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import axios, { AxiosError } from "axios";
+import { AxiosError } from "axios";
 import { FiEdit2, FiTrash2, FiSave, FiX, FiPlus, FiMinus } from "react-icons/fi";
 import ClientSelector from "../components/ClientSelector";
 import DriverSelector from "../components/DriverSelector";
 import { useDrivers } from "../context/DriversContext";
+import { api } from "../services/http";
 
 interface DispatchSummary {
   id: number;
@@ -40,9 +41,6 @@ const Tracking = () => {
 
   const { drivers } = useDrivers(); // para mapear nombre->id cuando entras a editar
 
-  const token = localStorage.getItem("token");
-  const auth = token ? { Authorization: `Bearer ${token}` } : undefined;
-
   useEffect(() => {
     fetchDispatches();
     const onFocus = () => fetchDispatches();
@@ -53,11 +51,7 @@ const Tracking = () => {
 
   const fetchDispatches = async () => {
     try {
-      if (!token) throw new Error("No token found");
-      const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/dispatches`, {
-        headers: auth,
-        params: search,
-      });
+      const response = await api.get<DispatchSummary[]>("/dispatches", { params: search });
       setDispatches(response.data);
       setMensaje("");
     } catch (err) {
@@ -83,7 +77,7 @@ const Tracking = () => {
     setEditingId(d.id);
     setDraft({
       orden: d.orden,
-      cliente: d.cliente,            // ClientSelector usa nombre
+      cliente: d.cliente,                  // ClientSelector usa nombre
       chofer: choferId ? String(choferId) : "", // DriverSelector usa id string
       status: d.status || "pendiente",
       productos: d.productos.map((p) => ({ ...p })),
@@ -98,7 +92,6 @@ const Tracking = () => {
   const saveRow = async (id: number) => {
     if (!draft) return;
     try {
-      if (!token) throw new Error("No token found");
       // IMPORTANTE: chofer debe ir como ID (string convertible a int en el back)
       const payload = {
         orden: draft.orden,
@@ -111,8 +104,8 @@ const Tracking = () => {
           unidad: p.unidad,
         })),
       };
-      const resp = await axios.put(`${import.meta.env.VITE_API_URL}/api/dispatches/${id}`, payload, { headers: auth });
-      const updated = resp.data as DispatchSummary;
+      const resp = await api.put<DispatchSummary>(`/dispatches/${id}`, payload);
+      const updated = resp.data;
 
       setDispatches((prev) =>
         prev.map((d) =>
@@ -141,8 +134,7 @@ const Tracking = () => {
   const deleteRow = async (id: number) => {
     if (!window.confirm("¿Eliminar este despacho? Esta acción es permanente.")) return;
     try {
-      if (!token) throw new Error("No token found");
-      await axios.delete(`${import.meta.env.VITE_API_URL}/api/dispatches/${id}`, { headers: auth });
+      await api.delete(`/dispatches/${id}`);
       setDispatches((prev) => prev.filter((d) => d.id !== id));
       if (editingId === id) cancelEditRow();
       setMensaje("Despacho eliminado");
@@ -156,8 +148,7 @@ const Tracking = () => {
   const markAsDelivered = async (id: number) => {
     if (!window.confirm("¿Estás seguro de marcar este despacho como entregado?")) return;
     try {
-      if (!token) throw new Error("No token found");
-      await axios.post(`${import.meta.env.VITE_API_URL}/api/dispatches/${id}/mark-delivered`, {}, { headers: auth });
+      await api.post(`/dispatches/${id}/mark-delivered`, {});
       setDispatches((prev) => prev.map((d) => (d.id === id ? { ...d, status: "entregado" } : d)));
       setMensaje("Despacho marcado como entregado");
     } catch (err) {
@@ -170,9 +161,7 @@ const Tracking = () => {
   // PDF helpers
   const downloadPDF = async (id: number) => {
     try {
-      if (!token) throw new Error("No token found");
-      const resp = await axios.get(`${import.meta.env.VITE_API_URL}/api/print/${id}`, {
-        headers: auth,
+      const resp = await api.get(`/print/${id}`, {
         responseType: "blob",
       });
       const blob = new Blob([resp.data], { type: "application/pdf" });
@@ -193,10 +182,9 @@ const Tracking = () => {
 
   const printPDF = async (id: number) => {
     try {
-      if (!token) throw new Error("No token found");
-      const resp = await axios.get(`${import.meta.env.VITE_API_URL}/api/print/${id}?inline=1`, {
-        headers: auth,
+      const resp = await api.get(`/print/${id}`, {
         responseType: "blob",
+        params: { inline: "1" },
       });
       const blob = new Blob([resp.data], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);

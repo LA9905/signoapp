@@ -1,6 +1,6 @@
 import { useState, type FormEvent, type ChangeEvent } from "react";
-import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import { api } from "../services/http";
 
 const Recover: React.FC = () => {
   const navigate = useNavigate();
@@ -11,11 +11,12 @@ const Recover: React.FC = () => {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     try {
-      await axios.post("http://localhost:5000/api/auth/recover", { email });
+      await api.post("/auth/recover", { email });
       setMsg("Código enviado al correo");
       setError("");
       setTimeout(() => navigate("/reset-password"), 1500);
     } catch (err: any) {
+      console.error("Error al enviar código:", err);
       setError(err.response?.data?.msg || "Error al enviar código");
     }
   };
@@ -29,10 +30,15 @@ const Recover: React.FC = () => {
         <input
           className="w-full p-2 border"
           placeholder="Correo"
+          type="email"
           value={email}
           onChange={(e: ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
+          required
         />
-        <button type="submit" className="bg-blue-500 text-white px-4 py-2">
+        <button
+          type="submit"
+          className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+        >
           Enviar código
         </button>
       </form>

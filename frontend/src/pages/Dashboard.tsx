@@ -1,8 +1,9 @@
+// src/pages/Dashboard.tsx
 import { useEffect, useState } from "react";
 import NavbarUser from "../components/NavbarUser";
 import ChartMonthlyOrders from "../components/ChartMonthlyOrders";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import { api } from "../services/http";
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -23,17 +24,8 @@ const Dashboard: React.FC = () => {
   ];
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      console.error("No token found in localStorage");
-      setChartData([]);
-      return;
-    }
-
-    axios
-      .get(`${import.meta.env.VITE_API_URL}/api/dispatches/monthly`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
+    api
+      .get("/dispatches/monthly")
       .then((res) => setChartData(res.data || []))
       .catch((err) => {
         console.error("Error fetching monthly dispatches:", err);
@@ -43,16 +35,11 @@ const Dashboard: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-blue-50">
-      <NavbarUser /> {/* Sin logo, solo el perfil */}
+      <NavbarUser />
 
       <div className="max-w-5xl mx-auto p-6">
-        {/* Logo solo en Dashboard */}
         <div className="flex justify-start mb-4">
-          {/* <img
-            src="/logo.jpg"
-            alt="Logo empresa"
-            className="h-6 w-auto object-contain" // Tamaño consistente y discreto
-          /> */}
+          {/* Logo opcional */}
         </div>
 
         <h2 className="text-2xl font-bold mb-2">Bienvenido, {name}</h2>

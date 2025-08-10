@@ -1,6 +1,6 @@
 import { useState, type ChangeEvent, type FormEvent } from "react";
-import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import { api } from "../services/http";
 
 const ResetPassword: React.FC = () => {
   const navigate = useNavigate();
@@ -18,13 +18,14 @@ const ResetPassword: React.FC = () => {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    setError(""); setMsg("");
     try {
-      await axios.post("http://localhost:5000/api/auth/reset-password", form);
+      await api.post("/auth/reset-password", form);
       setMsg("Contraseña actualizada");
-      setError("");
       setTimeout(() => navigate("/login"), 1500);
     } catch (err: any) {
-      setError(err.response?.data?.msg || "Error al actualizar");
+      console.error("Error al actualizar contraseña:", err);
+      setError(err?.response?.data?.msg || "Error al actualizar");
     }
   };
 
@@ -36,10 +37,12 @@ const ResetPassword: React.FC = () => {
       <form onSubmit={handleSubmit} className="space-y-4">
         <input
           className="w-full p-2 border"
+          type="email"
           name="email"
           placeholder="Correo"
           value={form.email}
           onChange={handleChange}
+          required
         />
         <input
           className="w-full p-2 border"
@@ -47,6 +50,7 @@ const ResetPassword: React.FC = () => {
           placeholder="Código recibido"
           value={form.code}
           onChange={handleChange}
+          required
         />
         <input
           className="w-full p-2 border"
@@ -55,8 +59,9 @@ const ResetPassword: React.FC = () => {
           placeholder="Nueva contraseña"
           value={form.new_password}
           onChange={handleChange}
+          required
         />
-        <button type="submit" className="bg-blue-500 text-white px-4 py-2">
+        <button type="submit" className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
           Actualizar
         </button>
       </form>
