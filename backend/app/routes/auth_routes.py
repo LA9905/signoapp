@@ -7,7 +7,6 @@ from ..utils.mailer import send_recovery_code, send_update_code
 from datetime import timedelta
 import os
 
-# Cloudinary
 import cloudinary
 import cloudinary.uploader
 
@@ -26,7 +25,10 @@ auth_bp = Blueprint("auth", __name__)
 
 @auth_bp.route("/register", methods=["POST"])
 def register():
-    data = request.json
+    data = request.json or {}
+    if not data.get("email") or not data.get("password") or not data.get("name"):
+        return jsonify({"msg": "Faltan campos"}), 400
+
     if User.query.filter_by(email=data["email"]).first():
         return jsonify({"msg": "Ya existe un usuario con ese correo"}), 400
 
@@ -35,23 +37,22 @@ def register():
     db.session.add(user)
     db.session.commit()
 
-    return jsonify({"msg": "Usuario registrado correctamente"})
+    return jsonify({"msg": "Usuario registrado correctamente"}), 201
 
 @auth_bp.route("/login", methods=["POST"])
 def login():
-    data = request.json
-    user = User.query.filter_by(email=data["email"]).first()
-    if not user or not user.check_password(data["password"]):
+    data = request.json or {}
+    user = User.query.filter_by(email=data.get("email")).first()
+    if not user or not user.check_password(data.get("password", "")):
         return jsonify({"msg": "Credenciales inválidas"}), 401
 
     token = create_access_token(identity=str(user.id), expires_delta=timedelta(hours=1))
-    return jsonify({"token": token, "name": user.name})
+    return jsonify({"token": token, "name": user.name}), 200
 
-# -------- RESET PASSWORD (ya lo tenías) ----------
 @auth_bp.route("/recover", methods=["POST"])
 def recover():
-    data = request.json
-    user = User.query.filter_by(email=data["email"]).first()
+    data = request.json or {}
+    user = User.query.filter_by(email=data.get("email")).first()
     if not user:
         return jsonify({"msg": "Correo no registrado"}), 404
 
@@ -60,22 +61,19 @@ def recover():
     db.session.commit()
 
     send_recovery_code(user.email, code)
-    return jsonify({"msg": "Código enviado al correo"})
+    return jsonify({"msg": "Código enviado al correo"}), 200
 
 @auth_bp.route("/reset-password", methods=["POST"])
 def reset_password():
-    data = request.json
-    user = User.query.filter_by(email=data["email"]).first()
-    if not user or user.recovery_code != data["code"]:
+    data = request.json or {}
+    user = User.query.filter_by(email=data.get("email")).first()
+    if not user or user.recovery_code != data.get("code"):
         return jsonify({"msg": "Código inválido"}), 400
 
-    user.set_password(data["new_password"])
+    user.set_password(data.get("new_password", ""))
     user.recovery_code = None
     db.session.commit()
-
-    return jsonify({"msg": "Contraseña actualizada correctamente"})
-
-# ------------- PERFIL ---------------
+    return jsonify({"msg": "Contraseña actualizada correctamente"}), 200
 
 @auth_bp.route("/me", methods=["GET"])
 @jwt_required()
@@ -89,15 +87,11 @@ def me():
         "name": user.name,
         "email": user.email,
         "avatar_url": user.avatar_url
-    })
+    }), 200
 
 @auth_bp.route("/profile/request-code", methods=["POST"])
 @jwt_required()
 def request_update_code():
-    """
-    Envía un código para confirmar la actualización del perfil.
-    Si se cambia el email, el código va al NUEVO email.
-    """
     uid = get_jwt_identity()
     user = User.query.get(uid)
     if not user:
@@ -106,7 +100,6 @@ def request_update_code():
     data = request.json or {}
     target_email = data.get("target_email") or user.email
 
-    # si target_email es un nuevo correo, comprueba que no esté tomado
     if target_email != user.email:
         if User.query.filter_by(email=target_email).first():
             return jsonify({"msg": "Ese correo ya está registrado"}), 400
@@ -121,31 +114,23 @@ def request_update_code():
 @auth_bp.route("/profile/update", methods=["PUT"])
 @jwt_required()
 def update_profile():
-    """
-    Actualiza: name, email (opcional), password (opcional) y avatar (opcional).
-    Valida 'code' que se envía antes con /profile/request-code.
-    Acepta multipart/form-data si viene 'avatar'.
-    """
     uid = get_jwt_identity()
     user = User.query.get(uid)
     if not user:
         return jsonify({"msg": "Usuario no encontrado"}), 404
 
-    # multipart/form-data
     code = request.form.get("code")
     if not code or user.update_code != code:
         return jsonify({"msg": "Código inválido o faltante"}), 400
 
-    name = request.form.get("name", "").strip()
-    email = request.form.get("email", "").strip()
-    password = request.form.get("password", "").strip()
+    name = (request.form.get("name") or "").strip()
+    email = (request.form.get("email") or "").strip()
+    password = (request.form.get("password") or "").strip()
 
-    # actualizar datos
     if name:
         user.name = name
 
     if email and email != user.email:
-        # validar que no esté tomado
         if User.query.filter(User.email == email, User.id != user.id).first():
             return jsonify({"msg": "Ese correo ya está registrado"}), 400
         user.email = email
@@ -153,10 +138,9 @@ def update_profile():
     if password:
         user.set_password(password)
 
-    # avatar
-    if "avatar" in request.files:
+    if "avatar" in request.files and cloud_name:
         avatar_file = request.files["avatar"]
-        if avatar_file and cloud_name:
+        if avatar_file:
             try:
                 upload_result = cloudinary.uploader.upload(
                     avatar_file,
@@ -169,7 +153,6 @@ def update_profile():
             except Exception as e:
                 return jsonify({"msg": "Error subiendo imagen", "details": str(e)}), 500
 
-    # limpiar update_code
     user.update_code = None
     db.session.commit()
 
@@ -179,3 +162,25 @@ def update_profile():
         "email": user.email,
         "avatar_url": user.avatar_url
     }), 200
+
+@auth_bp.route("/delete-account", methods=["DELETE"])
+@jwt_required()
+def delete_account():
+    uid = get_jwt_identity()
+    user = User.query.get(uid)
+    if not user:
+        return jsonify({"msg": "Usuario no encontrado"}), 404
+
+    try:
+        if cloud_name:
+            try:
+                cloudinary.uploader.destroy("signoapp/avatars/user_{}".format(user.id), resource_type="image", invalidate=True)
+            except Exception:
+                pass
+
+        db.session.delete(user)
+        db.session.commit()
+        return jsonify({"msg": "Cuenta eliminada"}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"msg": "No se pudo eliminar la cuenta", "details": str(e)}), 500
