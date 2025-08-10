@@ -1,4 +1,7 @@
+import React, { useEffect } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { api } from "./services/http";
+
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -12,13 +15,29 @@ import CreateDispatch from "./pages/CreateDispatch";
 import Clients from "./pages/Clients";
 import Drivers from "./pages/Drivers";
 import Tracking from "./pages/Tracking";
-import EditProfile from "./pages/EditProfile"; // si ya lo tienes
-import React from "react";
+import EditProfile from "./pages/EditProfile";
 import ProtectedShell from "./layouts/ProtectedShell";
+
+// Hace un ping silencioso al backend para "despertarlo" en Render
+const WarmBoot: React.FC = () => {
+  useEffect(() => {
+    let mounted = true;
+    api.get("/health").catch(() => {});
+    const t = window.setTimeout(() => {
+      if (mounted) api.get("/health").catch(() => {});
+    }, 10000);
+    return () => {
+      mounted = false;
+      window.clearTimeout(t);
+    };
+  }, []);
+  return null;
+};
 
 const App: React.FC = () => {
   return (
     <BrowserRouter>
+      <WarmBoot />
       <Routes>
         {/* Públicas */}
         <Route path="/" element={<Home />} />
