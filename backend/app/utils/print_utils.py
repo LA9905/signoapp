@@ -91,7 +91,7 @@ def generar_hoja_despacho(d: dict) -> BytesIO:
     try:
         barcode_img_buf = _gen_code128_image(barcode_text)
         img = ImageReader(barcode_img_buf)
-        c.drawImage(img, M, y, width=90*mm, height=24*mm, preserveAspectRatio=True, mask='auto')
+        c.drawImage(img, M, y, width=130*mm, height=25*mm, preserveAspectRatio=True, mask='auto')
     except Exception:
         # Si falla por longitud/caracteres, se muestra el texto como fallback
         c.setFont("Helvetica-Oblique", 10)
