@@ -11,13 +11,6 @@ import {
   CheckCircle2,
 } from "lucide-react";
 
-/**
- * Home con:
- * - Navbar con logo pequeño (hero-1.jpg)
- * - Hero tipográfico + collage de 4 imágenes separados (sin solaparse)
- * - Secciones y footer más “grandes”
- * - 100% responsivo (xs → xl)
- */
 export default function Home() {
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-100 selection:bg-blue-500/30 selection:text-white">
@@ -80,7 +73,7 @@ export default function Home() {
             </ul>
           </motion.div>
 
-          {/* Collage (columna derecha) */}
+          {/* Collage */}
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
@@ -124,8 +117,7 @@ export default function Home() {
         </ol>
       </section>
 
-      {/* CTA FINAL */}
-      
+      <WhatsAppFloat />
 
       <Footer />
     </div>
@@ -171,39 +163,24 @@ function BackgroundBlobs() {
   );
 }
 
-/** Collage con 4 tarjetas, separadas (sin superposición).
- *  “Mosaico” usando grid con row-span/translate para sensación dinámica.
- */
 function Collage() {
   return (
     <div className="w-full max-w-[620px]">
       <div className="grid grid-cols-2 gap-4 sm:gap-5">
-        {/* Arriba izquierda (grande) */}
         <PictureCard src="/hero-2.webp" caption="Preparación de pedidos" height="h-44 sm:h-56 lg:h-64" />
-        {/* Arriba derecha (grande con pequeño offset) */}
         <div className="translate-y-2 sm:translate-y-3">
           <PictureCard src="/hero-5.gif" caption="Coordinación y seguimiento" height="h-44 sm:h-56 lg:h-64" />
         </div>
-        {/* Abajo izquierda (mediana con pequeño offset) */}
         <div className="-translate-y-1 sm:-translate-y-2">
           <PictureCard src="/hero-3.gif" caption="Revisión de ruta con chofer" height="h-36 sm:h-40 lg:h-48" />
         </div>
-        {/* Abajo derecha (mediana) */}
         <PictureCard src="/hero-4.webp" caption="Control de inventario" height="h-36 sm:h-40 lg:h-48" />
       </div>
     </div>
   );
 }
 
-function PictureCard({
-  src,
-  caption,
-  height = "h-48",
-}: {
-  src: string;
-  caption: string;
-  height?: string;
-}) {
+function PictureCard({ src, caption, height = "h-48" }: { src: string; caption: string; height?: string; }) {
   return (
     <div
       className={[
@@ -268,11 +245,28 @@ function Step({ num, title, desc }: { num: string; title: string; desc: string }
   );
 }
 
+function WhatsAppFloat() {
+  return (
+    <a
+      href="https://wa.me/56995334317?text=Hola,%20quisiera%20m%C3%A1s%20informaci%C3%B3n%20sobre%20sus%20servicios"
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label="Chatear por WhatsApp"
+      className="fixed bottom-5 right-5 z-50 inline-flex h-14 w-14 items-center justify-center rounded-full shadow-xl ring-1 ring-black/20 bg-[#25D366] hover:scale-110 transition"
+      title="Escríbenos por WhatsApp"
+    >
+      <svg viewBox="0 0 32 32" className="h-8 w-8" fill="white" aria-hidden="true">
+        <path d="M19.11 17.2c-.28-.14-1.64-.81-1.9-.9-.26-.1-.45-.14-.64.14-.19.28-.73.9-.9 1.08-.17.19-.33.21-.61.07-.28-.14-1.16-.43-2.21-1.38-.82-.73-1.37-1.64-1.53-1.92-.16-.28-.02-.43.12-.57.12-.12.28-.33.4-.49.13-.16.17-.28.26-.47.09-.19.05-.36-.02-.5-.07-.14-.64-1.55-.88-2.12-.23-.55-.47-.47-.64-.48l-.55-.01c-.19 0-.5.07-.76.36-.26.28-1 1-1 2.44 0 1.43 1.03 2.82 1.18 3.02.14.19 2.03 3.1 4.92 4.33.69.3 1.22.48 1.63.61.68.22 1.3.19 1.79.12.55-.08 1.64-.67 1.87-1.32.23-.64.23-1.19.16-1.32-.07-.12-.26-.19-.54-.33z"/>
+        <path d="M26.88 5.12A13.93 13.93 0 1 0 4.9 26.88L4 30l3.2-.84a13.93 13.93 0 0 0 19.68-12.8 13.86 13.86 0 0 0-3.99-9.24zM16 27.2a11.2 11.2 0 0 1-5.71-1.56l-.41-.24-2.37.62.64-2.31-.26-.42A11.2 11.2 0 1 1 27.2 16 11.22 11.22 0 0 1 16 27.2z"/>
+      </svg>
+    </a>
+  );
+}
+
 function Footer() {
   return (
     <footer className="border-t border-white/10 bg-neutral-950">
       <div className="mx-auto max-w-[1366px] flex items-center justify-between px-4 py-3 sm:py-4">
-        {/* Acerca de */}
         <div className="sm:col-span-3">
           <h4 className="mb-3 text-sm font-semibold text-neutral-200">Acerca de</h4>
           <ul className="space-y-2 text-sm text-neutral-300">
@@ -280,20 +274,30 @@ function Footer() {
             <li>Contacto</li>
           </ul>
         </div>
-
-        {/* Legal */}
         <div className="sm:col-span-4">
-          <h4 className="mb-3 text-sm font-semibold text-neutral-2 00">Legal</h4>
+          <h4 className="mb-3 text-sm font-semibold text-neutral-200">Legal</h4>
           <ul className="space-y-2 text-sm text-neutral-300">
             <li>Privacidad</li>
             <li>Términos</li>
           </ul>
         </div>
       </div>
-
-      <div className="py-6 text-center text-xs text-neutral-500">
+      <div className="py-6 text-center text-xs text-white font-sans">
         &copy; {new Date().getFullYear()} SignoApp. Todos los derechos reservados.
+
+        <p>
+          Developed with ❤️ by{" "}
+          <a
+            className="developer"
+            target="_blank"
+            rel="noopener noreferrer"
+            href="https://wa.me/56995334317/"
+          >
+            LA9905
+          </a>
+        </p>
       </div>
+
     </footer>
   );
 }
