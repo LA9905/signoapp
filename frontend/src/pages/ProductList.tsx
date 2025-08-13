@@ -1,4 +1,3 @@
-// src/pages/ProductList.tsx
 import { useEffect, useState } from "react";
 import { FaRegEdit, FaTrashAlt, FaSave, FaTimes } from "react-icons/fa";
 import { api } from "../services/http";
@@ -8,6 +7,7 @@ interface Product {
   name: string;
   category: string;
   created_by: string;
+  stock: number; // NUEVO
 }
 
 const categories = [
@@ -84,6 +84,7 @@ const ProductList = () => {
       const resp = await api.put<Product>(`/products/${id}`, {
         name,
         category: editCategory,
+        // no tocamos stock aquí (se maneja con controles dedicados)
       });
       const updated = resp.data;
       setProducts((prev) => prev.map((p) => (p.id === id ? updated : p)));
@@ -132,7 +133,12 @@ const ProductList = () => {
                 >
                   <div className="flex-1">
                     {!isEditing ? (
-                      <strong>{product.name}</strong>
+                      <>
+                        <strong>{product.name}</strong>
+                        <div className="mt-1 text-sm text-gray-300">
+                          Stock: <span className="font-semibold">{product.stock ?? 0}</span>
+                        </div>
+                      </>
                     ) : (
                       <div className="flex flex-col sm:flex-row gap-2">
                         <input
@@ -154,6 +160,48 @@ const ProductList = () => {
                         </select>
                       </div>
                     )}
+                  </div>
+
+                  {/* Controles de stock */}
+                  <div className="flex items-center gap-2 mr-3">
+                    <button
+                      className="px-2 py-1 rounded border border-gray-600 text-white hover:text-red-300"
+                      title="Restar 1"
+                      onClick={async () => {
+                        try {
+                          const resp = await api.patch<Product>(`/products/${product.id}/stock`, { delta: -1 });
+                          setProducts((prev) => prev.map(p => p.id === product.id ? resp.data : p));
+                        } catch {}
+                      }}
+                    >
+                      -1
+                    </button>
+                    <button
+                      className="px-2 py-1 rounded border border-gray-600 text-white hover:text-emerald-300"
+                      title="Sumar 1"
+                      onClick={async () => {
+                        try {
+                          const resp = await api.patch<Product>(`/products/${product.id}/stock`, { delta: 1 });
+                          setProducts((prev) => prev.map(p => p.id === product.id ? resp.data : p));
+                        } catch {}
+                      }}
+                    >
+                      +1
+                    </button>
+                    <input
+                      type="number"
+                      className="w-24 border p-1 rounded bg-white/5 border-white/10"
+                      defaultValue={product.stock ?? 0}
+                      onBlur={async (e) => {
+                        const val = Number(e.target.value);
+                        if (!Number.isFinite(val)) return;
+                        try {
+                          const resp = await api.patch<Product>(`/products/${product.id}/stock`, { set: val });
+                          setProducts((prev) => prev.map(p => p.id === product.id ? resp.data : p));
+                        } catch {}
+                      }}
+                      title="Escribe un valor y sal del campo para fijar stock"
+                    />
                   </div>
 
                   <div className="flex items-center gap-2">

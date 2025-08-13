@@ -1,4 +1,3 @@
-// src/pages/CreateDispatch.tsx
 import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import ProductSelector from "../components/ProductSelector.tsx";
@@ -19,6 +18,7 @@ interface FormularioDespacho {
   orden: string;
   chofer: string;   // id del chofer como string
   cliente: string;  // nombre del cliente
+  numero_paquete?: number; // NUEVO
   productos: Producto[];
 }
 
@@ -29,6 +29,7 @@ const CreateDispatch = () => {
     orden: "",
     chofer: "",
     cliente: "",
+    numero_paquete: 1, // por defecto 1
     productos: [],
   });
   const [mensaje, setMensaje] = useState<string>("");
@@ -60,7 +61,12 @@ const CreateDispatch = () => {
   }, []);
 
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    if (name === "numero_paquete") {
+      setForm({ ...form, numero_paquete: value ? Number(value) : undefined });
+    } else {
+      setForm({ ...form, [name]: value });
+    }
   };
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
@@ -75,6 +81,7 @@ const CreateDispatch = () => {
         orden: form.orden,
         cliente: form.cliente, // nombre del cliente
         chofer: form.chofer,   // id del chofer (string)
+        paquete_numero: form.numero_paquete, // NUEVO
         productos: form.productos.map((p) => ({
           nombre: p.name,
           cantidad: p.cantidad,
@@ -101,17 +108,16 @@ const CreateDispatch = () => {
 
       setMensaje("Despacho creado correctamente");
 
-      // Abrir PDF en pestaña nueva (inline=1)
+      // Abrir PDF en pestaña nueva en formato etiqueta 4x6
       if (dispatchId) {
         const pdfResp = await api.get(`/print/${dispatchId}`, {
-          params: { inline: "1" },
+          params: { inline: "1", format: "label", size: "4x6" },
           responseType: "blob",
         });
+
         const blob = new Blob([pdfResp.data], { type: "application/pdf" });
         const url = URL.createObjectURL(blob);
         window.open(url, "_blank");
-        // No revocamos inmediatamente el URL.createObjectURL para no cerrar el PDF
-        // El navegador lo liberará al cerrar la pestaña nueva.
       }
 
       setTimeout(() => navigate("/dashboard"), 2000);
@@ -135,6 +141,16 @@ const CreateDispatch = () => {
           placeholder="Número de orden de compra"
           className="w-full border p-2 rounded"
           required
+        />
+
+        <input
+          type="number"
+          name="numero_paquete"
+          value={form.numero_paquete ?? 1}
+          min={1}
+          onChange={handleChange}
+          className="w-full border p-2 rounded"
+          placeholder="Número de paquete (ej. 1)"
         />
 
         {/* Cliente (nombre) */}

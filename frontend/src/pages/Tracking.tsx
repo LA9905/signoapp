@@ -14,9 +14,11 @@ interface DispatchSummary {
   created_by: string;
   fecha: string;    // ISO local
   status: string;   // pendiente | entregado_chofer | entregado_cliente | cancelado | ...
-  delivered_driver: boolean; // NUEVO
-  delivered_client: boolean; // NUEVO
+  delivered_driver: boolean;
+  delivered_client: boolean;
   productos: { nombre: string; cantidad: number; unidad: string }[];
+  paquete_numero?: number;   // NUEVO (solo display)
+  factura_numero?: string;   // NUEVO (editable aquí)
 }
 
 type ProductoRow = { nombre: string; cantidad: number; unidad: string };
@@ -38,6 +40,7 @@ const Tracking = () => {
     chofer: string; // id (string)
     status: string;
     productos: ProductoRow[];
+    factura_numero?: string;  // NUEVO
   } | null>(null);
 
   const { drivers } = useDrivers();
@@ -80,6 +83,7 @@ const Tracking = () => {
       chofer: choferId ? String(choferId) : "",
       status: d.status || "pendiente",
       productos: d.productos.map((p) => ({ ...p })),
+      factura_numero: d.factura_numero || "",
     });
   };
 
@@ -96,6 +100,7 @@ const Tracking = () => {
         cliente: draft.cliente,
         chofer: draft.chofer,
         status: draft.status,
+        factura_numero: draft.factura_numero, // NUEVO
         productos: draft.productos.map((p) => ({
           nombre: p.nombre,
           cantidad: p.cantidad,
@@ -118,6 +123,8 @@ const Tracking = () => {
                 delivered_driver: updated.delivered_driver,
                 delivered_client: updated.delivered_client,
                 productos: updated.productos,
+                paquete_numero: updated.paquete_numero,
+                factura_numero: updated.factura_numero,
               }
             : d
         )
@@ -199,7 +206,10 @@ const Tracking = () => {
   // PDF helpers
   const downloadPDF = async (id: number) => {
     try {
-      const resp = await api.get(`/print/${id}`, { responseType: "blob" });
+      const resp = await api.get(`/print/${id}`, {
+        responseType: "blob",
+        params: { format: "label", size: "4x6" },
+      });
       const blob = new Blob([resp.data], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -218,7 +228,10 @@ const Tracking = () => {
 
   const printPDF = async (id: number) => {
     try {
-      const resp = await api.get(`/print/${id}`, { responseType: "blob", params: { inline: "1" } });
+      const resp = await api.get(`/print/${id}`, {
+        responseType: "blob",
+        params: { inline: "1", format: "label", size: "4x6" },
+      });
       const blob = new Blob([resp.data], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);
       const w = window.open(url, "_blank");
@@ -285,7 +298,7 @@ const Tracking = () => {
 
       <div className="space-y-4">
         {dispatches.map((d) => {
-          const isDriverDone = d.delivered_driver || d.delivered_client; // si cliente ya está, chofer queda bloqueado
+          const isDriverDone = d.delivered_driver || d.delivered_client;
           const isClientDone = d.delivered_client;
           const isEditingRow = editingId === d.id;
 
@@ -295,6 +308,8 @@ const Tracking = () => {
                 {!isEditingRow ? (
                   <div>
                     <p><strong>Orden:</strong> {d.orden}</p>
+                    {d.paquete_numero ? <p><strong>Paquete N°:</strong> {d.paquete_numero}</p> : null}
+                    {d.factura_numero ? <p><strong>Factura N°:</strong> {d.factura_numero}</p> : null}
                     <p><strong>Cliente:</strong> {d.cliente}</p>
                     <p><strong>Chofer:</strong> {d.chofer}</p>
                     <p><strong>Creado por:</strong> {d.created_by}</p>
@@ -341,6 +356,16 @@ const Tracking = () => {
                           <option value="entregado_cliente">entregado_cliente</option>
                           <option value="cancelado">cancelado</option>
                         </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm mb-1">N° Factura asociada</label>
+                        <input
+                          className="w-full border p-2 rounded"
+                          value={draft?.factura_numero || ""}
+                          onChange={(e) => setDraft((prev) => prev ? { ...prev, factura_numero: e.target.value } : prev)}
+                          placeholder="Ej: 12345"
+                        />
                       </div>
                     </div>
 

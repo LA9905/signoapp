@@ -13,6 +13,10 @@ class Dispatch(db.Model):
     fecha = db.Column(db.DateTime, default=utcnow)
     created_by = db.Column(db.String(50), nullable=False)
 
+    # NUEVO
+    paquete_numero = db.Column(db.Integer, nullable=True)          # p.ej. 1, 2, 3...
+    factura_numero = db.Column(db.String(50), nullable=True)       # editable luego del despacho
+
     # Estado base (compatibilidad)
     status = db.Column(db.String(30), default='pendiente')
 
@@ -40,6 +44,8 @@ class Dispatch(db.Model):
             'status': derived_status,
             'delivered_driver': self.delivered_driver,
             'delivered_client': self.delivered_client,
+            'paquete_numero': self.paquete_numero,
+            'factura_numero': self.factura_numero,
             'productos': [p.to_dict() for p in self.productos]
         }
 

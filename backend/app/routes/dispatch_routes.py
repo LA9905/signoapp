@@ -1,9 +1,11 @@
+# dispach_routes.py
 from flask import Blueprint, request, jsonify
 from app import db
 from app.models.dispatch_model import Dispatch, DispatchProduct
 from app.models.client_model import Client
 from app.models.driver_model import Driver
 from app.models.user_model import User
+from app.models.product_model import Product  # <-- para tocar stock
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from datetime import datetime
 from app.utils.timezone import (
@@ -28,6 +30,7 @@ def create_dispatch():
         cliente_name = data['cliente']
         chofer_id = int(data['chofer'])
         productos = data.get('productos', [])
+        paquete_numero = data.get('paquete_numero')  # NUEVO (opcional int)
 
         cliente = Client.query.filter_by(name=cliente_name).first()
         if not cliente:
@@ -43,22 +46,33 @@ def create_dispatch():
             orden=orden,
             chofer_id=chofer_id,
             cliente_id=cliente.id,
-            created_by=user_id
+            created_by=user_id,
+            paquete_numero=paquete_numero
         )
         # Fecha guardada en UTC naive (a partir de hora local CL)
         new_dispatch.fecha = to_utc_naive(datetime.now(CL_TZ))
 
         db.session.add(new_dispatch)
 
+        # Crea items y REBAJA stock por nombre (si existe)
         for p in productos:
             if not all(k in p for k in ('nombre', 'cantidad', 'unidad')):
                 return jsonify({"error": "Faltan campos en productos (nombre, cantidad, unidad)"}), 400
-            db.session.add(DispatchProduct(
+
+            item = DispatchProduct(
                 nombre=p['nombre'],
                 cantidad=p['cantidad'],
                 unidad=p['unidad'],
                 dispatch=new_dispatch
-            ))
+            )
+            db.session.add(item)
+
+            prod_row = Product.query.filter_by(name=p['nombre']).first()
+            if prod_row:
+                try:
+                    prod_row.stock = float(prod_row.stock or 0) - float(p['cantidad'] or 0)
+                except Exception:
+                    pass  # si falla el casteo, no tocamos stock
 
         db.session.commit()
         return jsonify(new_dispatch.to_dict()), 201
@@ -119,6 +133,8 @@ def get_dispatches():
                 'status': derived_status,
                 'delivered_driver': d.delivered_driver,
                 'delivered_client': d.delivered_client,
+                'paquete_numero': d.paquete_numero,        # NUEVO
+                'factura_numero': d.factura_numero,        # NUEVO
                 'productos': [{'nombre': p.nombre, 'cantidad': p.cantidad, 'unidad': p.unidad} for p in d.productos]
             })
         return jsonify(result), 200
@@ -149,47 +165,12 @@ def get_dispatch_details(dispatch_id):
             'status': derived_status,
             'delivered_driver': d.delivered_driver,
             'delivered_client': d.delivered_client,
+            'paquete_numero': d.paquete_numero,        # NUEVO
+            'factura_numero': d.factura_numero,        # NUEVO
             'productos': [{'nombre': p.nombre, 'cantidad': p.cantidad, 'unidad': p.unidad} for p in d.productos]
         }), 200
     except Exception as e:
         return jsonify({"error": "Error interno del servidor", "details": str(e)}), 500
-
-
-@dispatch_bp.route('/dispatches/<int:dispatch_id>/mark-driver', methods=['POST'])
-@jwt_required()
-def mark_driver_delivered(dispatch_id):
-    try:
-        d = Dispatch.query.get_or_404(dispatch_id)
-        if d.delivered_client:
-            return jsonify({"error": "Ya fue entregado a cliente; no se puede modificar."}), 400
-        if not d.delivered_driver:
-            d.delivered_driver = True
-            d.delivered_driver_at = datetime.utcnow()
-            d.status = 'entregado_chofer'
-        db.session.commit()
-        return jsonify(d.to_dict()), 200
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({"error": "Error al marcar entregado a chofer", "details": str(e)}), 500
-
-
-@dispatch_bp.route('/dispatches/<int:dispatch_id>/mark-client', methods=['POST'])
-@jwt_required()
-def mark_client_delivered(dispatch_id):
-    try:
-        d = Dispatch.query.get_or_404(dispatch_id)
-        if not d.delivered_client:
-            d.delivered_client = True
-            d.delivered_client_at = datetime.utcnow()
-            d.status = 'entregado_cliente'
-            if not d.delivered_driver:
-                d.delivered_driver = True
-                d.delivered_driver_at = datetime.utcnow()
-        db.session.commit()
-        return jsonify(d.to_dict()), 200
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({"error": "Error al marcar entregado a cliente", "details": str(e)}), 500
 
 
 @dispatch_bp.route('/dispatches/<int:dispatch_id>', methods=['PUT'])
@@ -203,6 +184,7 @@ def update_dispatch(dispatch_id):
             d.orden = data['orden']
 
         if 'cliente' in data and data['cliente']:
+            from app.models.client_model import Client
             cliente_name = data['cliente']
             cliente = Client.query.filter_by(name=cliente_name).first()
             if not cliente:
@@ -219,7 +201,14 @@ def update_dispatch(dispatch_id):
                 return jsonify({"error": f"Chofer con ID {chofer_id} no encontrado"}), 404
             d.chofer_id = chofer_id
 
-        # Protección de estados
+        # NUEVOS: paquete y factura
+        if 'paquete_numero' in data:
+            d.paquete_numero = data.get('paquete_numero') or None
+
+        if 'factura_numero' in data:
+            d.factura_numero = (data.get('factura_numero') or "").strip() or None
+
+        # Protección de estados (igual que antes)
         if 'status' in data and data['status']:
             new_status = data['status']
             if d.delivered_client:
@@ -281,6 +270,8 @@ def update_dispatch(dispatch_id):
             'status': derived_status,
             'delivered_driver': d.delivered_driver,
             'delivered_client': d.delivered_client,
+            'paquete_numero': d.paquete_numero,
+            'factura_numero': d.factura_numero,
             'productos': [{'nombre': p.nombre, 'cantidad': p.cantidad, 'unidad': p.unidad} for p in d.productos]
         }), 200
     except Exception as e:
@@ -288,20 +279,7 @@ def update_dispatch(dispatch_id):
         return jsonify({"error": "No se pudo actualizar el despacho", "details": str(e)}), 500
 
 
-@dispatch_bp.route('/dispatches/<int:dispatch_id>', methods=['DELETE'])
-@jwt_required()
-def delete_dispatch(dispatch_id):
-    try:
-        d = Dispatch.query.get_or_404(dispatch_id)
-        DispatchProduct.query.filter_by(dispatch_id=d.id).delete()
-        db.session.delete(d)
-        db.session.commit()
-        return jsonify({"message": "Despacho eliminado"}), 200
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({"error": "No se pudo eliminar el despacho", "details": str(e)}), 500
-
-
+# ========= NUEVO: Endpoint para el gráfico mensual =========
 @dispatch_bp.route('/dispatches/monthly', methods=['GET'])
 @jwt_required()
 def get_monthly_dispatches():
@@ -310,7 +288,9 @@ def get_monthly_dispatches():
         start_utc_naive = to_utc_naive(start_local)
 
         data_points = [0] * 31
-        current_user_id = get_jwt_identity()
+
+        # ⚠️ created_by es String en el modelo -> casteamos el identity a str para que matchee en Postgres
+        current_user_id = str(get_jwt_identity())
 
         dispatches = Dispatch.query.filter(
             Dispatch.created_by == current_user_id,
