@@ -90,7 +90,20 @@ const ClientSelector: React.FC<ClientSelectorProps> = ({ value, onChange }) => {
         type="text"
         placeholder="Buscar cliente..."
         value={searchClient}
-        onChange={(e) => setSearchClient(e.target.value)}
+        onChange={(e) => {
+          const value = e.target.value;
+          setSearchClient(value);
+
+          // 🔹 Autoseleccionar primer cliente que coincida
+          const match = clients.find((c) =>
+            c.name.toLowerCase().includes(value.toLowerCase())
+          );
+          if (match) {
+            onChange(match.name);
+          } else {
+            onChange("");
+          }
+        }}
         className="w-full border p-2 rounded"
       />
 

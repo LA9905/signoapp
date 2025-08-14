@@ -1,5 +1,7 @@
+// src/pages/AddProduct.tsx
 import { useEffect, useState } from "react";
 import { FaRegEdit, FaTrashAlt, FaSave, FaTimes } from "react-icons/fa";
+import ArrowBackButton from "../components/ArrowBackButton";
 import { api } from "../services/http";
 
 interface Product {
@@ -7,7 +9,7 @@ interface Product {
   name: string;
   category: string;
   created_by: string;
-  stock: number; // NUEVO
+  stock: number;
 }
 
 const categories = [
@@ -25,6 +27,10 @@ const categories = [
   "Otros",
 ];
 
+type AdjustMode = "add" | "sub";
+type AdjustState = Record<number, { mode: AdjustMode; value: string }>;
+type StockDraftState = Record<number, string | undefined>;
+
 const ProductList = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState("");
@@ -32,6 +38,11 @@ const ProductList = () => {
   const [editName, setEditName] = useState("");
   const [editCategory, setEditCategory] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Ajuste +/- por producto
+  const [adjust, setAdjust] = useState<AdjustState>({});
+  // Draft del input de "fijar stock"
+  const [stockDrafts, setStockDrafts] = useState<StockDraftState>({});
 
   const fetchProducts = async () => {
     try {
@@ -84,10 +95,11 @@ const ProductList = () => {
       const resp = await api.put<Product>(`/products/${id}`, {
         name,
         category: editCategory,
-        // no tocamos stock aquí (se maneja con controles dedicados)
       });
       const updated = resp.data;
       setProducts((prev) => prev.map((p) => (p.id === id ? updated : p)));
+      // Alinear draft visible si estaba abierto
+      setStockDrafts((prev) => ({ ...prev, [id]: undefined }));
       cancelEdit();
     } catch (err: any) {
       console.error("Error updating product:", err?.response?.data || err?.message);
@@ -100,16 +112,98 @@ const ProductList = () => {
     try {
       await api.delete(`/products/${id}`);
       setProducts((prev) => prev.filter((p) => p.id !== id));
+      // Limpiar estados asociados
+      setAdjust((prev) => {
+        const copy = { ...prev };
+        delete copy[id];
+        return copy;
+      });
+      setStockDrafts((prev) => {
+        const copy = { ...prev };
+        delete copy[id];
+        return copy;
+      });
     } catch (err: any) {
       console.error("Error deleting product:", err?.response?.data || err?.message);
       alert(err?.response?.data?.error || "No se pudo eliminar el producto");
     }
   };
 
+  // ----- Ajustes de stock (+/- con input y Enter) -----
+
+  const beginAdjust = (id: number, mode: AdjustMode) => {
+    setAdjust((prev) => ({ ...prev, [id]: { mode, value: "" } }));
+  };
+
+  const cancelAdjust = (id: number) => {
+    setAdjust((prev) => {
+      const copy = { ...prev };
+      delete copy[id];
+      return copy;
+    });
+  };
+
+  const commitAdjust = async (product: Product) => {
+    const current = adjust[product.id];
+    if (!current) return;
+
+    const raw = current.value.replace(",", ".");
+    const amount = Number(raw);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      cancelAdjust(product.id);
+      return;
+    }
+
+    const delta = current.mode === "add" ? amount : -amount;
+
+    try {
+      const resp = await api.patch<Product>(`/products/${product.id}/stock`, { delta });
+      const updated = resp.data;
+      setProducts((prev) => prev.map((p) => (p.id === product.id ? updated : p)));
+      // Alinear input de stock total con el valor más reciente
+      setStockDrafts((prev) => ({ ...prev, [product.id]: undefined }));
+    } catch (e) {
+      console.error("No se pudo ajustar stock:", e);
+      alert("No se pudo ajustar el stock");
+    } finally {
+      cancelAdjust(product.id);
+    }
+  };
+
+  // ----- Fijar stock directo (input controlado) -----
+
+  const setStockDraft = (id: number, value: string | undefined) => {
+    setStockDrafts((prev) => ({ ...prev, [id]: value }));
+  };
+
+  const commitSetStock = async (product: Product) => {
+    const draft = stockDrafts[product.id];
+    const valueStr = draft ?? String(product.stock ?? 0);
+    const val = Number((valueStr || "").replace(",", "."));
+    if (!Number.isFinite(val)) {
+      // resetear a estado "siguiendo" el store
+      setStockDraft(product.id, undefined);
+      return;
+    }
+    try {
+      const resp = await api.patch<Product>(`/products/${product.id}/stock`, { set: val });
+      const updated = resp.data;
+      setProducts((prev) => prev.map((p) => (p.id === product.id ? updated : p)));
+    } catch (err) {
+      console.error("No se pudo fijar stock:", err);
+      alert("No se pudo fijar el stock");
+    } finally {
+      // Al terminar, el input vuelve a seguir el valor del store
+      setStockDraft(product.id, undefined);
+    }
+  };
+
   return (
     <div className="p-4">
+      <div className="mb-12">
+        <ArrowBackButton />
+      </div>
       <h2 className="text-2xl font-semibold mb-4">Listado de Productos</h2>
-
       <input
         type="text"
         placeholder="Buscar producto..."
@@ -126,6 +220,14 @@ const ProductList = () => {
           <ul className="space-y-2">
             {groupedProducts[category].map((product) => {
               const isEditing = editingId === product.id;
+              const adj = adjust[product.id];
+
+              // valor mostrado en el input de stock (controlado)
+              const stockValue =
+                stockDrafts[product.id] !== undefined
+                  ? stockDrafts[product.id]
+                  : String(product.stock ?? 0);
+
               return (
                 <li
                   key={product.id}
@@ -164,43 +266,100 @@ const ProductList = () => {
 
                   {/* Controles de stock */}
                   <div className="flex items-center gap-2 mr-3">
-                    <button
-                      className="px-2 py-1 rounded border border-gray-600 text-white hover:text-red-300"
-                      title="Restar 1"
-                      onClick={async () => {
-                        try {
-                          const resp = await api.patch<Product>(`/products/${product.id}/stock`, { delta: -1 });
-                          setProducts((prev) => prev.map(p => p.id === product.id ? resp.data : p));
-                        } catch {}
-                      }}
-                    >
-                      -1
-                    </button>
-                    <button
-                      className="px-2 py-1 rounded border border-gray-600 text-white hover:text-emerald-300"
-                      title="Sumar 1"
-                      onClick={async () => {
-                        try {
-                          const resp = await api.patch<Product>(`/products/${product.id}/stock`, { delta: 1 });
-                          setProducts((prev) => prev.map(p => p.id === product.id ? resp.data : p));
-                        } catch {}
-                      }}
-                    >
-                      +1
-                    </button>
+                    {/* Botón "-" o input para restar */}
+                    {!adj || adj.mode !== "sub" ? (
+                      <button
+                        className="px-2 py-1 rounded border border-gray-600 text-white hover:text-red-300"
+                        title="Restar"
+                        onClick={() => beginAdjust(product.id, "sub")}
+                      >
+                        -
+                      </button>
+                    ) : (
+                      <input
+                        autoFocus
+                        inputMode="decimal"
+                        type="number"
+                        min={0}
+                        step="any"
+                        className="w-20 border p-1 rounded bg-white/5 border-white/10 text-right"
+                        placeholder="cant."
+                        value={adj.value}
+                        onChange={(e) =>
+                          setAdjust((prev) => ({
+                            ...prev,
+                            [product.id]: { ...prev[product.id], value: e.target.value },
+                          }))
+                        }
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            commitAdjust(product);
+                          } else if (e.key === "Escape") {
+                            e.preventDefault();
+                            cancelAdjust(product.id);
+                          }
+                        }}
+                      />
+                    )}
+
+                    {/* Botón "+" o input para sumar */}
+                    {!adj || adj.mode !== "add" ? (
+                      <button
+                        className="px-2 py-1 rounded border border-gray-600 text-white hover:text-emerald-300"
+                        title="Sumar"
+                        onClick={() => beginAdjust(product.id, "add")}
+                      >
+                        +
+                      </button>
+                    ) : (
+                      <input
+                        autoFocus
+                        inputMode="decimal"
+                        type="number"
+                        min={0}
+                        step="any"
+                        className="w-20 border p-1 rounded bg-white/5 border-white/10 text-right"
+                        placeholder="cant."
+                        value={adj.value}
+                        onChange={(e) =>
+                          setAdjust((prev) => ({
+                            ...prev,
+                            [product.id]: { ...prev[product.id], value: e.target.value },
+                          }))
+                        }
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            commitAdjust(product);
+                          } else if (e.key === "Escape") {
+                            e.preventDefault();
+                            cancelAdjust(product.id);
+                          }
+                        }}
+                      />
+                    )}
+
+                    {/* Set directo del stock total (controlado) */}
                     <input
-                      type="number"
-                      className="w-24 border p-1 rounded bg-white/5 border-white/10"
-                      defaultValue={product.stock ?? 0}
-                      onBlur={async (e) => {
-                        const val = Number(e.target.value);
-                        if (!Number.isFinite(val)) return;
-                        try {
-                          const resp = await api.patch<Product>(`/products/${product.id}/stock`, { set: val });
-                          setProducts((prev) => prev.map(p => p.id === product.id ? resp.data : p));
-                        } catch {}
+                      type="text"
+                      inputMode="decimal"
+                      className="w-24 border p-1 rounded bg-white/5 border-white/10 text-right"
+                      value={stockValue}
+                      onFocus={() => setStockDraft(product.id, String(product.stock ?? 0))}
+                      onChange={(e) => setStockDraft(product.id, e.target.value)}
+                      onBlur={() => commitSetStock(product)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          commitSetStock(product);
+                        } else if (e.key === "Escape") {
+                          e.preventDefault();
+                          // cancelar y volver a seguir el store
+                          setStockDraft(product.id, undefined);
+                        }
                       }}
-                      title="Escribe un valor y sal del campo para fijar stock"
+                      title="Escribe un valor total y presiona Enter o sal del campo para fijar stock"
                     />
                   </div>
 

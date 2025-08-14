@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import ProductSelector from "../components/ProductSelector.tsx";
 import ClientSelector from "../components/ClientSelector.tsx";
 import DriverSelector from "../components/DriverSelector.tsx";
+import ArrowBackButton from "../components/ArrowBackButton";
 import { api } from "../services/http";
 import type { AxiosError } from "axios";
 
@@ -130,6 +131,7 @@ const CreateDispatch = () => {
 
   return (
     <div className="max-w-4xl mx-auto p-6">
+      <ArrowBackButton />
       <h2 className="text-xl font-bold mb-4">Crear Despacho</h2>
       {mensaje && <p className="mb-4 text-green-600">{mensaje}</p>}
 

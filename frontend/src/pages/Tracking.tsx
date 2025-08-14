@@ -4,6 +4,7 @@ import { FiEdit2, FiTrash2, FiSave, FiX, FiPlus, FiMinus } from "react-icons/fi"
 import ClientSelector from "../components/ClientSelector";
 import DriverSelector from "../components/DriverSelector";
 import { useDrivers } from "../context/DriversContext";
+import ArrowBackButton from "../components/ArrowBackButton";
 import { api } from "../services/http";
 
 interface DispatchSummary {
@@ -284,6 +285,7 @@ const Tracking = () => {
 
   return (
     <div className="max-w-4xl mx-auto p-6">
+      <ArrowBackButton />
       <h2 className="text-xl font-bold mb-4">Seguimiento de Despachos</h2>
       {mensaje && <p className="mb-4 text-emerald-400">{mensaje}</p>}
 

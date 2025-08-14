@@ -206,7 +206,25 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
         type="text"
         placeholder="Buscar producto..."
         value={searchProduct}
-        onChange={(e) => setSearchProduct(e.target.value)}
+        onChange={(e) => {
+          const value = e.target.value;
+          setSearchProduct(value);
+
+          // 🔹 Nuevo: autoseleccionar el primer producto que coincida
+          const match = existingProductos.find((p) =>
+            p.name.toLowerCase().includes(value.toLowerCase())
+          );
+          if (match) {
+            setNewProduct({
+              ...match,
+              cantidad: newProduct.cantidad, // mantiene cantidad actual
+            });
+            if (match.category) setSelectedCategory(match.category);
+          } else {
+            // si no hay coincidencia, limpiar id y nombre
+            setNewProduct((prev) => ({ ...prev, id: "", name: value }));
+          }
+        }}
         className="w-full border p-2"
       />
 

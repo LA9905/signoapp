@@ -1,6 +1,7 @@
 // src/pages/Clients.tsx
 import { useEffect, useState, type FormEvent, type ChangeEvent } from "react";
 import { FaRegEdit, FaTrashAlt, FaSave, FaTimes } from "react-icons/fa";
+import ArrowBackButton from "../components/ArrowBackButton";
 import { useClients } from "../context/ClientsContext";
 
 const Clients = () => {
@@ -82,6 +83,7 @@ const Clients = () => {
 
   return (
     <div className="p-4 max-w-xl mx-auto">
+      <ArrowBackButton />
       <h2 className="text-2xl font-semibold mb-4">Lista de Clientes</h2>
 
       <form onSubmit={handleSubmit} className="flex gap-2 mb-6">

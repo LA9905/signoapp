@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useEffect, useState } from "react";
+import ArrowBackButton from "../components/ArrowBackButton";
 import { api } from "../services/http";
 
 const schema = z.object({
@@ -77,6 +78,7 @@ export default function AddProduct() {
 
   return (
     <div className="max-w-md mx-auto mt-10 p-6 bg-gray-700 shadow rounded">
+      <ArrowBackButton />
       <h2 className="text-xl font-bold mb-4 text-blue-600">Agregar Producto</h2>
 
       {error && <p className="mb-3 text-red-600">{error}</p>}

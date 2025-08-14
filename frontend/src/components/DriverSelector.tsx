@@ -90,7 +90,20 @@ const DriverSelector: React.FC<DriverSelectorProps> = ({ value, onChange }) => {
         type="text"
         placeholder="Buscar chofer..."
         value={search}
-        onChange={(e) => setSearch(e.target.value)}
+        onChange={(e) => {
+          const value = e.target.value;
+          setSearch(value);
+
+          // 🔹 Autoseleccionar primer chofer que coincida
+          const match = drivers.find((d) =>
+            d.name.toLowerCase().includes(value.toLowerCase())
+          );
+          if (match) {
+            onChange(String(match.id));
+          } else {
+            onChange("");
+          }
+        }}
         className="w-full border p-2 rounded"
       />
 
