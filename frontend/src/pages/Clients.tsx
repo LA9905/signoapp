@@ -83,7 +83,9 @@ const Clients = () => {
 
   return (
     <div className="p-4 max-w-xl mx-auto">
-      <ArrowBackButton />
+      <div className="mb-12">
+        <ArrowBackButton />
+      </div>
       <h2 className="text-2xl font-semibold mb-4">Lista de Clientes</h2>
 
       <form onSubmit={handleSubmit} className="flex gap-2 mb-6">

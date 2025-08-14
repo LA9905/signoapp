@@ -1,7 +1,9 @@
 // src/pages/Login.tsx
 import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import ArrowBackButton from "../components/ArrowBackHome";
 import { api } from "../services/http";
+import ArrowBackHome from "../components/ArrowBackHome";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -66,6 +68,9 @@ const Login = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#0f0f0f] px-4">
+      <div className="mb-12">
+        <ArrowBackHome />
+      </div>
       <div className="w-[60%] sm:w-3/4 md:w-1/2 max-w-md bg-[#1e1e1e] p-8 rounded-lg shadow-md text-white">
         <h2 className="text-3xl font-bold mb-6 text-center text-blue-300">Iniciar sesión</h2>
 

@@ -1,6 +1,7 @@
 import React, { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../services/http";
+import ArrowBackButton from "../components/ArrowBackButton";
 import { deleteAccount } from "../services/authService";
 
 type Profile = { id: number; name: string; email: string; avatar_url?: string | null };
@@ -116,6 +117,9 @@ const EditProfile: React.FC = () => {
 
   return (
     <div className="mx-auto w-full max-w-xl p-4 sm:p-6">
+      <div className="mb-12">
+        <ArrowBackButton />
+      </div>  
       <h2 className="text-xl font-bold mb-4">Editar perfil</h2>
       {err && <p className="text-red-500 mb-2">{err}</p>}
       {msg && <p className="text-green-500 mb-2">{msg}</p>}
