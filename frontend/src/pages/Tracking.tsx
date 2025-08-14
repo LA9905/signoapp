@@ -31,7 +31,7 @@ const btnIcon =
 
 const Tracking = () => {
   const [dispatches, setDispatches] = useState<DispatchSummary[]>([]);
-  const [search, setSearch] = useState({ client: "", order: "", user: "", driver: "", date: "" });
+  const [search, setSearch] = useState({ client: "", order: "", user: "", driver: "", date: "", invoice: "" });
   const [mensaje, setMensaje] = useState<string>("");
 
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -294,6 +294,7 @@ const Tracking = () => {
       <form onSubmit={handleSearchSubmit} className="space-y-4 mb-6">
         <input name="client" value={search.client} onChange={handleSearchChange} placeholder="Buscar por nombre del cliente" className="w-full border p-2 rounded" />
         <input name="order" value={search.order} onChange={handleSearchChange} placeholder="Buscar por número de orden" className="w-full border p-2 rounded" />
+        <input name="invoice" value={search.invoice} onChange={handleSearchChange} placeholder="Buscar por número de factura" className="w-full border p-2 rounded"/>
         <input name="user" value={search.user} onChange={handleSearchChange} placeholder="Buscar por usuario que creó" className="w-full border p-2 rounded" />
         <input name="driver" value={search.driver} onChange={handleSearchChange} placeholder="Buscar por nombre del chofer" className="w-full border p-2 rounded" />
         <input name="date" value={search.date} onChange={handleSearchChange} type="date" className="w-full border p-2 rounded" />

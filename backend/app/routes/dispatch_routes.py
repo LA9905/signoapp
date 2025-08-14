@@ -105,6 +105,7 @@ def get_dispatches():
         search_user = (request.args.get("user") or "").lower()
         search_driver = (request.args.get("driver") or "").lower()
         search_date = request.args.get("date") or ""
+        search_invoice = (request.args.get("invoice") or "").lower()
 
         query = Dispatch.query
 
@@ -118,6 +119,8 @@ def get_dispatches():
             )
         if search_driver:
             query = query.join(Driver).filter(db.func.lower(Driver.name).like(f"%{search_driver}%"))
+        if search_invoice:
+            query = query.filter(db.func.lower(Dispatch.factura_numero).like(f"%{search_invoice}%"))
         if search_date:
             try:
                 d = datetime.strptime(search_date, "%Y-%m-%d")

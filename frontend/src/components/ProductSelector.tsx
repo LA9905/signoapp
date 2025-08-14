@@ -37,17 +37,29 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
   const [tmpUnidad, setTmpUnidad] = useState("unidades");
 
   const categories = [
-    "Bolsas Negras",
+    "Bolsas de Basura Negras",
     "Bolsas Transparente Recuperada",
     "Bolsas Camisetas",
     "Bolsas Virgen Transparente",
+    "Bolsas Recuperada de Color",
+    "Bolsas con Impresión",
+    "Bolsas de Lavandería",
+    "Bolsas de Polipolieno",
+    "Bolsas de Cubierto",
     "Productos de limpieza, aseo y cocina",
     "Vasos plásticos",
     "Vasos de Poli-papel",
     "Vasos Espumados",
     "Vasos PET",
-    "Envases de Alimento",
-    "Porta-colaciones",
+    "Envases Bolw de Alimento",
+    "Porta-colaciones o envases Plumavit",
+    "Film",
+    "Prepicados",
+    "Guantes",
+    "Utensilios y platos",
+    "Brochetas",
+    "Pocillos de Degustacion",
+    "Gorros y Cofias",
     "Otros",
   ];
 
