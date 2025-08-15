@@ -7,6 +7,7 @@ from app.models.user_model import User
 from app.models.product_model import Product
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from datetime import datetime
+from sqlalchemy import cast, String
 from app.utils.timezone import (
     to_local,
     month_start_local_now,
@@ -114,7 +115,7 @@ def get_dispatches():
         if search_order:
             query = query.filter(db.func.lower(Dispatch.orden).like(f"%{search_order}%"))
         if search_user:
-            query = query.join(User, Dispatch.created_by == User.id).filter(
+            query = query.join(User, cast(User.id, String) == Dispatch.created_by).filter(
                 db.func.lower(User.name).like(f"%{search_user}%")
             )
         if search_driver:

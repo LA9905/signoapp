@@ -19,7 +19,7 @@ interface FormularioDespacho {
   orden: string;
   chofer: string;   // id del chofer como string
   cliente: string;  // nombre del cliente
-  numero_paquete?: number; // NUEVO
+  numero_paquete?: string; // NUEVO
   productos: Producto[];
 }
 
@@ -30,7 +30,7 @@ const CreateDispatch = () => {
     orden: "",
     chofer: "",
     cliente: "",
-    numero_paquete: 1, // por defecto 1
+    numero_paquete: "", // por defecto 1
     productos: [],
   });
   const [mensaje, setMensaje] = useState<string>("");
@@ -63,8 +63,8 @@ const CreateDispatch = () => {
 
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    if (name === "numero_paquete") {
-      setForm({ ...form, numero_paquete: value ? Number(value) : undefined });
+      if (name === "numero_paquete") {
+      setForm({ ...form, numero_paquete: value || undefined });
     } else {
       setForm({ ...form, [name]: value });
     }
@@ -148,13 +148,12 @@ const CreateDispatch = () => {
         />
 
         <input
-          type="number"
+          type="text"
           name="numero_paquete"
-          value={form.numero_paquete ?? 1}
-          min={1}
+          value={form.numero_paquete ?? ""}
           onChange={handleChange}
           className="w-full border p-2 rounded"
-          placeholder="Número de paquete (ej. 1)"
+          placeholder="Número de paquete (ej. 1/4)"
         />
 
         {/* Cliente (nombre) */}

@@ -22,7 +22,7 @@ def _barcode_payload(folio: int, orden: str, num_items: int, paquete_numero: int
     orden_clean = (orden or "").strip().replace(" ", "")
     pieces = [f"DESP-{folio}", f"OC:{orden_clean}", f"N:{num_items}"]
     if paquete_numero:
-        pieces.append(f"P:{int(paquete_numero)}")
+        pieces.append(f"P:{paquete_numero}")
     payload = "|".join(pieces)
     return _sanitize_barcode_text(payload, max_len=64)
 

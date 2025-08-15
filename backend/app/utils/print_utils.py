@@ -183,11 +183,13 @@ def generar_hoja_despacho(d: dict) -> BytesIO:
 
 def _page_size_from_label(size: str):
     size = (size or "").lower().strip()
-    if size in ("4x6", "4×6", "4in x 6in", "4 in x 6 in"):
-        return (101.6 * mm, 152.4 * mm)  # vertical
+    # 100 mm x 150 mm (vertical)
+    if size in ("4x6", "4×6", "4in x 6in", "4 in x 6 in", "100x150", "100mm x 150mm"):
+        return (100 * mm, 150 * mm)
     if size in ("6x4", "6×4"):
-        return (152.4 * mm, 101.6 * mm)  # horizontal
-    return (101.6 * mm, 152.4 * mm)
+        return (150 * mm, 100 * mm)  # horizontal, 150 x 100 mm
+    # por defecto también 100 x 150 mm
+    return (100 * mm, 150 * mm)
 
 def generar_etiqueta_despacho(d: dict, size: str = "4x6") -> BytesIO:
     """
@@ -230,23 +232,57 @@ def generar_etiqueta_despacho(d: dict, size: str = "4x6") -> BytesIO:
     c.drawRightString(PAGE_W - Mx, y_folio, f"Folio: {d.get('folio','')}")
     c.setFillColor(colors.black)
 
-    # Reservar altura mínima para header
+       # Reservar altura mínima para header
     header_used_h = max(header_used_h, 14 * mm)
 
-    # Línea separadora
-    y = y_top - header_used_h - 6 * mm
+    # ====== Campos compactos bajo el título (antes de la línea) ======
+    y = y_top - header_used_h - 3 * mm
+    c.setFont("Helvetica", 10.5)
+
+    # helper: recorta texto teniendo en cuenta el rótulo
+    def _fit(text: str, max_w: float, font="Helvetica", size=10.5) -> str:
+        text = str(text or "")
+        w = c.stringWidth(text, font, size)
+        if w <= max_w:
+            return text
+        ell = "…"
+        ell_w = c.stringWidth(ell, font, size)
+        while text and c.stringWidth(text, font, size) + ell_w > max_w:
+            text = text[:-1]
+        return (text + ell) if text else ""
+
+    def _draw_label_value(x, width, label, value):
+        lbl_w = c.stringWidth(label, "Helvetica", 10.5)
+        max_val_w = max(0, width - lbl_w - 2)
+        val_fitted = _fit(value, max_val_w)
+        c.drawString(x, y, label)
+        c.drawString(x + lbl_w, y, val_fitted)
+
+    line_w = PAGE_W - 2 * Mx
+
+    # Fila 1: Fecha/Hora (55%)  | Chofer (45%)
+    w_fecha  = line_w * 0.55
+    w_chofer = line_w * 0.45
+    x_fecha  = Mx
+    x_chofer = Mx + w_fecha
+    _draw_label_value(x_fecha,  w_fecha,  "Fecha: ",  d.get("fecha", ""))
+    _draw_label_value(x_chofer, w_chofer, "Chofer: ", d.get("chofer", ""))
+    y -= 11
+
+    # Fila 2: Cliente (100%)
+    _draw_label_value(Mx, line_w, "Cliente: ", d.get("cliente", ""))
+    y -= 11
+
+    # Raya superior del bloque de información
     c.setLineWidth(0.5)
     c.line(Mx, y, PAGE_W - Mx, y)
-    y -= 8 * mm
+    y -= 9  # un poco más de aire
 
-    # Datos clave
+    # ----- resto de campos (entre rayas) -----
     c.setFont("Helvetica", 10.5)
-    c.drawString(Mx, y, f"Fecha: {d.get('fecha','')}")
-    y -= 12
-    c.drawString(Mx, y, f"Cliente: {d.get('cliente','')}")
-    y -= 12
-    c.drawString(Mx, y, f"Chofer: {d.get('chofer','')}")
-    y -= 12
+
+    # Orden más abajo para que no toque la raya
+    y -= 3
     c.drawString(Mx, y, f"Orden: {d.get('orden','')}")
     y -= 12
 
@@ -259,7 +295,7 @@ def generar_etiqueta_despacho(d: dict, size: str = "4x6") -> BytesIO:
         c.drawString(Mx, y, f"Factura N°: {factura_numero}")
         y -= 12
 
-    c.drawString(Mx, y, f"Creado por: {d.get('auxiliar','')}")
+    c.drawString(Mx, y, f"Entregado por: {d.get('auxiliar','')}")
     y -= 12
 
     # Lista de productos (con límite para no pisar el código)

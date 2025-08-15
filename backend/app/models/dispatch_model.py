@@ -14,7 +14,7 @@ class Dispatch(db.Model):
     created_by = db.Column(db.String(50), nullable=False)
 
     # NUEVO
-    paquete_numero = db.Column(db.Integer, nullable=True)          # p.ej. 1, 2, 3...
+    paquete_numero = db.Column(db.String(50), nullable=True)          # p.ej. 1, 2, 3...
     factura_numero = db.Column(db.String(50), nullable=True)       # editable luego del despacho
 
     # Estado base (compatibilidad)
