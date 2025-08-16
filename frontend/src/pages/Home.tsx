@@ -293,8 +293,18 @@ function Footer() {
             rel="noopener noreferrer"
             href="https://wa.me/56995334317/"
           >
+            Alejandro Arraga{" "}
+          </a>
+
+          <a
+            className="developer"
+            target="_blank"
+            rel="noopener noreferrer"
+            href="https://github.com/LA9905"
+          >
             LA9905
           </a>
+
         </p>
       </div>
 

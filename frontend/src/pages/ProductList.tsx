@@ -312,6 +312,7 @@ const ProductList = () => {
                             cancelAdjust(product.id);
                           }
                         }}
+                        onBlur={() => commitAdjust(product)}
                       />
                     )}
 
@@ -349,6 +350,7 @@ const ProductList = () => {
                             cancelAdjust(product.id);
                           }
                         }}
+                        onBlur={() => commitAdjust(product)}
                       />
                     )}
 
