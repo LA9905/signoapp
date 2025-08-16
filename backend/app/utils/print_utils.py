@@ -295,7 +295,7 @@ def generar_etiqueta_despacho(d: dict, size: str = "4x6") -> BytesIO:
         c.drawString(Mx, y, f"Factura N°: {factura_numero}")
         y -= 12
 
-    c.drawString(Mx, y, f"Entregado por: {d.get('auxiliar','')}")
+    c.drawString(Mx, y, f"Despachado por: {d.get('auxiliar','')}")
     y -= 12
 
     # Lista de productos (con límite para no pisar el código)

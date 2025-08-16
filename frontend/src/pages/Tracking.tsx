@@ -317,7 +317,7 @@ const Tracking = () => {
                     {d.factura_numero ? <p><strong>Factura N°:</strong> {d.factura_numero}</p> : null}
                     <p><strong>Cliente:</strong> {d.cliente}</p>
                     <p><strong>Chofer:</strong> {d.chofer}</p>
-                    <p><strong>Creado por:</strong> {d.created_by}</p>
+                    <p><strong>Despachado por:</strong> {d.created_by}</p>
                     <p><strong>Fecha:</strong> {new Date(d.fecha).toLocaleString()}</p>
                     <p><strong>Estado:</strong> {humanStatus(d.status)}</p>
                   </div>

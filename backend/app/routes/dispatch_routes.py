@@ -407,7 +407,6 @@ def mark_client_delivered(dispatch_id):
 # ----------------------------
 # Eliminar despacho (con preflight)
 # ----------------------------
-
 @dispatch_bp.route("/dispatches/<int:dispatch_id>", methods=["DELETE", "OPTIONS"])
 @cross_origin(supports_credentials=True)   # permite el preflight desde el front
 @jwt_required(optional=True)               # OPTIONS sin JWT; validamos JWT en el DELETE
@@ -423,6 +422,18 @@ def delete_dispatch(dispatch_id):
 
     try:
         d = Dispatch.query.get_or_404(dispatch_id)
+
+        # --- NUEVO: restaurar stock por cada producto del despacho ---
+        # (usar nombre para encontrar el producto; si no existe, se ignora)
+        for item in d.productos:
+            prod_row = Product.query.filter_by(name=item.nombre).first()
+            if prod_row:
+                try:
+                    prod_row.stock = float(prod_row.stock or 0) + float(item.cantidad or 0)
+                except Exception:
+                    # si falla el casteo, no tocamos stock de ese ítem
+                    pass
+        # --------------------------------------------------------------
 
         # Borrar items asociados primero
         DispatchProduct.query.filter_by(dispatch_id=d.id).delete()
