@@ -228,7 +228,7 @@ const ProductList = () => {
 
       {Object.keys(groupedProducts).map((category) => (
         <div key={category} className="mb-4">
-          <h3 className="text-lg font-semibold mb-2">{category}</h3>
+          <h3 className="text-lg font-semibold mb-2 text-blue-500">{category}</h3>
           <ul className="space-y-2">
             {groupedProducts[category].map((product) => {
               const isEditing = editingId === product.id;
