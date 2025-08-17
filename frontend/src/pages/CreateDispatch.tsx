@@ -125,7 +125,7 @@ const CreateDispatch = () => {
     } catch (err) {
       const error = err as AxiosError;
       console.error("Error en handleSubmit:", error.response ? error.response.data : error.message);
-      setMensaje("Error al crear despacho");
+      setMensaje("Error al crear despacho, ya existe un producto con ese nombre");
     }
   };
 
