@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { api } from "../services/http";
+import ArrowBackHome from "../components/ArrowBackHome";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -20,33 +21,55 @@ const Login = () => {
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-    const payload = {
-      email: form.email.trim(),
-      password: form.password,
-    };
-    if (!payload.email || !payload.password) {
-      setError("Completa correo y contraseña");
-      return;
-    }
+  e.preventDefault();
+  setError("");
+  const payload = { email: form.email.trim(), password: form.password };
+  if (!payload.email || !payload.password) {
+    setError("Completa correo y contraseña");
+    return;
+  }
 
-    try {
-      setSubmitting(true);
-      const res = await api.post("/auth/login", payload);
-      localStorage.setItem("token", res.data.token);
-      localStorage.setItem("name", res.data.name);
-      if (res.data.avatar_url) localStorage.setItem("avatar_url", res.data.avatar_url);
-      navigate("/dashboard", { replace: true });
-    } catch (err: any) {
+  setSubmitting(true);
+  let slowTimer: number | undefined;
+  try {
+    // Si se demora, informa que puede ser “arranque” del servidor
+    slowTimer = window.setTimeout(() => {
+      setError("El servidor está iniciando, esto puede tardar unos segundos…");
+    }, 8000);
+
+    const res = await api.post("/auth/login", payload, { timeout: 15000 });
+    localStorage.setItem("token", res.data.token);
+    localStorage.setItem("name", res.data.name);
+    if (res.data.avatar_url) localStorage.setItem("avatar_url", res.data.avatar_url);
+    navigate("/dashboard", { replace: true });
+  } catch (err: any) {
+    // Si fue timeout, intenta 1 retry rápido (el server probablemente ya despertó)
+    const isTimeout = err?.code === "ECONNABORTED";
+    if (isTimeout) {
+      try {
+        const res2 = await api.post("/auth/login", payload, { timeout: 10000 });
+        localStorage.setItem("token", res2.data.token);
+        localStorage.setItem("name", res2.data.name);
+        if (res2.data.avatar_url) localStorage.setItem("avatar_url", res2.data.avatar_url);
+        navigate("/dashboard", { replace: true });
+        return;
+      } catch (err2: any) {
+        setError(err2?.response?.data?.msg || "El servidor tardó demasiado. Intenta de nuevo.");
+      }
+    } else {
       setError(err?.response?.data?.msg || "Error al iniciar sesión");
-    } finally {
-      setSubmitting(false);
     }
-  };
+  } finally {
+    if (slowTimer) window.clearTimeout(slowTimer);
+    setSubmitting(false);
+  }
+};
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#0f0f0f] px-4">
+      <div className="mb-12">
+        <ArrowBackHome />
+      </div>
       <div className="w-[60%] sm:w-3/4 md:w-1/2 max-w-md bg-[#1e1e1e] p-8 rounded-lg shadow-md text-white">
         <h2 className="text-3xl font-bold mb-6 text-center text-blue-300">Iniciar sesión</h2>
 

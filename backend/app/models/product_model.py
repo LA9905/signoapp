@@ -1,4 +1,3 @@
-# app/models/product_model.py
 from app import db
 
 class Product(db.Model):
@@ -7,10 +6,14 @@ class Product(db.Model):
     category = db.Column(db.String(100), nullable=False)
     created_by = db.Column(db.String(100), nullable=False)
 
+    # NUEVO: stock global
+    stock = db.Column(db.Float, nullable=False, default=0.0)
+
     def to_dict(self):
         return {
             "id": self.id,
             "name": self.name,
             "category": self.category,
             "created_by": self.created_by,
+            "stock": self.stock,
         }

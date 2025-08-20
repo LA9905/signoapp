@@ -4,17 +4,22 @@ import { FiEdit2, FiTrash2, FiSave, FiX, FiPlus, FiMinus } from "react-icons/fi"
 import ClientSelector from "../components/ClientSelector";
 import DriverSelector from "../components/DriverSelector";
 import { useDrivers } from "../context/DriversContext";
+import ArrowBackButton from "../components/ArrowBackButton";
 import { api } from "../services/http";
 
 interface DispatchSummary {
   id: number;
   orden: string;
-  cliente: string; // nombre
-  chofer: string;  // nombre
+  cliente: string;
+  chofer: string;
   created_by: string;
-  fecha: string;
-  status: string;
+  fecha: string;    // ISO local
+  status: string;   // pendiente | entregado_chofer | entregado_cliente | cancelado | ...
+  delivered_driver: boolean;
+  delivered_client: boolean;
   productos: { nombre: string; cantidad: number; unidad: string }[];
+  paquete_numero?: number;   // NUEVO (solo display)
+  factura_numero?: string;   // NUEVO (editable aquí)
 }
 
 type ProductoRow = { nombre: string; cantidad: number; unidad: string };
@@ -26,20 +31,20 @@ const btnIcon =
 
 const Tracking = () => {
   const [dispatches, setDispatches] = useState<DispatchSummary[]>([]);
-  const [search, setSearch] = useState({ client: "", order: "", user: "", driver: "", date: "" });
+  const [search, setSearch] = useState({ client: "", order: "", user: "", driver: "", date: "", invoice: "" });
   const [mensaje, setMensaje] = useState<string>("");
 
-  // edición inline por tarjeta
   const [editingId, setEditingId] = useState<number | null>(null);
   const [draft, setDraft] = useState<{
     orden: string;
-    cliente: string;   // nombre
-    chofer: string;    // id (string) para DriverSelector
+    cliente: string;
+    chofer: string; // id (string)
     status: string;
     productos: ProductoRow[];
+    factura_numero?: string;  // NUEVO
   } | null>(null);
 
-  const { drivers } = useDrivers(); // para mapear nombre->id cuando entras a editar
+  const { drivers } = useDrivers();
 
   useEffect(() => {
     fetchDispatches();
@@ -70,17 +75,16 @@ const Tracking = () => {
     fetchDispatches();
   };
 
-  // ===== Acciones de lista =====
   const startEditRow = (d: DispatchSummary) => {
-    // Convertir nombre de chofer -> id (string) para usar DriverSelector
     const choferId = drivers.find((x) => x.name === d.chofer)?.id;
     setEditingId(d.id);
     setDraft({
       orden: d.orden,
-      cliente: d.cliente,                  // ClientSelector usa nombre
-      chofer: choferId ? String(choferId) : "", // DriverSelector usa id string
+      cliente: d.cliente,
+      chofer: choferId ? String(choferId) : "",
       status: d.status || "pendiente",
       productos: d.productos.map((p) => ({ ...p })),
+      factura_numero: d.factura_numero || "",
     });
   };
 
@@ -92,12 +96,12 @@ const Tracking = () => {
   const saveRow = async (id: number) => {
     if (!draft) return;
     try {
-      // IMPORTANTE: chofer debe ir como ID (string convertible a int en el back)
       const payload = {
         orden: draft.orden,
-        cliente: draft.cliente,  // backend espera nombre
-        chofer: draft.chofer,    // backend espera ID
+        cliente: draft.cliente,
+        chofer: draft.chofer,
         status: draft.status,
+        factura_numero: draft.factura_numero, // NUEVO
         productos: draft.productos.map((p) => ({
           nombre: p.nombre,
           cantidad: p.cantidad,
@@ -117,7 +121,11 @@ const Tracking = () => {
                 chofer: updated.chofer,
                 fecha: updated.fecha,
                 status: updated.status,
+                delivered_driver: updated.delivered_driver,
+                delivered_client: updated.delivered_client,
                 productos: updated.productos,
+                paquete_numero: updated.paquete_numero,
+                factura_numero: updated.factura_numero,
               }
             : d
         )
@@ -145,16 +153,54 @@ const Tracking = () => {
     }
   };
 
-  const markAsDelivered = async (id: number) => {
-    if (!window.confirm("¿Estás seguro de marcar este despacho como entregado?")) return;
+  // Estados granulares -> endpoints dedicados
+  const markToDriver = async (id: number) => {
     try {
-      await api.post(`/dispatches/${id}/mark-delivered`, {});
-      setDispatches((prev) => prev.map((d) => (d.id === id ? { ...d, status: "entregado" } : d)));
-      setMensaje("Despacho marcado como entregado");
+      const resp = await api.post<DispatchSummary>(`/dispatches/${id}/mark-driver`, {});
+      const updated = resp.data;
+      setDispatches((prev) =>
+        prev.map((d) =>
+          d.id === id
+            ? {
+                ...d,
+                status: updated.status,
+                delivered_driver: updated.delivered_driver,
+                delivered_client: updated.delivered_client,
+                fecha: updated.fecha,
+              }
+            : d
+        )
+      );
+      setMensaje("Despacho marcado como 'Entregado a Chofer'.");
     } catch (err) {
       const error = err as AxiosError;
-      console.error("Error marking as delivered:", error.response ? error.response.data : error.message);
-      setMensaje("Error al marcar como entregado");
+      console.error("Error marcando chofer:", error.response ? error.response.data : error.message);
+      setMensaje("No se pudo marcar 'Entregado a Chofer'.");
+    }
+  };
+
+  const markToClient = async (id: number) => {
+    try {
+      const resp = await api.post<DispatchSummary>(`/dispatches/${id}/mark-client`, {});
+      const updated = resp.data;
+      setDispatches((prev) =>
+        prev.map((d) =>
+          d.id === id
+            ? {
+                ...d,
+                status: updated.status,
+                delivered_driver: updated.delivered_driver,
+                delivered_client: updated.delivered_client,
+                fecha: updated.fecha,
+              }
+            : d
+        )
+      );
+      setMensaje("Despacho marcado como 'Pedido Entregado'.");
+    } catch (err) {
+      const error = err as AxiosError;
+      console.error("Error marcando cliente:", error.response ? error.response.data : error.message);
+      setMensaje("No se pudo marcar 'Pedido Entregado'.");
     }
   };
 
@@ -163,6 +209,7 @@ const Tracking = () => {
     try {
       const resp = await api.get(`/print/${id}`, {
         responseType: "blob",
+        params: { format: "label", size: "4x6" },
       });
       const blob = new Blob([resp.data], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);
@@ -184,16 +231,13 @@ const Tracking = () => {
     try {
       const resp = await api.get(`/print/${id}`, {
         responseType: "blob",
-        params: { inline: "1" },
+        params: { inline: "1", format: "label", size: "4x6" },
       });
       const blob = new Blob([resp.data], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);
       const w = window.open(url, "_blank");
       w?.addEventListener("load", () => {
-        try {
-          w.focus();
-          w.print();
-        } catch {}
+        try { w.focus(); w.print(); } catch {}
       });
     } catch (err) {
       const error = err as AxiosError;
@@ -202,7 +246,6 @@ const Tracking = () => {
     }
   };
 
-  // helpers productos (draft)
   const addRow = () => {
     if (!draft) return;
     setDraft({ ...draft, productos: [...draft.productos, { nombre: "", cantidad: 0, unidad: "unidades" }] });
@@ -234,39 +277,49 @@ const Tracking = () => {
     </svg>
   );
 
+  const humanStatus = (s: string) => {
+    if (s === "entregado_chofer") return "Entregado a Chofer";
+    if (s === "entregado_cliente") return "Pedido Entregado";
+    return s;
+  };
+
   return (
     <div className="max-w-4xl mx-auto p-6">
+      <div className="mb-12">
+        <ArrowBackButton />
+      </div>
       <h2 className="text-xl font-bold mb-4">Seguimiento de Despachos</h2>
       {mensaje && <p className="mb-4 text-emerald-400">{mensaje}</p>}
 
-      {/* Búsqueda */}
       <form onSubmit={handleSearchSubmit} className="space-y-4 mb-6">
-        <input name="client" value={search.client} onChange={handleSearchChange} placeholder="Buscar por nombre del cliente" className="w-full border p-2 rounded" />
+        <input name="client" value={search.client} onChange={handleSearchChange} placeholder="Buscar por nombre del centro de costo" className="w-full border p-2 rounded" />
         <input name="order" value={search.order} onChange={handleSearchChange} placeholder="Buscar por número de orden" className="w-full border p-2 rounded" />
+        <input name="invoice" value={search.invoice} onChange={handleSearchChange} placeholder="Buscar por número de factura" className="w-full border p-2 rounded"/>
         <input name="user" value={search.user} onChange={handleSearchChange} placeholder="Buscar por usuario que creó" className="w-full border p-2 rounded" />
         <input name="driver" value={search.driver} onChange={handleSearchChange} placeholder="Buscar por nombre del chofer" className="w-full border p-2 rounded" />
         <input name="date" value={search.date} onChange={handleSearchChange} type="date" className="w-full border p-2 rounded" />
         <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Buscar</button>
       </form>
 
-      {/* Lista */}
       <div className="space-y-4">
         {dispatches.map((d) => {
-          const isDelivered = d.status === "entregado";
+          const isDriverDone = d.delivered_driver || d.delivered_client;
+          const isClientDone = d.delivered_client;
           const isEditingRow = editingId === d.id;
 
           return (
             <div key={d.id} className="border p-4 hover:bg-gray-900/20 rounded">
-              {/* Encabezado + acciones */}
               <div className="flex items-start justify-between gap-4">
                 {!isEditingRow ? (
                   <div>
                     <p><strong>Orden:</strong> {d.orden}</p>
-                    <p><strong>Cliente:</strong> {d.cliente}</p>
+                    {d.paquete_numero ? <p><strong>Paquete N°:</strong> {d.paquete_numero}</p> : null}
+                    {d.factura_numero ? <p><strong>Factura N°:</strong> {d.factura_numero}</p> : null}
+                    <p><strong>Centro de Costo:</strong> {d.cliente}</p>
                     <p><strong>Chofer:</strong> {d.chofer}</p>
-                    <p><strong>Creado por:</strong> {d.created_by}</p>
-                    <p><strong>Fecha:</strong> {new Date(d.fecha).toLocaleDateString()}</p>
-                    <p><strong>Estado:</strong> {d.status}</p>
+                    <p><strong>Despachado por:</strong> {d.created_by}</p>
+                    <p><strong>Fecha:</strong> {new Date(d.fecha).toLocaleString()}</p>
+                    <p><strong>Estado:</strong> {humanStatus(d.status)}</p>
                   </div>
                 ) : (
                   <div className="w-full">
@@ -281,7 +334,7 @@ const Tracking = () => {
                       </div>
 
                       <div>
-                        <label className="block text-sm mb-1">Cliente</label>
+                        <label className="block text-sm mb-1">Centro de Costo</label>
                         <ClientSelector
                           value={draft?.cliente || ""}
                           onChange={(cliente) => setDraft((prev) => prev ? { ...prev, cliente } : prev)}
@@ -304,13 +357,23 @@ const Tracking = () => {
                           className="w-full border p-2 rounded"
                         >
                           <option value="pendiente">pendiente</option>
-                          <option value="entregado">entregado</option>
+                          <option value="entregado_chofer">entregado_chofer</option>
+                          <option value="entregado_cliente">entregado_cliente</option>
                           <option value="cancelado">cancelado</option>
                         </select>
                       </div>
+
+                      <div>
+                        <label className="block text-sm mb-1">N° Factura asociada</label>
+                        <input
+                          className="w-full border p-2 rounded"
+                          value={draft?.factura_numero || ""}
+                          onChange={(e) => setDraft((prev) => prev ? { ...prev, factura_numero: e.target.value } : prev)}
+                          placeholder="Ej: 12345"
+                        />
+                      </div>
                     </div>
 
-                    {/* Productos editar */}
                     <div className="mt-4">
                       <div className="flex items-center justify-between mb-2">
                         <h4 className="font-bold">Productos</h4>
@@ -361,9 +424,7 @@ const Tracking = () => {
                   </div>
                 )}
 
-                {/* Acciones siempre visibles */}
-                <div className="flex items-center gap-2">
-                  {/* PDF */}
+                <div className="flex flex-wrap items-center gap-2">
                   <button
                     className="flex items-center gap-2 px-3 py-2 rounded text-white bg-blue-600 hover:bg-blue-700"
                     title="Descargar PDF"
@@ -374,7 +435,6 @@ const Tracking = () => {
                     <span className="text-xs font-medium">PDF</span>
                   </button>
 
-                  {/* Imprimir */}
                   <button
                     className="flex items-center gap-2 px-3 py-2 rounded text-white bg-indigo-600 hover:bg-indigo-700"
                     title="Imprimir PDF"
@@ -425,24 +485,33 @@ const Tracking = () => {
                     </>
                   )}
 
-                  {/* Entregado / Marcar */}
+                  {/* Estados específicos */}
                   <button
                     className={
                       "px-3 py-2 rounded text-white " +
-                      (isDelivered ? "bg-emerald-600 cursor-default" : "bg-green-600 hover:bg-green-700")
+                      (isDriverDone ? "bg-emerald-600 cursor-default" : "bg-green-600 hover:bg-green-700")
                     }
-                    disabled={isDelivered}
-                    onClick={() => {
-                      if (!isDelivered) markAsDelivered(d.id);
-                    }}
-                    title={isDelivered ? "Este despacho ya fue marcado como entregado" : "Marcar como entregado"}
+                    disabled={isDriverDone}
+                    onClick={() => markToDriver(d.id)}
+                    title={isDriverDone ? "Entregado a Chofer (bloqueado)" : "Marcar como Entregado a Chofer"}
                   >
-                    {isDelivered ? "Entregado" : "Marcar como Entregado"}
+                    {d.delivered_driver ? "Entregado a Chofer" : "Marcar como Entregado a Chofer"}
+                  </button>
+
+                  <button
+                    className={
+                      "px-3 py-2 rounded text-white " +
+                      (isClientDone ? "bg-emerald-600 cursor-default" : "bg-green-600 hover:bg-green-700")
+                    }
+                    disabled={isClientDone}
+                    onClick={() => markToClient(d.id)}
+                    title={isClientDone ? "Pedido Entregado (finalizado)" : "Marcar como Pedido Entregado"}
+                  >
+                    {d.delivered_client ? "Pedido Entregado" : "Marcar como Pedido Entregado"}
                   </button>
                 </div>
               </div>
 
-              {/* Productos (solo display cuando no editas) */}
               {!isEditingRow && (
                 <>
                   <p className="mt-3"><strong>Productos:</strong></p>

@@ -3,16 +3,15 @@ import axios from "axios";
 const root = (import.meta.env.VITE_API_URL || "").replace(/\/+$/, "");
 if (!root) throw new Error("VITE_API_URL no está definida");
 
-// siempre agregamos /api aquí
 const baseURL = `${root}/api`;
 
 export const api = axios.create({
-  baseURL,                   // p.ej. https://signoapp.onrender.com/api
+  baseURL,
   withCredentials: true,
   headers: { "Content-Type": "application/json" },
+  timeout: 15000, // evita “colgarse” infinito y permite mostrar mensaje útil
 });
 
-// (opcional) log para verificar en prod
 if (import.meta.env.PROD) {
   console.log("API baseURL:", baseURL);
 }

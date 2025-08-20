@@ -1,5 +1,6 @@
 import { useState, type ChangeEvent, type FormEvent } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import ArrowBackLogin from "../components/ArrowBackLogin";
 import { api } from "../services/http";
 
 const Register: React.FC = () => {
@@ -25,6 +26,9 @@ const Register: React.FC = () => {
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-[#0f0f0f]">
+      <div className="mb-12">
+        <ArrowBackLogin />
+      </div> 
       <div className="w-[60%] sm:w-3/4 md:w-1/2 max-w-md bg-[#1e1e1e] p-8 rounded-lg shadow-md text-white">
         <h2 className="text-3xl font-bold mb-6 text-center text-blue-300">Crear cuenta</h2>
 

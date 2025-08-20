@@ -1,5 +1,6 @@
 import { useState, type FormEvent, type ChangeEvent } from "react";
 import { useNavigate } from "react-router-dom";
+import ArrowBackLogin from "../components/ArrowBackLogin";
 import { api } from "../services/http";
 
 const Recover: React.FC = () => {
@@ -23,6 +24,9 @@ const Recover: React.FC = () => {
 
   return (
     <div className="p-8 max-w-md mx-auto">
+      <div className="mb-12">
+        <ArrowBackLogin />
+      </div>
       <h2 className="text-xl font-bold mb-4">Recuperar contraseña</h2>
       {msg && <p className="text-green-500 mb-2">{msg}</p>}
       {error && <p className="text-red-500 mb-2">{error}</p>}

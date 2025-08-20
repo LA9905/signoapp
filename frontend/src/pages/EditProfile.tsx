@@ -1,6 +1,7 @@
 import React, { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../services/http";
+import ArrowBackButton from "../components/ArrowBackButton";
 import { deleteAccount } from "../services/authService";
 
 type Profile = { id: number; name: string; email: string; avatar_url?: string | null };
@@ -96,7 +97,9 @@ const EditProfile: React.FC = () => {
   };
 
   const handleDeleteAccount = async () => {
-    const first = window.confirm("Esta acción eliminará tu cuenta. Los despachos, clientes y choferes que creaste seguirán visibles de forma global, pero ya no estarán asociados a ti. ¿Deseas continuar?");
+    const first = window.confirm(
+      "Esta acción eliminará tu cuenta. Los despachos, clientes y choferes que creaste seguirán visibles de forma global, pero ya no estarán asociados a ti. ¿Deseas continuar?"
+    );
     if (!first) return;
     const typed = window.prompt('Escribe "ELIMINAR" para confirmar:');
     if (typed !== "ELIMINAR") return;
@@ -113,7 +116,10 @@ const EditProfile: React.FC = () => {
   };
 
   return (
-    <div className="max-w-xl mx-auto p-6">
+    <div className="mx-auto w-full max-w-xl p-4 sm:p-6">
+      <div className="mb-12">
+        <ArrowBackButton />
+      </div>  
       <h2 className="text-xl font-bold mb-4">Editar perfil</h2>
       {err && <p className="text-red-500 mb-2">{err}</p>}
       {msg && <p className="text-green-500 mb-2">{msg}</p>}
@@ -123,34 +129,75 @@ const EditProfile: React.FC = () => {
       ) : step === "edit" ? (
         <>
           <form onSubmit={requestCode} className="space-y-5">
-            <div className="flex items-center gap-5">
-              <div className="avatar-lg">
-                <img src={preview || "/avatar3.png"} alt="avatar" />
+            {/* AVATAR + INPUT ARCHIVO */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+              <div className="shrink-0">
+                <img
+                  src={preview || "/avatar3.png"}
+                  alt="avatar"
+                  className="h-28 w-28 sm:h-32 sm:w-32 rounded-full object-cover ring-1 ring-black/20"
+                />
               </div>
+
               <div className="text-sm">
-                <input type="file" accept="image/*" onChange={onPickAvatar} />
+                <label className="block">
+                  <span className="mb-1 block text-neutral-300">Seleccionar archivo</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={onPickAvatar}
+                    className="block w-full text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-blue-600 file:px-3 file:py-2 file:text-white file:font-medium hover:file:bg-blue-500"
+                  />
+                </label>
               </div>
             </div>
 
             <div>
               <label className="block text-sm mb-1">Nombre</label>
-              <input className="w-full border p-2 rounded" value={name} onChange={(e) => setName(e.target.value)} />
+              <input
+                className="w-full border p-2 rounded bg-white/5 border-white/10"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
             </div>
 
             <div>
               <label className="block text-sm mb-1">Correo</label>
-              <input className="w-full border p-2 rounded" value={email} onChange={(e) => setEmail(e.target.value)} />
-              <p className="text-xs text-gray-500">Si cambias el correo, el código llegará al nuevo correo.</p>
+              <input
+                className="w-full border p-2 rounded bg-white/5 border-white/10"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                Si cambias el correo, el código llegará al nuevo correo.
+              </p>
             </div>
 
             <div>
               <label className="block text-sm mb-1">Nueva contraseña (opcional)</label>
-              <input type="password" className="w-full border p-2 rounded" value={password} onChange={(e) => setPassword(e.target.value)} />
+              <input
+                type="password"
+                className="w-full border p-2 rounded bg-white/5 border-white/10"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
             </div>
 
-            <div className="flex items-center gap-2">
-              <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded">Enviar código y continuar</button>
-              <button type="button" onClick={handleDeleteAccount} className="bg-red-600 text-white px-4 py-2 rounded">Eliminar cuenta</button>
+            {/* BOTONES */}
+            <div className="flex flex-col sm:flex-row gap-2">
+              <button
+                type="submit"
+                className="w-full sm:w-auto bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+              >
+                Enviar código y continuar
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteAccount}
+                className="w-full sm:w-auto bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
+              >
+                Eliminar cuenta
+              </button>
             </div>
           </form>
         </>
@@ -158,17 +205,37 @@ const EditProfile: React.FC = () => {
         <form onSubmit={submitChanges} className="space-y-4">
           <div>
             <label className="block text-sm mb-1">Código recibido</label>
-            <input className="w-full border p-2 rounded" value={code} onChange={(e) => setCode(e.target.value)} />
+            <input
+              className="w-full border p-2 rounded bg-white/5 border-white/10"
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+            />
           </div>
-          <div className="flex gap-2">
-            <button type="submit" className="bg-emerald-600 text-white px-4 py-2 rounded">Confirmar cambios</button>
-            <button type="button" onClick={() => setStep("edit")} className="bg-gray-600 text-white px-4 py-2 rounded">Volver</button>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <button
+              type="submit"
+              className="w-full sm:w-auto bg-emerald-600 text-white px-4 py-2 rounded hover:bg-emerald-700"
+            >
+              Confirmar cambios
+            </button>
+            <button
+              type="button"
+              onClick={() => setStep("edit")}
+              className="w-full sm:w-auto bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700"
+            >
+              Volver
+            </button>
           </div>
         </form>
       ) : (
         <div className="space-y-2">
           <p>Listo. Tus cambios han sido guardados.</p>
-          <button onClick={() => navigate("/dashboard")} className="bg-blue-600 text-white px-4 py-2 rounded">Ir al dashboard</button>
+          <button
+            onClick={() => navigate("/dashboard")}
+            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+          >
+            Ir al dashboard
+          </button>
         </div>
       )}
     </div>

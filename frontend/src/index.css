@@ -69,7 +69,7 @@ button:focus-visible {
 
 /* Agrega esto al final de index.css si es necesario */
 .container {
-  max-width: 1200px;
+  max-width: 1280px;
   margin: 0 auto;
   width: 100%;
 }

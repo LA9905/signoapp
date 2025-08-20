@@ -1,4 +1,3 @@
-# app/__init__.py
 from flask import Flask, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
@@ -6,6 +5,7 @@ from flask_jwt_extended import JWTManager
 from flask_mail import Mail
 from flask_migrate import Migrate
 from datetime import timedelta
+import os
 
 db = SQLAlchemy()
 jwt = JWTManager()
@@ -32,23 +32,28 @@ def create_app():
     mail.init_app(app)
     migrate.init_app(app, db)
 
-    # 👇 IMPORTA TODOS los modelos ANTES de create_all
+    # Importa modelos ANTES de cualquier operación
     with app.app_context():
         from .models import (
             user_model,
             product_model,
-            client_model,     
-            driver_model,     
-            dispatch_model,   
+            client_model,
+            driver_model,
+            dispatch_model,
         )
-        db.create_all()
+        # Solo en dev/CI: crea tablas si faltan
+        env = os.getenv("FLASK_ENV") or os.getenv("ENV") or "production"
+        if env != "production":
+            db.create_all()
 
+    # Blueprints
     from .routes.auth_routes import auth_bp
     from .routes.product_routes import product_bp
     from .routes.print_routes import print_bp
     from app.routes.driver_routes import driver_bp
     from .routes.client_routes import client_bp
     from .routes.dispatch_routes import dispatch_bp
+    from .routes.health_routes import health_bp
 
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
     app.register_blueprint(product_bp, url_prefix="/api")
@@ -56,8 +61,9 @@ def create_app():
     app.register_blueprint(driver_bp, url_prefix="/api")
     app.register_blueprint(client_bp, url_prefix="/api")
     app.register_blueprint(dispatch_bp, url_prefix="/api")
+    app.register_blueprint(health_bp, url_prefix="/api")
 
-    app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=1)
+    app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=8)
 
     @app.route('/uploads/<path:filename>')
     def uploads(filename):

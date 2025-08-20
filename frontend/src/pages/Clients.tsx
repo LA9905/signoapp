@@ -1,6 +1,7 @@
 // src/pages/Clients.tsx
 import { useEffect, useState, type FormEvent, type ChangeEvent } from "react";
 import { FaRegEdit, FaTrashAlt, FaSave, FaTimes } from "react-icons/fa";
+import ArrowBackButton from "../components/ArrowBackButton";
 import { useClients } from "../context/ClientsContext";
 
 const Clients = () => {
@@ -82,12 +83,15 @@ const Clients = () => {
 
   return (
     <div className="p-4 max-w-xl mx-auto">
-      <h2 className="text-2xl font-semibold mb-4">Lista de Clientes</h2>
+      <div className="mb-12">
+        <ArrowBackButton />
+      </div>
+      <h2 className="text-2xl font-semibold mb-4">Lista de Centro de Costos</h2>
 
       <form onSubmit={handleSubmit} className="flex gap-2 mb-6">
         <input
           type="text"
-          placeholder="Nombre del cliente"
+          placeholder="Nombre del Centro de Costo"
           value={name}
           onChange={(e: ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
           className="flex-1 border p-2 rounded"
