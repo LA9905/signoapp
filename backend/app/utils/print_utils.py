@@ -270,7 +270,7 @@ def generar_etiqueta_despacho(d: dict, size: str = "4x6") -> BytesIO:
     y -= 11
 
     # Fila 2: Cliente (100%)
-    _draw_label_value(Mx, line_w, "Cliente: ", d.get("cliente", ""))
+    _draw_label_value(Mx, line_w, "Centro de Costo: ", d.get("cliente", ""))
     y -= 11
 
     # Raya superior del bloque de información

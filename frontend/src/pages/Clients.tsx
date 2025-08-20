@@ -86,12 +86,12 @@ const Clients = () => {
       <div className="mb-12">
         <ArrowBackButton />
       </div>
-      <h2 className="text-2xl font-semibold mb-4">Lista de Clientes</h2>
+      <h2 className="text-2xl font-semibold mb-4">Lista de Centro de Costos</h2>
 
       <form onSubmit={handleSubmit} className="flex gap-2 mb-6">
         <input
           type="text"
-          placeholder="Nombre del cliente"
+          placeholder="Nombre del Centro de Costo"
           value={name}
           onChange={(e: ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
           className="flex-1 border p-2 rounded"

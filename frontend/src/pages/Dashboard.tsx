@@ -16,7 +16,7 @@ const Dashboard: React.FC = () => {
     { title: "Agregar productos", route: "/add-product" },
     { title: "Listado de productos", route: "/products" },
     { title: "Choferes", route: "/drivers" },
-    { title: "Clientes", route: "/clients" },
+    { title: "Centros de Costos", route: "/clients" },
     { title: "Seguimiento", route: "/tracking" },
   ];
 

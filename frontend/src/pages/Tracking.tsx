@@ -196,11 +196,11 @@ const Tracking = () => {
             : d
         )
       );
-      setMensaje("Despacho marcado como 'Entregado a Cliente'.");
+      setMensaje("Despacho marcado como 'Pedido Entregado'.");
     } catch (err) {
       const error = err as AxiosError;
       console.error("Error marcando cliente:", error.response ? error.response.data : error.message);
-      setMensaje("No se pudo marcar 'Entregado a Cliente'.");
+      setMensaje("No se pudo marcar 'Pedido Entregado'.");
     }
   };
 
@@ -279,7 +279,7 @@ const Tracking = () => {
 
   const humanStatus = (s: string) => {
     if (s === "entregado_chofer") return "Entregado a Chofer";
-    if (s === "entregado_cliente") return "Entregado a Cliente";
+    if (s === "entregado_cliente") return "Pedido Entregado";
     return s;
   };
 
@@ -292,7 +292,7 @@ const Tracking = () => {
       {mensaje && <p className="mb-4 text-emerald-400">{mensaje}</p>}
 
       <form onSubmit={handleSearchSubmit} className="space-y-4 mb-6">
-        <input name="client" value={search.client} onChange={handleSearchChange} placeholder="Buscar por nombre del cliente" className="w-full border p-2 rounded" />
+        <input name="client" value={search.client} onChange={handleSearchChange} placeholder="Buscar por nombre del centro de costo" className="w-full border p-2 rounded" />
         <input name="order" value={search.order} onChange={handleSearchChange} placeholder="Buscar por número de orden" className="w-full border p-2 rounded" />
         <input name="invoice" value={search.invoice} onChange={handleSearchChange} placeholder="Buscar por número de factura" className="w-full border p-2 rounded"/>
         <input name="user" value={search.user} onChange={handleSearchChange} placeholder="Buscar por usuario que creó" className="w-full border p-2 rounded" />
@@ -315,7 +315,7 @@ const Tracking = () => {
                     <p><strong>Orden:</strong> {d.orden}</p>
                     {d.paquete_numero ? <p><strong>Paquete N°:</strong> {d.paquete_numero}</p> : null}
                     {d.factura_numero ? <p><strong>Factura N°:</strong> {d.factura_numero}</p> : null}
-                    <p><strong>Cliente:</strong> {d.cliente}</p>
+                    <p><strong>Centro de Costo:</strong> {d.cliente}</p>
                     <p><strong>Chofer:</strong> {d.chofer}</p>
                     <p><strong>Despachado por:</strong> {d.created_by}</p>
                     <p><strong>Fecha:</strong> {new Date(d.fecha).toLocaleString()}</p>
@@ -334,7 +334,7 @@ const Tracking = () => {
                       </div>
 
                       <div>
-                        <label className="block text-sm mb-1">Cliente</label>
+                        <label className="block text-sm mb-1">Centro de Costo</label>
                         <ClientSelector
                           value={draft?.cliente || ""}
                           onChange={(cliente) => setDraft((prev) => prev ? { ...prev, cliente } : prev)}
@@ -505,9 +505,9 @@ const Tracking = () => {
                     }
                     disabled={isClientDone}
                     onClick={() => markToClient(d.id)}
-                    title={isClientDone ? "Entregado a Cliente (finalizado)" : "Marcar como Entregado a Cliente"}
+                    title={isClientDone ? "Pedido Entregado (finalizado)" : "Marcar como Pedido Entregado"}
                   >
-                    {d.delivered_client ? "Entregado a Cliente" : "Marcar como Entregado a Cliente"}
+                    {d.delivered_client ? "Pedido Entregado" : "Marcar como Pedido Entregado"}
                   </button>
                 </div>
               </div>

@@ -113,7 +113,7 @@ const ClientSelector: React.FC<ClientSelectorProps> = ({ value, onChange }) => {
           onChange={(e) => onChange(e.target.value)}
           className="w-full border p-2 rounded"
         >
-          <option value="">Selecciona cliente</option>
+          <option value="">Selecciona Centro de costo</option>
           {filteredClients.map((client) => (
             <option key={client.id} value={client.name}>
               {client.name}
@@ -180,7 +180,7 @@ const ClientSelector: React.FC<ClientSelectorProps> = ({ value, onChange }) => {
             type="text"
             value={newClient}
             onChange={(e) => setNewClient(e.target.value)}
-            placeholder="Nuevo cliente"
+            placeholder="Nuevo centro de costo"
             className="flex-1 border p-2 rounded"
           />
           <button
@@ -204,7 +204,7 @@ const ClientSelector: React.FC<ClientSelectorProps> = ({ value, onChange }) => {
           className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600"
           type="button"
         >
-          Nuevo Cliente
+          Nuevo Centro de Costo
         </button>
       )}
     </div>
