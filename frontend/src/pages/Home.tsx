@@ -283,15 +283,15 @@ function Footer() {
         </div>
       </div>
       <div className="py-6 text-center text-xs text-white font-sans">
-        &copy; {new Date().getFullYear()} SignoApp. Todos los derechos reservados.
-
+        &copy; {new Date().getFullYear()} SignoApp.
+        <p>Todos los derechos reservados.</p>
         <p>
           Developed with ❤️ by{" "}
           <a
             className="developer"
             target="_blank"
             rel="noopener noreferrer"
-            href="https://wa.me/56995334317/"
+            href="https://www.linkedin.com/in/alejandro-arraga"
           >
             Alejandro Arraga{" "}
           </a>

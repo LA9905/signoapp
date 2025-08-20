@@ -276,14 +276,59 @@ def update_dispatch(dispatch_id):
                 pass
 
         if "productos" in data and isinstance(data["productos"], list):
-            DispatchProduct.query.filter_by(dispatch_id=d.id).delete()
+            # 1) Mapear cantidades actuales del despacho (antes de modificar) por nombre
+            old_qty_by_name: dict[str, float] = {}
+            for item in d.productos:
+                try:
+                    q = float(item.cantidad or 0)
+                except Exception:
+                    q = 0.0
+                old_qty_by_name[item.nombre] = old_qty_by_name.get(item.nombre, 0.0) + q
+
+            # 2) Validar y preparar las filas nuevas + mapear cantidades nuevas por nombre
+            new_rows: list[DispatchProduct] = []
+            new_qty_by_name: dict[str, float] = {}
+
             for p in data["productos"]:
                 if not all(k in p for k in ("nombre", "cantidad", "unidad")):
                     db.session.rollback()
                     return jsonify({"error": "Cada producto requiere nombre, cantidad y unidad"}), 400
-                db.session.add(
-                    DispatchProduct(dispatch_id=d.id, nombre=p["nombre"], cantidad=p["cantidad"], unidad=p["unidad"])
+
+                nombre = p["nombre"]
+                unidad = p["unidad"]
+                try:
+                    cantidad = float(p["cantidad"] or 0)
+                except Exception:
+                    cantidad = 0.0
+
+                new_rows.append(
+                    DispatchProduct(dispatch_id=d.id, nombre=nombre, cantidad=cantidad, unidad=unidad)
                 )
+                new_qty_by_name[nombre] = new_qty_by_name.get(nombre, 0.0) + cantidad
+
+            # 3) Calcular diferencias y ajustar stock global de Product por nombre
+            #    Si new > old  -> hubo aumento de cantidad en el despacho -> restamos del stock
+            #    Si new < old  -> hubo disminución de cantidad en el despacho -> devolvemos al stock
+            all_names = set(old_qty_by_name.keys()) | set(new_qty_by_name.keys())
+            for nombre in all_names:
+                old_q = float(old_qty_by_name.get(nombre, 0.0))
+                new_q = float(new_qty_by_name.get(nombre, 0.0))
+                delta_en_despacho = new_q - old_q  # positivo si se agregó más al despacho
+
+                if delta_en_despacho != 0:
+                    prod_row = Product.query.filter_by(name=nombre).first()
+                    if prod_row:
+                        try:
+                            # Restar lo adicional que ahora "sale" en el despacho; si es negativo, se suma (se devuelve)
+                            prod_row.stock = float(prod_row.stock or 0) - float(delta_en_despacho)
+                        except Exception:
+                            # Si falla el casteo, no tocamos el stock de ese producto
+                            pass
+
+            # 4) Reemplazar los ítems del despacho por los nuevos
+            DispatchProduct.query.filter_by(dispatch_id=d.id).delete()
+            for row in new_rows:
+                db.session.add(row)
 
         db.session.commit()
 
