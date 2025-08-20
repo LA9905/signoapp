@@ -37,17 +37,29 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
   const [tmpUnidad, setTmpUnidad] = useState("unidades");
 
   const categories = [
-    "Bolsas Negras",
+    "Bolsas de Basura Negras",
     "Bolsas Transparente Recuperada",
     "Bolsas Camisetas",
     "Bolsas Virgen Transparente",
+    "Bolsas Recuperada de Color",
+    "Bolsas con Impresión",
+    "Bolsas de Lavandería",
+    "Bolsas de Polipolieno",
+    "Bolsas de Cubierto",
     "Productos de limpieza, aseo y cocina",
     "Vasos plásticos",
     "Vasos de Poli-papel",
     "Vasos Espumados",
     "Vasos PET",
-    "Envases de Alimento",
-    "Porta-colaciones",
+    "Envases Bolw de Alimento",
+    "Porta-colaciones o envases Plumavit",
+    "Film",
+    "Prepicados",
+    "Guantes",
+    "Utensilios y platos",
+    "Brochetas",
+    "Pocillos de Degustacion",
+    "Gorros y Cofias",
     "Otros",
   ];
 
@@ -173,6 +185,7 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
                     <option value="unidades">Unidades</option>
                     <option value="kg">Kilogramos</option>
                     <option value="l">Litros</option>
+                    <option value="cajas">Cajas</option>
                   </select>
                 </div>
                 <div className="flex items-center gap-2">
@@ -206,7 +219,25 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
         type="text"
         placeholder="Buscar producto..."
         value={searchProduct}
-        onChange={(e) => setSearchProduct(e.target.value)}
+        onChange={(e) => {
+          const value = e.target.value;
+          setSearchProduct(value);
+
+          // 🔹 Nuevo: autoseleccionar el primer producto que coincida
+          const match = existingProductos.find((p) =>
+            p.name.toLowerCase().includes(value.toLowerCase())
+          );
+          if (match) {
+            setNewProduct({
+              ...match,
+              cantidad: newProduct.cantidad, // mantiene cantidad actual
+            });
+            if (match.category) setSelectedCategory(match.category);
+          } else {
+            // si no hay coincidencia, limpiar id y nombre
+            setNewProduct((prev) => ({ ...prev, id: "", name: value }));
+          }
+        }}
         className="w-full border p-2"
       />
 
@@ -241,6 +272,7 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
           <option value="unidades">Unidades</option>
           <option value="kg">Kilogramos</option>
           <option value="l">Litros</option>
+          <option value="cajas">Cajas</option>
         </select>
         <button
           type="button"
@@ -302,6 +334,7 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
             <option value="unidades">Unidades</option>
             <option value="kg">Kilogramos</option>
             <option value="l">Litros</option>
+            <option value="cajas">Cajas</option>
           </select>
           <button
             type="button"
