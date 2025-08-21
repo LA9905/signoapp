@@ -86,7 +86,10 @@ def me():
         "id": user.id,
         "name": user.name,
         "email": user.email,
-        "avatar_url": user.avatar_url
+        "avatar_url": user.avatar_url,
+        "is_admin": user.is_admin,
+        "subscription_paid_until": user.subscription_paid_until.isoformat() if user.subscription_paid_until else None,
+        "due_day": user.due_day,
     }), 200
 
 @auth_bp.route("/profile/request-code", methods=["POST"])
