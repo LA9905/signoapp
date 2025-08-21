@@ -17,6 +17,7 @@ import Drivers from "./pages/Drivers";
 import Tracking from "./pages/Tracking";
 import EditProfile from "./pages/EditProfile";
 import ProtectedShell from "./layouts/ProtectedShell";
+import AdminBilling from "./pages/AdminBilling";
 
 // Hace un ping silencioso al backend para "despertarlo" en Render
 const WarmBoot: React.FC = () => {
@@ -108,6 +109,14 @@ const App: React.FC = () => {
           element={
             <ProtectedShell>
               <EditProfile />
+            </ProtectedShell>
+          }
+        />
+        <Route
+          path="/admin/billing"
+          element={
+            <ProtectedShell>
+              <AdminBilling />
             </ProtectedShell>
           }
         />

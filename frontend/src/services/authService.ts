@@ -1,7 +1,15 @@
 import { api } from "./http";
 
 export type LoginResp = { token: string; name: string };
-export type MeResp = { id: number; name: string; email: string; avatar_url?: string | null };
+export type MeResp = {
+  id: number;
+  name: string;
+  email: string;
+  avatar_url?: string | null;
+  is_admin?: boolean;
+  subscription_paid_until?: string | null;
+  due_day?: number;
+};
 
 export const register = (data: { name: string; email: string; password: string }) =>
   api.post<{ msg: string }>("/auth/register", data);

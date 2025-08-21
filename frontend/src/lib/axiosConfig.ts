@@ -23,6 +23,11 @@ axios.interceptors.response.use(
       // redirección fuerte para evitar estados inconsistentes
       window.location.replace("/login");
     }
+
+    if (status === 402 && !isHandlingAuthError) {
+      // Redirige a cualquier ruta protegida; ProtectedShell mostrará el paywall
+      window.location.replace("/dashboard");
+    }
     return Promise.reject(error);
   }
 );

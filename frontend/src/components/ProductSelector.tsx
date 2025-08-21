@@ -46,6 +46,7 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
     "Bolsas de Lavandería",
     "Bolsas de Polipolieno",
     "Bolsas de Cubierto",
+    "Bolsas de Papel Kraft o Blancas",
     "Productos de limpieza, aseo y cocina",
     "Vasos plásticos",
     "Vasos de Poli-papel",

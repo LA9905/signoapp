@@ -3,13 +3,26 @@ import NavbarUser from "../components/NavbarUser";
 import ChartMonthlyOrders from "../components/ChartMonthlyOrders";
 import { useNavigate } from "react-router-dom";
 import { api } from "../services/http";
+import { me } from "../services/authService"; // 👈 falta este import
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const name = localStorage.getItem("name") || "Usuario";
   const [chartData, setChartData] = useState<number[]>([]);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const handleStart = () => navigate("/CreateDispatch");
+
+  useEffect(() => {
+    api
+      .get("/dispatches/monthly")
+      .then((res) => setChartData(res.data || []))
+      .catch(() => setChartData([]));
+
+    me()
+      .then((res) => setIsAdmin(!!res.data.is_admin))
+      .catch(() => setIsAdmin(false));
+  }, []);
 
   const menuItems = [
     { title: "Crear despacho", route: "/CreateDispatch" },
@@ -18,17 +31,11 @@ const Dashboard: React.FC = () => {
     { title: "Choferes", route: "/drivers" },
     { title: "Centros de Costos", route: "/clients" },
     { title: "Seguimiento", route: "/tracking" },
+    ...(isAdmin ? [{ title: "Administración (pagos)", route: "/admin/billing" }] : []),
   ];
 
-  useEffect(() => {
-    api
-      .get("/dispatches/monthly")
-      .then((res) => setChartData(res.data || []))
-      .catch(() => setChartData([]));
-  }, []);
-
   return (
-    <div className="min-h-screen bg-blue-50 text-neutral-900"> {/* 👈 fuerza texto oscuro */}
+    <div className="min-h-screen bg-blue-50 text-neutral-900">
       <NavbarUser />
 
       <div className="max-w-5xl mx-auto p-6">
