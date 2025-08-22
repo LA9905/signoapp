@@ -189,6 +189,7 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
                     <option value="kg">Kilogramos</option>
                     <option value="l">Litros</option>
                     <option value="cajas">Cajas</option>
+                    <option value="PQT">Paquetes</option>
                   </select>
                 </div>
                 <div className="flex items-center gap-2">
@@ -276,6 +277,7 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
           <option value="kg">Kilogramos</option>
           <option value="l">Litros</option>
           <option value="cajas">Cajas</option>
+          <option value="PQT">Paquetes</option>
         </select>
         <button
           type="button"
@@ -338,6 +340,7 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
             <option value="kg">Kilogramos</option>
             <option value="l">Litros</option>
             <option value="cajas">Cajas</option>
+            <option value="PQT">Paquetes</option>
           </select>
           <button
             type="button"
