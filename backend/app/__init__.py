@@ -22,16 +22,22 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object("config.Config")
 
+    # ✅ CORS global, con headers y métodos explícitos
     CORS(
         app,
-        resources={r"/api/*": {
-            "origins": [
-                "http://localhost:5173",
-                "https://signoapp-front.onrender.com"
-            ]
-        }},
-        supports_credentials=True
+        resources={
+            r"/api/*": {
+                "origins": [
+                    "http://localhost:5173",
+                    "https://signoapp-front.onrender.com",
+                ],
+                "methods": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+                "allow_headers": ["Content-Type", "Authorization"],
+            }
+        },
+        supports_credentials=True,
     )
+
 
     db.init_app(app)
     jwt.init_app(app)
@@ -79,16 +85,20 @@ def create_app():
         if not path.startswith("/api"):
             return  # no API
 
+        # ✅ Deja pasar preflight siempre
+        if request.method == "OPTIONS":
+            return
+
         # rutas permitidas aunque impago
         allow = (
             path.startswith("/api/auth/")
             or path.startswith("/api/health")
-            or path.startswith("/api/billing/")  # ver estado y marcar pago
+            or path.startswith("/api/billing/")
         )
         if allow:
             return
 
-        # Si no hay JWT, deja que la ruta responda 401/403 como siempre
+        # Si no hay JWT, deja que la ruta responda 401/403
         try:
             verify_jwt_in_request(optional=True)
         except Exception:
@@ -98,15 +108,21 @@ def create_app():
         if not uid:
             return
 
-        # 👇 Import local aquí para evitar ciclo de import
+        # Import local para evitar ciclos
         from app.models.user_model import User
 
-        user = User.query.get(uid)
+        # get() tolera string, pero por si acaso lo forzamos a int si corresponde
+        try:
+            uid_val = int(uid)
+        except Exception:
+            uid_val = uid
+
+        user = User.query.get(uid_val)
         if not user:
             return
 
+        from app.utils.billing import is_blocked  # seguro (no importa app)
         if is_blocked(user):
-            # 402 Payment Required → el front muestra el paywall
             return jsonify({
                 "error": "payment_required",
                 "msg": "Debe pagar la suscripción para seguir usando la app."
