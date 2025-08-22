@@ -15,7 +15,7 @@ const schema = z.object({
 type ProductForm = z.infer<typeof schema>;
 
 const categories = [
-  "Bolsas de Basura Negras",
+    "Bolsas de Basura Negras",
     "Bolsas Transparente Recuperada",
     "Bolsas Camisetas",
     "Bolsas Virgen Transparente",
@@ -25,20 +25,22 @@ const categories = [
     "Bolsas de Polipolieno",
     "Bolsas de Cubierto",
     "Bolsas de Papel Kraft o Blancas",
-    "Productos de limpieza, aseo y cocina",
+    "Productos de limpieza, aseo, cocina y higiene",
     "Vasos plásticos",
     "Vasos de Poli-papel",
     "Vasos Espumados",
     "Vasos PET",
-    "Envases Bolw de Alimento",
+    "Tapas",
+    "Envases Bowl de Alimento",
     "Porta-colaciones o envases Plumavit",
     "Film",
     "Prepicados",
     "Guantes",
     "Utensilios y platos",
     "Brochetas",
-    "Pocillos de Degustacion",
+    "Pocillos de Degustación",
     "Gorros y Cofias",
+    "Productos de Protección y seguridad",
     "Otros",
 ];
 
