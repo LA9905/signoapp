@@ -23,18 +23,20 @@ def create_app():
     app.config.from_object("config.Config")
 
     # ✅ CORS global, con headers y métodos explícitos
+    allowed_origins = [
+        "http://localhost:5173",          # dev local
+        "https://www.signo-app.com",      # front prod con www
+        "https://signo-app.com",          # root que redirige a www (por si algo llama directo)
+        # "https://signoapp-front.onrender.com",  # opcional, si quieres mantener por transición
+    ]
+
     CORS(
         app,
-        resources={
-            r"/api/*": {
-                "origins": [
-                    "http://localhost:5173",
-                    "https://signoapp-front.onrender.com",
-                ],
-                "methods": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-                "allow_headers": ["Content-Type", "Authorization"],
-            }
-        },
+        resources={r"/api/*": {
+            "origins": allowed_origins,
+            "methods": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+            "allow_headers": ["Content-Type", "Authorization"],
+        }},
         supports_credentials=True,
     )
 
