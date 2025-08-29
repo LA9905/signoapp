@@ -42,6 +42,29 @@ def _gen_code128_image(text: str) -> BytesIO:
     out.seek(0)
     return out
 
+def _wrap_text(c, text: str, max_w: float, font: str = "Helvetica", size: float = 10.0) -> list[str]:
+    """
+    Divide `text` en varias líneas para que ninguna supere `max_w`
+    con la fuente/tamaño dados.
+    """
+    text = str(text or "")
+    words = text.split()
+    if not words:
+        return [""]
+
+    lines = []
+    current = words[0]
+    for w in words[1:]:
+        test = current + " " + w
+        if c.stringWidth(test, font, size) <= max_w:
+            current = test
+        else:
+            lines.append(current)
+            current = w
+    lines.append(current)
+    return lines
+
+
 # ---------- A4 (documento) ----------
 
 def generar_hoja_despacho(d: dict) -> BytesIO:
@@ -298,22 +321,60 @@ def generar_etiqueta_despacho(d: dict, size: str = "4x6") -> BytesIO:
     c.drawString(Mx, y, f"Despachado por: {d.get('auxiliar','')}")
     y -= 12
 
-    # Lista de productos (con límite para no pisar el código)
+    # Lista de productos (envuelve líneas largas sin cortar)
     productos = d.get("productos", []) or []
     if productos:
         c.setFont("Helvetica-Bold", 10.5)
         c.drawString(Mx, y, "Productos:")
         y -= 11
+
         c.setFont("Helvetica", 10)
-        max_lines = 7
-        for idx, item in enumerate(productos[:max_lines], start=1):
-            c.drawString(Mx, y, f"{idx}. {item}")
-            y -= 11
-        if len(productos) > max_lines:
+        line_h = 11
+
+        # Altura mínima que debemos respetar para no chocar con el código de barras
+        bh = 28 * mm  # alto del código de barras
+        min_y = 10 * mm + bh + 18  # margen de seguridad
+
+        remaining_items_count = 0
+        truncated = False
+        line_w = (PAGE_W - 2 * Mx)
+
+        for idx, item in enumerate(productos, start=1):
+            # Si ya no hay espacio suficiente para al menos una línea, cortamos
+            if y - line_h < min_y:
+                remaining_items_count = len(productos) - (idx - 1)
+                truncated = True
+                break
+
+            prefix = f"{idx}. "
+            prefix_w = c.stringWidth(prefix, "Helvetica", 10)
+            # El texto envuelto se alinea después de la numeración
+            max_w_text = max(0, line_w - prefix_w)
+
+            lines = _wrap_text(c, item, max_w_text, "Helvetica", 10)
+
+            # Pintamos la primera línea con el prefijo y las siguientes con sangría
+            for j, line in enumerate(lines):
+                if y - line_h < min_y:
+                    # No hay espacio para seguir pintando este item
+                    remaining_items_count = len(productos) - idx + 1
+                    truncated = True
+                    break
+
+                if j == 0:
+                    c.drawString(Mx, y, prefix + line)
+                else:
+                    c.drawString(Mx + prefix_w, y, line)
+                y -= line_h
+
+            if truncated:
+                break
+
+        if truncated and remaining_items_count > 0:
             c.setFillColor(colors.grey)
-            c.drawString(Mx, y, f"... y {len(productos) - max_lines} más")
+            c.drawString(Mx, y, f"... y {remaining_items_count} más")
             c.setFillColor(colors.black)
-            y -= 11
+            y -= line_h
 
     # Separador antes del código
     y -= 4

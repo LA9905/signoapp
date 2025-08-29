@@ -1,4 +1,3 @@
-// src/pages/AddProduct.tsx
 import { useEffect, useState } from "react";
 import { FaRegEdit, FaTrashAlt, FaSave, FaTimes } from "react-icons/fa";
 import ArrowBackButton from "../components/ArrowBackButton";
@@ -13,33 +12,34 @@ interface Product {
 }
 
 const categories = [
-    "Bolsas de Basura Negras",
-    "Bolsas Transparente Recuperada",
-    "Bolsas Camisetas",
-    "Bolsas Virgen Transparente",
-    "Bolsas Recuperada de Color",
-    "Bolsas con Impresión",
-    "Bolsas de Lavandería",
-    "Bolsas de Polipolieno",
-    "Bolsas de Cubierto",
-    "Bolsas de Papel Kraft o Blancas",
-    "Productos de limpieza, aseo, cocina y higiene",
-    "Vasos plásticos",
-    "Vasos de Poli-papel",
-    "Vasos Espumados",
-    "Vasos PET",
-    "Tapas",
-    "Envases Bowl de Alimento",
-    "Porta-colaciones o envases Plumavit",
-    "Film",
-    "Prepicados",
-    "Guantes",
-    "Utensilios y platos",
-    "Brochetas",
-    "Pocillos de Degustación",
-    "Gorros y Cofias",
-    "Productos de Protección y seguridad",
-    "Otros",
+  "Bolsas de Basura Negras",
+  "Bolsas Transparente Recuperada",
+  "Bolsas Camisetas",
+  "Bolsas Virgen Transparente",
+  "Bolsas PEAD de Alta Densidad",
+  "Bolsas Recuperada de Color",
+  "Bolsas con Impresión",
+  "Bolsas de Lavandería",
+  "Bolsas de Polipropileno",
+  "Bolsas de Cubierto",
+  "Bolsas de Papel Kraft o Blancas",
+  "Productos de limpieza, aseo, cocina y higiene",
+  "Vasos plásticos",
+  "Vasos de Poli-papel",
+  "Vasos Espumados",
+  "Vasos PET",
+  "Tapas",
+  "Envases Bowl de Alimento",
+  "Porta-colaciones o envases Plumavit",
+  "Film",
+  "Prepicados",
+  "Guantes",
+  "Utensilios y platos",
+  "Brochetas",
+  "Pocillos de Degustación",
+  "Gorros y Cofias",
+  "Productos de Protección y seguridad",
+  "Otros",
 ];
 
 type AdjustMode = "add" | "sub";
@@ -53,6 +53,9 @@ const ProductList = () => {
   const [editName, setEditName] = useState("");
   const [editCategory, setEditCategory] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // NUEVO: filtro por categoría ("" = todas)
+  const [categoryFilter, setCategoryFilter] = useState<string>("");
 
   // Ajuste +/- por producto
   const [adjust, setAdjust] = useState<AdjustState>({});
@@ -78,9 +81,12 @@ const ProductList = () => {
     return () => window.removeEventListener("focus", onFocus);
   }, []);
 
-  const filtered = products.filter((p) =>
-    p.name.toLowerCase().includes(search.toLowerCase())
-  );
+  // FILTRADO: por nombre + (opcional) por categoría
+  const filtered = products.filter((p) => {
+    const matchName = p.name.toLowerCase().includes(search.toLowerCase());
+    const matchCategory = !categoryFilter || p.category === categoryFilter;
+    return matchName && matchCategory;
+  });
 
   const groupedProducts = filtered.reduce((acc, product) => {
     if (!acc[product.category]) acc[product.category] = [];
@@ -219,6 +225,7 @@ const ProductList = () => {
         <ArrowBackButton />
       </div>
       <h2 className="text-2xl font-semibold mb-4">Listado de Productos</h2>
+
       <input
         type="text"
         placeholder="Buscar producto..."
@@ -227,206 +234,228 @@ const ProductList = () => {
         onChange={(e) => setSearch(e.target.value)}
       />
 
+      {/* NUEVO: selector de categoría (opcional) */}
+      <select
+        className="border p-2 rounded w-full mb-6"
+        value={categoryFilter}
+        onChange={(e) => setCategoryFilter(e.target.value)}
+        aria-label="Filtrar por categoría"
+      >
+        <option value="">Todas las categorías</option>
+        {categories.map((c) => (
+          <option key={c} value={c}>
+            {c}
+          </option>
+        ))}
+      </select>
+
       {loading && <p className="text-sm text-gray-500 mb-2">Cargando...</p>}
 
-      {Object.keys(groupedProducts).map((category) => (
-        <div key={category} className="mb-4">
-          <h3 className="text-lg font-semibold mb-2 text-blue-500">{category}</h3>
-          <ul className="space-y-2">
-            {groupedProducts[category].map((product) => {
-              const isEditing = editingId === product.id;
-              const adj = adjust[product.id];
+      {/* Si hay categoría seleccionada y no hay productos, mostrar mensaje */}
+      {categoryFilter && Object.keys(groupedProducts).length === 0 ? (
+        <p className="text-sm text-gray-400">
+          La categoría “{categoryFilter}” está vacía.
+        </p>
+      ) : (
+        Object.keys(groupedProducts).map((category) => (
+          <div key={category} className="mb-4">
+            <h3 className="text-lg font-semibold mb-2 text-blue-500">{category}</h3>
+            <ul className="space-y-2">
+              {groupedProducts[category].map((product) => {
+                const isEditing = editingId === product.id;
+                const adj = adjust[product.id];
 
-              // valor mostrado en el input de stock (controlado)
-              const stockValue =
-                stockDrafts[product.id] !== undefined
-                  ? stockDrafts[product.id]
-                  : String(product.stock ?? 0);
+                // valor mostrado en el input de stock (controlado)
+                const stockValue =
+                  stockDrafts[product.id] !== undefined
+                    ? stockDrafts[product.id]
+                    : String(product.stock ?? 0);
 
-              return (
-                <li
-                  key={product.id}
-                  className="border p-3 rounded shadow flex items-center justify-between gap-3"
-                >
-                  <div className="flex-1">
-                    {!isEditing ? (
-                      <>
-                        <strong>{product.name}</strong>
-                        <div className="mt-1 text-sm text-gray-300">
-                          Stock: <span className="font-semibold">{product.stock ?? 0}</span>
+                return (
+                  <li
+                    key={product.id}
+                    className="border p-3 rounded shadow flex items-center justify-between gap-3"
+                  >
+                    <div className="flex-1">
+                      {!isEditing ? (
+                        <>
+                          <strong>{product.name}</strong>
+                          <div className="mt-1 text-sm text-gray-300">
+                            Stock: <span className="font-semibold">{product.stock ?? 0}</span>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          <input
+                            value={editName}
+                            onChange={(e) => setEditName(e.target.value)}
+                            className="border p-2 rounded w-full sm:w-1/2"
+                            placeholder="Nombre del producto"
+                          />
+                          <select
+                            value={editCategory}
+                            onChange={(e) => setEditCategory(e.target.value)}
+                            className="border p-2 rounded w-full sm:w-1/2"
+                          >
+                            {categories.map((c) => (
+                              <option key={c} value={c}>
+                                {c}
+                              </option>
+                            ))}
+                          </select>
                         </div>
-                      </>
-                    ) : (
-                      <div className="flex flex-col sm:flex-row gap-2">
+                      )}
+                    </div>
+
+                    {/* Controles de stock */}
+                    <div className="flex items-center gap-2 mr-3">
+                      {/* Botón "-" o input para restar */}
+                      {!adj || adj.mode !== "sub" ? (
+                        <button
+                          className="px-2 py-1 rounded border border-gray-600 text-white hover:text-red-300"
+                          title="Restar"
+                          onClick={() => beginAdjust(product.id, "sub")}
+                        >
+                          -
+                        </button>
+                      ) : (
                         <input
-                          value={editName}
-                          onChange={(e) => setEditName(e.target.value)}
-                          className="border p-2 rounded w-full sm:w-1/2"
-                          placeholder="Nombre del producto"
+                          autoFocus
+                          inputMode="decimal"
+                          type="number"
+                          min={0}
+                          step="any"
+                          className="w-20 border p-1 rounded bg-white/5 border-white/10 text-right"
+                          placeholder="cant."
+                          value={adj.value}
+                          onChange={(e) =>
+                            setAdjust((prev) => ({
+                              ...prev,
+                              [product.id]: { ...prev[product.id], value: e.target.value },
+                            }))
+                          }
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              commitAdjust(product);
+                            } else if (e.key === "Escape") {
+                              e.preventDefault();
+                              cancelAdjust(product.id);
+                            }
+                          }}
+                          onBlur={() => commitAdjust(product)}
                         />
-                        <select
-                          value={editCategory}
-                          onChange={(e) => setEditCategory(e.target.value)}
-                          className="border p-2 rounded w-full sm:w-1/2"
-                        >
-                          {categories.map((c) => (
-                            <option key={c} value={c}>
-                              {c}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
-                  </div>
+                      )}
 
-                  {/* Controles de stock */}
-                  <div className="flex items-center gap-2 mr-3">
-                    {/* Botón "-" o input para restar */}
-                    {!adj || adj.mode !== "sub" ? (
-                      <button
-                        className="px-2 py-1 rounded border border-gray-600 text-white hover:text-red-300"
-                        title="Restar"
-                        onClick={() => beginAdjust(product.id, "sub")}
-                      >
-                        -
-                      </button>
-                    ) : (
+                      {/* Botón "+" o input para sumar */}
+                      {!adj || adj.mode !== "add" ? (
+                        <button
+                          className="px-2 py-1 rounded border border-gray-600 text-white hover:text-emerald-300"
+                          title="Sumar"
+                          onClick={() => beginAdjust(product.id, "add")}
+                        >
+                          +
+                        </button>
+                      ) : (
+                        <input
+                          autoFocus
+                          inputMode="decimal"
+                          type="number"
+                          min={0}
+                          step="any"
+                          className="w-20 border p-1 rounded bg-white/5 border-white/10 text-right"
+                          placeholder="cant."
+                          value={adj.value}
+                          onChange={(e) =>
+                            setAdjust((prev) => ({
+                              ...prev,
+                              [product.id]: { ...prev[product.id], value: e.target.value },
+                            }))
+                          }
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              commitAdjust(product);
+                            } else if (e.key === "Escape") {
+                              e.preventDefault();
+                              cancelAdjust(product.id);
+                            }
+                          }}
+                          onBlur={() => commitAdjust(product)}
+                        />
+                      )}
+
+                      {/* Set directo del stock total (controlado) */}
                       <input
-                        autoFocus
+                        type="text"
                         inputMode="decimal"
-                        type="number"
-                        min={0}
-                        step="any"
-                        className="w-20 border p-1 rounded bg-white/5 border-white/10 text-right"
-                        placeholder="cant."
-                        value={adj.value}
-                        onChange={(e) =>
-                          setAdjust((prev) => ({
-                            ...prev,
-                            [product.id]: { ...prev[product.id], value: e.target.value },
-                          }))
-                        }
+                        className="w-24 border p-1 rounded bg-white/5 border-white/10 text-right"
+                        value={stockValue}
+                        onFocus={() => setStockDraft(product.id, String(product.stock ?? 0))}
+                        onChange={(e) => setStockDraft(product.id, e.target.value)}
+                        onBlur={() => commitSetStock(product)}
                         onKeyDown={(e) => {
                           if (e.key === "Enter") {
                             e.preventDefault();
-                            commitAdjust(product);
+                            commitSetStock(product);
                           } else if (e.key === "Escape") {
                             e.preventDefault();
-                            cancelAdjust(product.id);
+                            // cancelar y volver a seguir el store
+                            setStockDraft(product.id, undefined);
                           }
                         }}
-                        onBlur={() => commitAdjust(product)}
+                        title="Escribe un valor total y presiona Enter o sal del campo para fijar stock"
                       />
-                    )}
+                    </div>
 
-                    {/* Botón "+" o input para sumar */}
-                    {!adj || adj.mode !== "add" ? (
-                      <button
-                        className="px-2 py-1 rounded border border-gray-600 text-white hover:text-emerald-300"
-                        title="Sumar"
-                        onClick={() => beginAdjust(product.id, "add")}
-                      >
-                        +
-                      </button>
-                    ) : (
-                      <input
-                        autoFocus
-                        inputMode="decimal"
-                        type="number"
-                        min={0}
-                        step="any"
-                        className="w-20 border p-1 rounded bg-white/5 border-white/10 text-right"
-                        placeholder="cant."
-                        value={adj.value}
-                        onChange={(e) =>
-                          setAdjust((prev) => ({
-                            ...prev,
-                            [product.id]: { ...prev[product.id], value: e.target.value },
-                          }))
-                        }
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            commitAdjust(product);
-                          } else if (e.key === "Escape") {
-                            e.preventDefault();
-                            cancelAdjust(product.id);
-                          }
-                        }}
-                        onBlur={() => commitAdjust(product)}
-                      />
-                    )}
-
-                    {/* Set directo del stock total (controlado) */}
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      className="w-24 border p-1 rounded bg-white/5 border-white/10 text-right"
-                      value={stockValue}
-                      onFocus={() => setStockDraft(product.id, String(product.stock ?? 0))}
-                      onChange={(e) => setStockDraft(product.id, e.target.value)}
-                      onBlur={() => commitSetStock(product)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          commitSetStock(product);
-                        } else if (e.key === "Escape") {
-                          e.preventDefault();
-                          // cancelar y volver a seguir el store
-                          setStockDraft(product.id, undefined);
-                        }
-                      }}
-                      title="Escribe un valor total y presiona Enter o sal del campo para fijar stock"
-                    />
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    {!isEditing ? (
-                      <>
-                        <button
-                          className="px-2 py-2 rounded border border-gray-600 text-white hover:text-blue-400"
-                          title="Editar"
-                          aria-label="Editar"
-                          onClick={() => startEdit(product)}
-                        >
-                          <FaRegEdit size={16} />
-                        </button>
-                        <button
-                          className="px-2 py-2 rounded border border-gray-600 text-white hover:text-red-400"
-                          title="Eliminar"
-                          aria-label="Eliminar"
-                          onClick={() => deleteProduct(product.id)}
-                        >
-                          <FaTrashAlt size={16} />
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <button
-                          className="px-2 py-2 rounded border border-gray-600 text-white hover:text-emerald-300"
-                          title="Guardar"
-                          aria-label="Guardar"
-                          onClick={() => saveEdit(product.id)}
-                        >
-                          <FaSave size={16} />
-                        </button>
-                        <button
-                          className="px-2 py-2 rounded border border-gray-600 text-white hover:text-gray-300"
-                          title="Cancelar"
-                          aria-label="Cancelar"
-                          onClick={cancelEdit}
-                        >
-                          <FaTimes size={16} />
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      ))}
+                    <div className="flex items-center gap-2">
+                      {!isEditing ? (
+                        <>
+                          <button
+                            className="px-2 py-2 rounded border border-gray-600 text-white hover:text-blue-400"
+                            title="Editar"
+                            aria-label="Editar"
+                            onClick={() => startEdit(product)}
+                          >
+                            <FaRegEdit size={16} />
+                          </button>
+                          <button
+                            className="px-2 py-2 rounded border border-gray-600 text-white hover:text-red-400"
+                            title="Eliminar"
+                            aria-label="Eliminar"
+                            onClick={() => deleteProduct(product.id)}
+                          >
+                            <FaTrashAlt size={16} />
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            className="px-2 py-2 rounded border border-gray-600 text-white hover:text-emerald-300"
+                            title="Guardar"
+                            aria-label="Guardar"
+                            onClick={() => saveEdit(product.id)}
+                          >
+                            <FaSave size={16} />
+                          </button>
+                          <button
+                            className="px-2 py-2 rounded border border-gray-600 text-white hover:text-gray-300"
+                            title="Cancelar"
+                            aria-label="Cancelar"
+                            onClick={cancelEdit}
+                          >
+                            <FaTimes size={16} />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))
+      )}
     </div>
   );
 };
