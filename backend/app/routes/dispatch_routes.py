@@ -7,7 +7,7 @@ from app.models.user_model import User
 from app.models.product_model import Product
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from datetime import datetime
-from sqlalchemy import cast, String
+from sqlalchemy import cast, String, func
 from app.utils.timezone import (
     to_local,
     month_start_local_now,
@@ -43,9 +43,10 @@ def create_dispatch():
         productos = data.get("productos", [])
         paquete_numero = data.get("paquete_numero")  # opcional int
 
-        cliente = Client.query.filter_by(name=cliente_name).first()
+        cliente_norm = " ".join((cliente_name or "").strip().split())
+        cliente = Client.query.filter(func.lower(Client.name) == cliente_norm.lower()).first()
         if not cliente:
-            cliente = Client(name=cliente_name, created_by=user_id)
+            cliente = Client(name=cliente_norm, created_by=user_id)
             db.session.add(cliente)
             db.session.flush()
 
@@ -70,29 +71,37 @@ def create_dispatch():
             if not all(k in p for k in ("nombre", "cantidad", "unidad")):
                 return jsonify({"error": "Faltan campos en productos (nombre, cantidad, unidad)"}), 400
 
+            # Fallback: si el producto NO existe, créalo (sin duplicar por nombre, case-insensitive)
+            nombre = (p["nombre"] or "").strip()
+            prod_row = Product.query.filter(func.lower(Product.name) == nombre.lower()).first()
+            if not prod_row:
+                db.session.add(Product(name=nombre, category="Otros", created_by=user_id, stock=0.0))
+                db.session.flush()
+
+            # Item del despacho
             db.session.add(
                 DispatchProduct(
-                    nombre=p["nombre"],
+                    nombre=nombre,
                     cantidad=p["cantidad"],
                     unidad=p["unidad"],
                     dispatch=new_dispatch,
                 )
             )
 
-            prod_row = Product.query.filter_by(name=p["nombre"]).first()
+            # Ajuste de stock (case-insensitive)
+            prod_row = Product.query.filter(func.lower(Product.name) == nombre.lower()).first()
             if prod_row:
                 try:
                     prod_row.stock = float(prod_row.stock or 0) - float(p["cantidad"] or 0)
                 except Exception:
-                    # si falla el casteo, no tocamos stock
                     pass
 
         db.session.commit()
         return jsonify(new_dispatch.to_dict()), 201
+
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": "Error interno del servidor", "details": str(e)}), 500
-
 
 # ----------------------------
 # Listar despachos (filtros)
@@ -224,10 +233,11 @@ def update_dispatch(dispatch_id):
 
         if "cliente" in data and data["cliente"]:
             cliente_name = data["cliente"]
-            cliente = Client.query.filter_by(name=cliente_name).first()
+            cliente_norm = " ".join((cliente_name or "").strip().split())
+            cliente = Client.query.filter(func.lower(Client.name) == cliente_norm.lower()).first()
             if not cliente:
                 current_user = get_jwt_identity()
-                cliente = Client(name=cliente_name, created_by=current_user)
+                cliente = Client(name=cliente_norm, created_by=current_user)
                 db.session.add(cliente)
                 db.session.flush()
             d.cliente_id = cliente.id
@@ -306,6 +316,15 @@ def update_dispatch(dispatch_id):
                 )
                 new_qty_by_name[nombre] = new_qty_by_name.get(nombre, 0.0) + cantidad
 
+            # Asegurar existencia de productos nuevos por nombre (no duplica si ya existe)
+            current_user = get_jwt_identity()
+            for nombre in new_qty_by_name.keys():
+                nn = (nombre or "").strip()
+                exists = Product.query.filter(func.lower(Product.name) == nn.lower()).first()
+                if not exists:
+                    db.session.add(Product(name=nn, category="Otros", created_by=current_user, stock=0.0))
+
+
             # 3) Calcular diferencias y ajustar stock global de Product por nombre
             #    Si new > old  -> hubo aumento de cantidad en el despacho -> restamos del stock
             #    Si new < old  -> hubo disminución de cantidad en el despacho -> devolvemos al stock
@@ -316,7 +335,7 @@ def update_dispatch(dispatch_id):
                 delta_en_despacho = new_q - old_q  # positivo si se agregó más al despacho
 
                 if delta_en_despacho != 0:
-                    prod_row = Product.query.filter_by(name=nombre).first()
+                    prod_row =  Product.query.filter(func.lower(Product.name) == nombre.lower()).first()
                     if prod_row:
                         try:
                             # Restar lo adicional que ahora "sale" en el despacho; si es negativo, se suma (se devuelve)
@@ -471,7 +490,9 @@ def delete_dispatch(dispatch_id):
         # --- NUEVO: restaurar stock por cada producto del despacho ---
         # (usar nombre para encontrar el producto; si no existe, se ignora)
         for item in d.productos:
-            prod_row = Product.query.filter_by(name=item.nombre).first()
+            # define 'nombre' en este scope y normaliza
+            nombre = (item.nombre or "").strip()
+            prod_row = Product.query.filter(func.lower(Product.name) == nombre.lower()).first()
             if prod_row:
                 try:
                     prod_row.stock = float(prod_row.stock or 0) + float(item.cantidad or 0)

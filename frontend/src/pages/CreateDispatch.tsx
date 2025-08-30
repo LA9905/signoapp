@@ -93,14 +93,30 @@ const CreateDispatch = () => {
 
       // Registrar productos NUEVOS (no existentes en la lista inicial)
       const newProducts = form.productos.filter(
-        (p) => !productos.some((ep: Producto) => ep.id === p.id)
+        (p) => !productos.some((ep) => ep.id === p.id) // id no coincide con ninguno existente => es “nuevo”
       );
 
+      // Intenta crearlos uno por uno. Si alguno ya existe por nombre, detenemos todo.
       for (const product of newProducts) {
-        await api.post("/products", {
-          name: product.name,
-          category: product.category || "Otros",
-        });
+        try {
+          await api.post("/products", {
+            name: product.name,
+            category: product.category || "Otros",
+          });
+        } catch (err: any) {
+          const msg =
+            err?.response?.data?.error ||
+            err?.response?.data?.msg ||
+            "Error al crear producto";
+          // Si es el error de ya-existe por nombre, detenemos y avisamos:
+          if (typeof msg === "string" && msg.toLowerCase().includes("ya existe un producto")) {
+            setMensaje(`El producto "${product.name}" ya existe. Búscalo en la lista y selecciónalo.`);
+            return; // ❗ aborta aquí: NO se crea el despacho
+          }
+          // Cualquier otro error también aborta, para que el usuario lo vea
+          setMensaje(msg);
+          return;
+        }
       }
 
       // Crear despacho y obtener su ID

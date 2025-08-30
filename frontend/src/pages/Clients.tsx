@@ -14,6 +14,9 @@ const Clients = () => {
   const [editName, setEditName] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
 
+  // 🔎 NUEVO: estado de búsqueda
+  const [search, setSearch] = useState("");
+
   useEffect(() => {
     // Carga inicial
     refresh().catch((e) => console.error("Error loading clients:", e));
@@ -30,9 +33,9 @@ const Clients = () => {
       setName("");
       // si tu provider no auto-actualiza, descomenta:
       // await refresh();
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error adding client:", err);
-      alert("No se pudo crear el cliente");
+      alert(err?.response?.data?.error || "No se pudo crear el cliente");
     } finally {
       setSubmitting(false);
     }
@@ -81,12 +84,28 @@ const Clients = () => {
     }
   };
 
+  // 🔎 NUEVO: filtrado por nombre (case-insensitive, ignora espacios extra)
+  const normalizedQuery = search.trim().toLowerCase();
+  const filteredClients = normalizedQuery
+    ? clients.filter((c) => (c.name || "").toLowerCase().includes(normalizedQuery))
+    : clients;
+
   return (
     <div className="p-4 max-w-xl mx-auto">
       <div className="mb-12">
         <ArrowBackButton />
       </div>
       <h2 className="text-2xl font-semibold mb-4">Lista de Centro de Costos</h2>
+
+      {/* 🔎 NUEVO: barra de búsqueda */}
+      <input
+        type="text"
+        placeholder="Buscar centro de costo por nombre..."
+        value={search}
+        onChange={(e: ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
+        className="border p-2 rounded w-full mb-4"
+        aria-label="Buscar centro de costo por nombre"
+      />
 
       <form onSubmit={handleSubmit} className="flex gap-2 mb-6">
         <input
@@ -107,7 +126,7 @@ const Clients = () => {
       </form>
 
       <ul className="space-y-2">
-        {clients.map((client) => {
+        {filteredClients.map((client) => {
           const isEditing = editingId === client.id;
           return (
             <li

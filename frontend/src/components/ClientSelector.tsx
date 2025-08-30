@@ -43,7 +43,7 @@ const ClientSelector: React.FC<ClientSelectorProps> = ({ value, onChange }) => {
       setNewClient("");
     } catch (err) {
       console.error("Error registering client:", err);
-      alert("No se pudo registrar el cliente");
+      alert("No se pudo registrar el centro de costo porque ya existe");
     }
   };
 
