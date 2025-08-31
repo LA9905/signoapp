@@ -132,12 +132,13 @@ function NavBar() {
       <div className="mx-auto max-w-[1366px] flex items-center justify-between px-4 py-3 sm:py-4">
         <Link to="/" className="flex items-center gap-3">
           <img
-            src="/hero-1.jpg"
-            alt="Signo"
-            className="h-5 w-auto rounded-[6px] object-contain sm:h-5"
+            src="/SignoApp.png"
+            alt="SignoApp"
+            className="h-12 w-auto object-contain"
           />
           <span className="text-lg font-bold tracking-wide sm:text-xl">SignoApp</span>
         </Link>
+
 
         <div className="flex items-center gap-2 sm:gap-3">
           <Link to="/login" className="rounded-xl border border-white/15 px-4 py-2 text-sm hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-white/20">

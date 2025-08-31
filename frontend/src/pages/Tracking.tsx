@@ -31,7 +31,16 @@ const btnIcon =
 
 const Tracking = () => {
   const [dispatches, setDispatches] = useState<DispatchSummary[]>([]);
-  const [search, setSearch] = useState({ client: "", order: "", user: "", driver: "", date: "", invoice: "" });
+  const [search, setSearch] = useState({
+    client: "",
+    order: "",
+    user: "",
+    driver: "",
+    date: "",        
+    invoice: "",
+    date_from: "",   
+    date_to: ""
+  });
   const [mensaje, setMensaje] = useState<string>("");
 
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -297,7 +306,31 @@ const Tracking = () => {
         <input name="invoice" value={search.invoice} onChange={handleSearchChange} placeholder="Buscar por número de factura" className="w-full border p-2 rounded"/>
         <input name="user" value={search.user} onChange={handleSearchChange} placeholder="Buscar por usuario que creó" className="w-full border p-2 rounded" />
         <input name="driver" value={search.driver} onChange={handleSearchChange} placeholder="Buscar por nombre del chofer" className="w-full border p-2 rounded" />
-        <input name="date" value={search.date} onChange={handleSearchChange} type="date" className="w-full border p-2 rounded" />
+
+        {/* Rango de fechas */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="block text-sm text-gray-300 mb-1">Desde</label>
+            <input
+              name="date_from"
+              type="date"
+              value={search.date_from}
+              onChange={handleSearchChange}
+              className="w-full border p-2 rounded"
+            />
+          </div>
+          <div>
+            <label className="block text-sm text-gray-300 mb-1">Hasta</label>
+            <input
+              name="date_to"
+              type="date"
+              value={search.date_to}
+              onChange={handleSearchChange}
+              className="w-full border p-2 rounded"
+            />
+          </div>
+        </div>
+        
         <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Buscar</button>
       </form>
 

@@ -28,7 +28,6 @@ const NavbarUser: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    // usa el cliente `api` que ya tiene baseURL y token
     api
       .get("/auth/me")
       .then((res) => {
@@ -36,23 +35,37 @@ const NavbarUser: React.FC = () => {
         setAvatarUrl(res.data?.avatar_url || null);
         if (res.data?.name) localStorage.setItem("name", res.data.name);
       })
-      .catch(() => {
-        // si falla, no forzamos logout aquí; el interceptor global ya maneja 401/403
-      });
+      .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
-    <div className="flex justify-between items-center bg-blue-100 px-4 py-3 shadow">
-      <img src="/logo.jpg" alt="Logo empresa" className="h-6 w-auto object-contain" />
+    <div className="flex justify-between items-center bg-blue-100 px-10 py-3 shadow">
+      {/* Logo + Texto */}
+      <div className="flex items-center gap-3">
+        {/* Logo directo, sin badge adicional */}
+        <img
+          src="/SignoApp.svg"
+          alt="Logo SignoApp"
+          className="h-12 w-auto object-contain"
+        />
+        <span className="text-2xl font-bold text-gray-900 tracking-wide">
+          SignoApp
+        </span>
+      </div>
 
+      {/* Perfil */}
       <div className="relative" ref={dropdownRef}>
         <button
           onClick={() => setOpen(!open)}
           className="flex items-center gap-2 focus:outline-none"
         >
-          <div className="avatar">
-            <img src={avatarUrl || "/avatar3.png"} alt="Perfil" />
+          <div className="avatar h-9 w-9 rounded-full overflow-hidden ring-1 ring-gray-300">
+            <img
+              src={avatarUrl || "/avatar3.png"}
+              alt="Perfil"
+              className="h-full w-full object-cover"
+            />
           </div>
           <span className="font-semibold text-sm text-gray-800">{name}</span>
         </button>
