@@ -8,6 +8,7 @@ from app.models.user_model import User
 from app.utils.print_utils import (
     generar_hoja_despacho,
     generar_etiqueta_despacho,
+    generar_ticket_pos80,
     _sanitize_barcode_text,
 )
 from app.utils.timezone import to_local
@@ -69,7 +70,9 @@ def print_despacho(despacho_id):
     fmt = (request.args.get("format") or "").lower().strip()
     size = request.args.get("size") or "4x6"
 
-    if fmt == "label":
+    if fmt == "pos80":
+        pdf_buffer = generar_ticket_pos80(data)
+    elif fmt == "label":
         pdf_buffer = generar_etiqueta_despacho(data, size=size)
     else:
         pdf_buffer = generar_hoja_despacho(data)

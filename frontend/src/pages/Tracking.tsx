@@ -218,7 +218,7 @@ const Tracking = () => {
     try {
       const resp = await api.get(`/print/${id}`, {
         responseType: "blob",
-        params: { format: "label", size: "4x6" },
+        params: { format: "pos80" },
       });
       const blob = new Blob([resp.data], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);
@@ -240,7 +240,7 @@ const Tracking = () => {
     try {
       const resp = await api.get(`/print/${id}`, {
         responseType: "blob",
-        params: { inline: "1", format: "label", size: "4x6" },
+        params: { inline: "1", format: "pos80" },
       });
       const blob = new Blob([resp.data], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);

@@ -51,7 +51,6 @@ def _wrap_text(c, text: str, max_w: float, font: str = "Helvetica", size: float 
     words = text.split()
     if not words:
         return [""]
-
     lines = []
     current = words[0]
     for w in words[1:]:
@@ -255,7 +254,7 @@ def generar_etiqueta_despacho(d: dict, size: str = "4x6") -> BytesIO:
     c.drawRightString(PAGE_W - Mx, y_folio, f"Folio: {d.get('folio','')}")
     c.setFillColor(colors.black)
 
-       # Reservar altura mínima para header
+    # Reservar altura mínima para header
     header_used_h = max(header_used_h, 14 * mm)
 
     # ====== Campos compactos bajo el título (antes de la línea) ======
@@ -393,6 +392,185 @@ def generar_etiqueta_despacho(d: dict, size: str = "4x6") -> BytesIO:
         x = (PAGE_W - bw) / 2.0
         y_bar = max(y - bh, 10 * mm)
         c.drawImage(img, x, y_bar, width=bw, height=bh, preserveAspectRatio=True, mask="auto")
+    except Exception:
+        c.setFont("Helvetica-Oblique", 9)
+        c.setFillColor(colors.red)
+        c.drawString(Mx, y, "No se pudo generar el código de barras.")
+        c.setFillColor(colors.black)
+
+    c.save()
+    buffer.seek(0)
+    return buffer
+
+
+# --- POS 80 mm (ticket con largo variable) -------------------------------
+
+def _measure_ticket_pos80_height(c, d: dict) -> float:
+    W = 80 * mm
+    Mx = 4 * mm
+    My = 4 * mm
+    line_w = W - 2 * Mx
+
+    logo_h = 12 * mm if LOGO_PATH.exists() else 0
+    header_h = max(logo_h, 14 * mm) + 3 * mm  # bloque superior
+
+    body = 0
+    row_h = 11
+    body += row_h   # Fecha
+    body += row_h   # Chofer
+    body += row_h   # Centro de Costo
+    body += 9       # raya + aire
+
+    body += 12      # Orden
+    if d.get("paquete_numero"):
+        body += 12
+    if d.get("factura_numero"):
+        body += 12
+    body += 12      # Despachado por
+
+    productos = d.get("productos", []) or []
+    if productos:
+        body += 11  # título
+        line_h = 11
+        c.setFont("Helvetica", 10)
+        for idx, item in enumerate(productos, start=1):
+            prefix = f"{idx}. "
+            pref_w = c.stringWidth(prefix, "Helvetica", 10)
+            max_w_text = max(0, line_w - pref_w)
+            lines = _wrap_text(c, str(item), max_w_text, "Helvetica", 10)
+            body += line_h * max(1, len(lines))
+
+    body += 10      # separador antes del código
+    bh = 28 * mm    # alto del código
+    body += bh
+
+    total = My + max(header_h, 0) + body + My
+    return max(total, 120 * mm)
+
+
+def generar_ticket_pos80(d: dict) -> BytesIO:
+    buffer = BytesIO()
+
+    W = 80 * mm
+    Mx = 4 * mm
+    My = 4 * mm
+    line_w = W - 2 * Mx
+
+    # Calculamos la altura necesaria
+    _c_measure = canvas.Canvas(BytesIO(), pagesize=(W, 500 * mm))
+    H = _measure_ticket_pos80_height(_c_measure, d)
+
+    c = canvas.Canvas(buffer, pagesize=(W, H))
+    y = H - My
+
+    # Header: logo + empresa en una línea (logo un poco más arriba)
+    title_fs = 14
+    logo_w, logo_h = (12 * mm, 12 * mm)
+    drew_logo = False
+    if LOGO_PATH.exists():
+        try:
+            logo_img = ImageReader(str(LOGO_PATH))
+            y_logo = y - logo_h + 3 * mm  # subir logo
+            c.drawImage(logo_img, Mx, y_logo, width=logo_w, height=logo_h, mask="auto")
+            drew_logo = True
+        except Exception:
+            drew_logo = False
+
+    c.setFont("Helvetica-Bold", title_fs)
+    if drew_logo:
+        c.drawString(Mx + logo_w + 6 * mm, y - 4 * mm, d.get("empresa", ""))
+        used_h = logo_h
+    else:
+        c.drawString(Mx, y - 5 * mm, d.get("empresa", ""))
+        used_h = 14 * mm
+
+    # Folio (gris)
+    c.setFont("Helvetica", 9.5)
+    c.setFillColor(colors.grey)
+    c.drawRightString(W - Mx, y - 10 * mm, f"Folio: {d.get('folio','')}")
+    c.setFillColor(colors.black)
+
+    y -= used_h + 3 * mm
+
+    # ---- Fila: Fecha (izq) y Chofer (der) como DOS COLUMNAS, con wrapping ----
+    c.setFont("Helvetica", 10.5)
+    w_fecha  = (W - 2 * Mx) * 0.55
+    w_chofer = (W - 2 * Mx) * 0.45
+    x_fecha  = Mx
+    x_chofer = Mx + w_fecha
+    line_h   = 11
+
+    # Envolver cada columna
+    fecha_lines  = _wrap_text(c, f"Fecha: {d.get('fecha','')}",  w_fecha,  "Helvetica", 10.5)
+    chofer_lines = _wrap_text(c, f"Chofer: {d.get('chofer','')}", w_chofer, "Helvetica", 10.5)
+
+    # Pintar en paralelo para que queden alineadas en altura
+    for i in range(max(len(fecha_lines), len(chofer_lines))):
+        if i < len(fecha_lines):
+            c.drawString(x_fecha, y, fecha_lines[i])
+        if i < len(chofer_lines):
+            c.drawString(x_chofer, y, chofer_lines[i])
+        y -= line_h
+
+    # Centro de Costo (ocupa todo el ancho con wrapping)
+    cliente_lines = _wrap_text(c, f"Centro de Costo: {d.get('cliente','')}", line_w, "Helvetica", 10.5)
+    for line in cliente_lines:
+        c.drawString(Mx, y, line)
+        y -= line_h
+
+    # Línea separadora
+    c.setLineWidth(0.5)
+    c.line(Mx, y, W - Mx, y)
+    y -= 12
+
+    # Orden / Paquete / Factura / Despachado por
+    c.setFont("Helvetica", 10.5)
+    c.drawString(Mx, y, f"Orden: {d.get('orden','')}")
+    y -= 12
+    if d.get("paquete_numero"):
+        c.drawString(Mx, y, f"Paquete N°: {d.get('paquete_numero')}")
+        y -= 12
+    if d.get("factura_numero"):
+        c.drawString(Mx, y, f"Factura N°: {d.get('factura_numero')}")
+        y -= 12
+    c.drawString(Mx, y, f"Despachado por: {d.get('auxiliar','')}")
+    y -= 12
+
+    # Productos (wrapping con sangría tras "n. ")
+    productos = d.get("productos", []) or []
+    if productos:
+        c.setFont("Helvetica-Bold", 10.5)
+        c.drawString(Mx, y, "Productos:")
+        y -= 11
+
+        c.setFont("Helvetica", 10)
+        for idx, item in enumerate(productos, start=1):
+            prefix = f"{idx}. "
+            pref_w = c.stringWidth(prefix, "Helvetica", 10)
+            max_w_text = max(0, line_w - pref_w)
+            lines = _wrap_text(c, str(item), max_w_text, "Helvetica", 10)
+            for j, ln in enumerate(lines):
+                if j == 0:
+                    c.drawString(Mx, y, prefix + ln)
+                else:
+                    c.drawString(Mx + pref_w, y, ln)
+                y -= line_h
+
+    # Separador antes del código
+    y -= 4
+    c.setLineWidth(0.4)
+    c.line(Mx, y, W - Mx, y)
+    y -= 6
+
+    # Código de barras
+    try:
+        barcode_img_buf = _gen_code128_image(d.get("codigo_barras", ""))
+        img = ImageReader(barcode_img_buf)
+        bw = min(line_w, 58 * mm)   # ancho útil recomendado en 80 mm
+        bh = 28 * mm
+        x = (W - bw) / 2.0
+        c.drawImage(img, x, y - bh, width=bw, height=bh, preserveAspectRatio=True, mask="auto")
+        y -= bh
     except Exception:
         c.setFont("Helvetica-Oblique", 9)
         c.setFillColor(colors.red)
