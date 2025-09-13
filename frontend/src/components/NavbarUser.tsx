@@ -1,4 +1,3 @@
-// src/components/NavbarUser.tsx
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../services/http";
@@ -43,7 +42,6 @@ const NavbarUser: React.FC = () => {
     <div className="flex justify-between items-center bg-blue-100 px-10 py-3 shadow">
       {/* Logo + Texto */}
       <div className="flex items-center gap-3">
-        {/* Logo directo, sin badge adicional */}
         <img
           src="/SignoApp.svg"
           alt="Logo SignoApp"
@@ -54,26 +52,37 @@ const NavbarUser: React.FC = () => {
         </span>
       </div>
 
-      {/* Perfil */}
+      {/* Perfil (REEMPLAZADO) */}
       <div className="relative" ref={dropdownRef}>
+        {/* CHIP claro: usa .user-chip para fondo claro + texto oscuro */}
         <button
           onClick={() => setOpen(!open)}
-          className="flex items-center gap-2 focus:outline-none"
+          className="user-chip flex items-center gap-2 shadow-sm focus:outline-none"
         >
-          <div className="avatar h-9 w-9 rounded-full overflow-hidden ring-1 ring-gray-300">
+          <div className="avatar">
             <img
               src={avatarUrl || "/avatar3.png"}
               alt="Perfil"
-              className="h-full w-full object-cover"
             />
           </div>
-          <span className="font-semibold text-sm text-gray-800">{name}</span>
+          <span className="font-medium truncate max-w-[22ch]">{name}</span>
+          {/* chevron opcional, hereda color de texto */}
+          <svg aria-hidden viewBox="0 0 20 20" className="h-4 w-4">
+            <path
+              d="M5.5 7.5 10 12l4.5-4.5"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+            />
+          </svg>
         </button>
 
+        {/* DROPDOWN claro: usa .user-menu para fondo blanco + texto oscuro */}
         {open && (
-          <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded shadow-lg z-20">
+          <div className="user-menu absolute right-0 mt-2 w-56 z-20">
             <button
-              className="block w-full text-left px-4 py-2 hover:bg-gray-100 text-sm"
+              type="button"
               onClick={() => {
                 setOpen(false);
                 navigate("/edit-profile");
@@ -81,10 +90,7 @@ const NavbarUser: React.FC = () => {
             >
               Editar perfil
             </button>
-            <button
-              className="block w-full text-left px-4 py-2 hover:bg-gray-100 text-sm"
-              onClick={handleLogout}
-            >
+            <button type="button" onClick={handleLogout}>
               Cerrar sesión
             </button>
           </div>

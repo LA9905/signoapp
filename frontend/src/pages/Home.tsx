@@ -53,10 +53,10 @@ export default function Home() {
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
               <Link
                 to="/register"
-                className="inline-flex items-center justify-center rounded-xl bg-blue-600 px-7 py-3.5 text-base font-semibold shadow-lg shadow-blue-600/20 transition hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+                className="inline-flex items-center justify-center rounded-xl bg-blue-600 px-7 py-3.5 text-base font-semibold shadow-lg shadow-blue-600/20 transition hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-400/60 !text-white"
               >
                 Crear cuenta
-              </Link>
+            </Link>
               <Link
                 to="/login"
                 className="inline-flex items-center justify-center rounded-xl border border-white/15 px-7 py-3.5 text-base font-medium backdrop-blur transition hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-white/20"
@@ -144,8 +144,11 @@ function NavBar() {
           <Link to="/login" className="rounded-xl border border-white/15 px-4 py-2 text-sm hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-white/20">
             Iniciar sesión
           </Link>
-          <Link to="/register" className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold shadow shadow-blue-600/20 hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-400/60">
-            Registrarse
+          <Link
+              to="/register"
+              className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold shadow shadow-blue-600/20 hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-400/60 !text-white"
+            >
+              Registrarse
           </Link>
         </div>
       </div>
@@ -253,12 +256,27 @@ function WhatsAppFloat() {
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Chatear por WhatsApp"
-      className="fixed bottom-5 right-5 z-50 inline-flex h-14 w-14 items-center justify-center rounded-full shadow-xl ring-1 ring-black/20 bg-[#25D366] hover:scale-110 transition"
+      className="fixed bottom-5 right-5 z-50 inline-flex h-14 w-14 items-center justify-center rounded-full shadow-xl ring-1 ring-black/20 bg-[#25D366] hover:scale-110 transition text-white"
       title="Escríbenos por WhatsApp"
     >
-      <svg viewBox="0 0 32 32" className="h-8 w-8" fill="white" aria-hidden="true">
-        <path d="M19.11 17.2c-.28-.14-1.64-.81-1.9-.9-.26-.1-.45-.14-.64.14-.19.28-.73.9-.9 1.08-.17.19-.33.21-.61.07-.28-.14-1.16-.43-2.21-1.38-.82-.73-1.37-1.64-1.53-1.92-.16-.28-.02-.43.12-.57.12-.12.28-.33.4-.49.13-.16.17-.28.26-.47.09-.19.05-.36-.02-.5-.07-.14-.64-1.55-.88-2.12-.23-.55-.47-.47-.64-.48l-.55-.01c-.19 0-.5.07-.76.36-.26.28-1 1-1 2.44 0 1.43 1.03 2.82 1.18 3.02.14.19 2.03 3.1 4.92 4.33.69.3 1.22.48 1.63.61.68.22 1.3.19 1.79.12.55-.08 1.64-.67 1.87-1.32.23-.64.23-1.19.16-1.32-.07-.12-.26-.19-.54-.33z"/>
-        <path d="M26.88 5.12A13.93 13.93 0 1 0 4.9 26.88L4 30l3.2-.84a13.93 13.93 0 0 0 19.68-12.8 13.86 13.86 0 0 0-3.99-9.24zM16 27.2a11.2 11.2 0 0 1-5.71-1.56l-.41-.24-2.37.62.64-2.31-.26-.42A11.2 11.2 0 1 1 27.2 16 11.22 11.22 0 0 1 16 27.2z"/>
+      {/* Glifo oficial (burbuja + teléfono), sin círculo exterior */}
+      <svg
+        viewBox="0 0 32 32"
+        className="h-8 w-8"
+        fill="currentColor"
+        aria-hidden="true"
+        focusable="false"
+      >
+        <path
+          fillRule="evenodd"
+          clipRule="evenodd"
+          d="M19.11 17.2c-.28-.14-1.64-.81-1.9-.9-.26-.1-.45-.14-.64.14-.19.28-.73.9-.9 1.08-.17.19-.33.21-.61.07-.28-.14-1.16-.43-2.21-1.38-.82-.73-1.37-1.64-1.53-1.92-.16-.28-.02-.43.12-.57.12-.12.28-.33.4-.49.13-.16.17-.28.26-.47.09-.19.05-.36-.02-.5-.07-.14-.64-1.55-.88-2.12-.23-.55-.47-.47-.64-.48l-.55-.01c-.19 0-.5.07-.76.36-.26.28-1 1-1 2.44 0 1.43 1.03 2.82 1.18 3.02.14.19 2.03 3.1 4.92 4.33.69.3 1.22.48 1.63.61.68.22 1.3.19 1.79.12.55-.08 1.64-.67 1.87-1.32.23-.64.23-1.19.16-1.32-.07-.12-.26-.19-.54-.33z"
+        />
+        <path
+          fillRule="evenodd"
+          clipRule="evenodd"
+          d="M26.88 5.12A13.93 13.93 0 1 0 4.9 26.88L4 30l3.2-.84a13.93 13.93 0 0 0 19.68-12.8c0-3.59-1.4-6.96-3.99-9.24zM16 27.2c-1.98 0-3.93-.5-5.71-1.56l-.41-.24-2.37.62.64-2.31-.26-.42A11.2 11.2 0 1 1 27.2 16 11.22 11.22 0 0 1 16 27.2z"
+        />
       </svg>
     </a>
   );

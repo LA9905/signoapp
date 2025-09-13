@@ -6,7 +6,7 @@ from app.models.driver_model import Driver
 from app.models.user_model import User
 from app.models.product_model import Product
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from datetime import datetime
+from datetime import datetime, timedelta
 from sqlalchemy import cast, String, func
 from app.utils.timezone import (
     to_local,
@@ -110,39 +110,128 @@ def create_dispatch():
 @jwt_required()
 def get_dispatches():
     try:
-        search_client = (request.args.get("client") or "").lower()
-        search_order = (request.args.get("order") or "").lower()
-        search_user = (request.args.get("user") or "").lower()
-        search_driver = (request.args.get("driver") or "").lower()
-        search_date = request.args.get("date") or ""
-        search_invoice = (request.args.get("invoice") or "").lower()
+        search_client   = (request.args.get("client") or "").lower()
+        search_order    = (request.args.get("order") or "").lower()
+        search_user     = (request.args.get("user") or "").lower()
+        search_driver   = (request.args.get("driver") or "").lower()
+        search_invoice  = (request.args.get("invoice") or "").lower()
+
+        # Fechas:
+        # - date_from & date_to: rango inclusivo para el usuario, implementado como [from 00:00, to+1d 00:00)
+        # - sólo date_from o sólo date_to: un día
+        # - date (legado): un día
+        date_from_str   = (request.args.get("date_from") or "").strip()
+        date_to_str     = (request.args.get("date_to") or "").strip()
+        date_single_str = (request.args.get("date") or "").strip()
 
         query = Dispatch.query
 
         if search_client:
             query = query.join(Client).filter(db.func.lower(Client.name).like(f"%{search_client}%"))
+
         if search_order:
             query = query.filter(db.func.lower(Dispatch.orden).like(f"%{search_order}%"))
+
         if search_user:
             query = query.join(User, cast(User.id, String) == Dispatch.created_by).filter(
                 db.func.lower(User.name).like(f"%{search_user}%")
             )
+
         if search_driver:
             query = query.join(Driver).filter(db.func.lower(Driver.name).like(f"%{search_driver}%"))
+
         if search_invoice:
             query = query.filter(db.func.lower(Dispatch.factura_numero).like(f"%{search_invoice}%"))
-        if search_date:
+
+        # ---------- Filtro de fecha robusto (soporta datos UTC naive y LOCAL naive) ----------
+        apply_local_window_check = False
+        win_start_local = None
+        win_end_local   = None  # (aware, CL_TZ)
+
+        def _day_bounds_local_aware(day_str: str):
+            d = datetime.strptime(day_str, "%Y-%m-%d")
+            start_local = d.replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=CL_TZ)
+            end_local_exclusive = (d + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=CL_TZ)
+            return start_local, end_local_exclusive
+
+        def _normalize_range_local(start_local_aware: datetime, end_local_exclusive_aware: datetime):
+            # Rango supuesto para filas guardadas como UTC-naive
+            a_start = to_utc_naive(start_local_aware)
+            a_end   = to_utc_naive(end_local_exclusive_aware)
+            # Rango supuesto para filas guardadas como LOCAL-naive
+            b_start = start_local_aware.replace(tzinfo=None)
+            b_end   = end_local_exclusive_aware.replace(tzinfo=None)
+            return a_start, a_end, b_start, b_end
+
+        if date_from_str and date_to_str:
             try:
-                d = datetime.strptime(search_date, "%Y-%m-%d")
-                start_local = d.replace(tzinfo=CL_TZ)
-                end_local = start_local.replace(hour=23, minute=59, second=59, microsecond=999999)
-                start_utc_naive = to_utc_naive(start_local)
-                end_utc_naive = to_utc_naive(end_local)
-                query = query.filter(Dispatch.fecha >= start_utc_naive, Dispatch.fecha <= end_utc_naive)
+                d_from = datetime.strptime(date_from_str, "%Y-%m-%d")
+                d_to   = datetime.strptime(date_to_str, "%Y-%m-%d")
             except ValueError:
-                return jsonify({"error": "Formato de fecha inválido, use YYYY-MM-DD"}), 400
+                return jsonify({"error": "Formato de fecha inválido en date_from/date_to, use YYYY-MM-DD"}), 400
+
+            if d_from > d_to:
+                d_from, d_to = d_to, d_from
+
+            # Ventana local (lo que el usuario pidió)
+            win_start_local = d_from.replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=CL_TZ)
+            win_end_local   = (d_to + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=CL_TZ)
+            apply_local_window_check = True
+
+            # Superconjunto SQL (une ambos mundos)
+            a_start, a_end, b_start, b_end = _normalize_range_local(win_start_local, win_end_local)
+            sql_start = min(a_start, b_start)
+            sql_end   = max(a_end, b_end)
+            query = query.filter(Dispatch.fecha >= sql_start, Dispatch.fecha < sql_end)
+
+        elif date_from_str and not date_to_str:
+            try:
+                win_start_local, win_end_local = _day_bounds_local_aware(date_from_str)
+            except ValueError:
+                return jsonify({"error": "Formato de fecha inválido en date_from, use YYYY-MM-DD"}), 400
+            apply_local_window_check = True
+
+            a_start, a_end, b_start, b_end = _normalize_range_local(win_start_local, win_end_local)
+            sql_start = min(a_start, b_start)
+            sql_end   = max(a_end, b_end)
+            query = query.filter(Dispatch.fecha >= sql_start, Dispatch.fecha < sql_end)
+
+        elif date_to_str and not date_from_str:
+            try:
+                win_start_local, win_end_local = _day_bounds_local_aware(date_to_str)
+            except ValueError:
+                return jsonify({"error": "Formato de fecha inválido en date_to, use YYYY-MM-DD"}), 400
+            apply_local_window_check = True
+
+            a_start, a_end, b_start, b_end = _normalize_range_local(win_start_local, win_end_local)
+            sql_start = min(a_start, b_start)
+            sql_end   = max(a_end, b_end)
+            query = query.filter(Dispatch.fecha >= sql_start, Dispatch.fecha < sql_end)
+
+        elif date_single_str:
+            try:
+                win_start_local, win_end_local = _day_bounds_local_aware(date_single_str)
+            except ValueError:
+                return jsonify({"error": "Formato de fecha inválido en date, use YYYY-MM-DD"}), 400
+            apply_local_window_check = True
+
+            a_start, a_end, b_start, b_end = _normalize_range_local(win_start_local, win_end_local)
+            sql_start = min(a_start, b_start)
+            sql_end   = max(a_end, b_end)
+            query = query.filter(Dispatch.fecha >= sql_start, Dispatch.fecha < sql_end)
+        # --------------------------------------------------------------------------------------
+
+        query = query.order_by(Dispatch.fecha.asc())
 
         dispatches = query.all()
+
+        # Si el usuario pidió ventana de fechas, recorta según la FECHA LOCAL mostrada
+        if apply_local_window_check:
+            dispatches = [
+                d for d in dispatches
+                if win_start_local <= to_local(d.fecha) < win_end_local
+            ]
+
         result = []
         for d in dispatches:
             client = Client.query.get(d.cliente_id)
@@ -174,9 +263,9 @@ def get_dispatches():
                 }
             )
         return jsonify(result), 200
+
     except Exception as e:
         return jsonify({"error": "Error interno del servidor", "details": str(e)}), 500
-
 
 # ----------------------------
 # Detalle de despacho
@@ -216,7 +305,6 @@ def get_dispatch_details(dispatch_id):
         ), 200
     except Exception as e:
         return jsonify({"error": "Error interno del servidor", "details": str(e)}), 500
-
 
 # ----------------------------
 # Actualizar despacho
@@ -324,24 +412,18 @@ def update_dispatch(dispatch_id):
                 if not exists:
                     db.session.add(Product(name=nn, category="Otros", created_by=current_user, stock=0.0))
 
-
             # 3) Calcular diferencias y ajustar stock global de Product por nombre
-            #    Si new > old  -> hubo aumento de cantidad en el despacho -> restamos del stock
-            #    Si new < old  -> hubo disminución de cantidad en el despacho -> devolvemos al stock
             all_names = set(old_qty_by_name.keys()) | set(new_qty_by_name.keys())
             for nombre in all_names:
                 old_q = float(old_qty_by_name.get(nombre, 0.0))
                 new_q = float(new_qty_by_name.get(nombre, 0.0))
-                delta_en_despacho = new_q - old_q  # positivo si se agregó más al despacho
-
+                delta_en_despacho = new_q - old_q
                 if delta_en_despacho != 0:
                     prod_row =  Product.query.filter(func.lower(Product.name) == nombre.lower()).first()
                     if prod_row:
                         try:
-                            # Restar lo adicional que ahora "sale" en el despacho; si es negativo, se suma (se devuelve)
                             prod_row.stock = float(prod_row.stock or 0) - float(delta_en_despacho)
                         except Exception:
-                            # Si falla el casteo, no tocamos el stock de ese producto
                             pass
 
             # 4) Reemplazar los ítems del despacho por los nuevos
@@ -383,7 +465,6 @@ def update_dispatch(dispatch_id):
         db.session.rollback()
         return jsonify({"error": "No se pudo actualizar el despacho", "details": str(e)}), 500
 
-
 # ----------------------------
 # Gráfico: despachos del mes (usuario actual)
 # ----------------------------
@@ -396,7 +477,6 @@ def get_monthly_dispatches():
 
         data_points = [0] * 31
 
-        # created_by es String en el modelo
         current_user_id = str(get_jwt_identity())
 
         dispatches = Dispatch.query.filter(
@@ -413,19 +493,15 @@ def get_monthly_dispatches():
     except Exception as e:
         return jsonify({"error": "Error interno del servidor", "details": str(e)}), 500
 
-
 # ----------------------------
 # Estados: entregado a chofer
-# (con soporte a preflight OPTIONS)
 # ----------------------------
 @dispatch_bp.route("/dispatches/<int:dispatch_id>/mark-driver", methods=["POST", "OPTIONS"])
 @cross_origin(supports_credentials=True)
-@jwt_required(optional=True)  # permite OPTIONS sin JWT; POST seguirá trayendo el JWT del cliente
+@jwt_required(optional=True)
 def mark_driver_delivered(dispatch_id):
     if request.method == "OPTIONS":
-        # Preflight
         return ("", 204)
-
     try:
         d = Dispatch.query.get_or_404(dispatch_id)
         if d.delivered_client:
@@ -440,19 +516,15 @@ def mark_driver_delivered(dispatch_id):
         db.session.rollback()
         return jsonify({"error": "Error al marcar entregado a chofer", "details": str(e)}), 500
 
-
 # ----------------------------
 # Estados: entregado a cliente
-# (con soporte a preflight OPTIONS)
 # ----------------------------
 @dispatch_bp.route("/dispatches/<int:dispatch_id>/mark-client", methods=["POST", "OPTIONS"])
 @cross_origin(supports_credentials=True)
 @jwt_required(optional=True)
 def mark_client_delivered(dispatch_id):
     if request.method == "OPTIONS":
-        # Preflight
         return ("", 204)
-
     try:
         d = Dispatch.query.get_or_404(dispatch_id)
         if not d.delivered_client:
@@ -467,19 +539,17 @@ def mark_client_delivered(dispatch_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": "Error al marcar entregado a cliente", "details": str(e)}), 500
-    
+
 # ----------------------------
 # Eliminar despacho (con preflight)
 # ----------------------------
 @dispatch_bp.route("/dispatches/<int:dispatch_id>", methods=["DELETE", "OPTIONS"])
-@cross_origin(supports_credentials=True)   # permite el preflight desde el front
-@jwt_required(optional=True)               # OPTIONS sin JWT; validamos JWT en el DELETE
+@cross_origin(supports_credentials=True)
+@jwt_required(optional=True)
 def delete_dispatch(dispatch_id):
-    # Preflight
     if request.method == "OPTIONS":
         return ("", 204)
 
-    # Requiere JWT para el DELETE real
     user_id = get_jwt_identity()
     if not user_id:
         return jsonify({"error": "No autorizado"}), 401
@@ -487,24 +557,17 @@ def delete_dispatch(dispatch_id):
     try:
         d = Dispatch.query.get_or_404(dispatch_id)
 
-        # --- NUEVO: restaurar stock por cada producto del despacho ---
-        # (usar nombre para encontrar el producto; si no existe, se ignora)
+        # Restaurar stock
         for item in d.productos:
-            # define 'nombre' en este scope y normaliza
             nombre = (item.nombre or "").strip()
             prod_row = Product.query.filter(func.lower(Product.name) == nombre.lower()).first()
             if prod_row:
                 try:
                     prod_row.stock = float(prod_row.stock or 0) + float(item.cantidad or 0)
                 except Exception:
-                    # si falla el casteo, no tocamos stock de ese ítem
                     pass
-        # --------------------------------------------------------------
 
-        # Borrar items asociados primero
         DispatchProduct.query.filter_by(dispatch_id=d.id).delete()
-
-        # Luego el despacho
         db.session.delete(d)
         db.session.commit()
         return jsonify({"message": "Despacho eliminado"}), 200

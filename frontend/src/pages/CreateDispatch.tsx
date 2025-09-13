@@ -125,10 +125,10 @@ const CreateDispatch = () => {
 
       setMensaje("Despacho creado correctamente");
 
-      // Abrir PDF en pestaña nueva en formato etiqueta 4x6
+      // Abrir PDF en pestaña nueva con el layout POS 80 (alto dinámico)
       if (dispatchId) {
         const pdfResp = await api.get(`/print/${dispatchId}`, {
-          params: { inline: "1", format: "label", size: "4x6" },
+          params: { inline: "1", format: "pos80" },
           responseType: "blob",
         });
 

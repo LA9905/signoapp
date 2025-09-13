@@ -1,35 +1,53 @@
-# app/__init__.py
+import os
+from datetime import timedelta
 from flask import Flask, send_from_directory, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager, verify_jwt_in_request, get_jwt_identity
 from flask_mail import Mail
 from flask_migrate import Migrate
-from datetime import timedelta
-import os
-
-# ❌ NO importes User aquí para evitar el ciclo
-# from app.models.user_model import User
-from app.utils.billing import is_blocked  # este es seguro
-# ^ no importa app, así que no genera ciclo
+from dotenv import load_dotenv
 
 db = SQLAlchemy()
 jwt = JWTManager()
 mail = Mail()
 migrate = Migrate()
 
+def _str_to_bool(v: str, default: bool = False) -> bool:
+    if v is None:
+        return default
+    return str(v).strip().lower() in ("1", "true", "t", "yes", "y")
+
 def create_app():
+    # Carga .env desde el root del proyecto si existe
+    load_dotenv()
+
     app = Flask(__name__)
-    app.config.from_object("config.Config")
+    # Si tienes config.Config, puedes cargarla primero
+    try:
+        app.config.from_object("config.Config")
+    except Exception:
+        pass  # opcional
 
-    # ✅ CORS global, con headers y métodos explícitos
+    # Override/asegura valores críticos desde .env (con tipos correctos)
+    app.config.update(
+        MAIL_SERVER=os.getenv("MAIL_SERVER", "smtp.gmail.com"),
+        MAIL_PORT=int(os.getenv("MAIL_PORT", "587")),
+        MAIL_USE_TLS=_str_to_bool(os.getenv("MAIL_USE_TLS", "true"), True),
+        MAIL_USE_SSL=_str_to_bool(os.getenv("MAIL_USE_SSL", "false"), False),
+        MAIL_USERNAME=os.getenv("MAIL_USERNAME"),
+        MAIL_PASSWORD=(os.getenv("MAIL_PASSWORD") or "").strip(),
+        MAIL_DEFAULT_SENDER=os.getenv("MAIL_DEFAULT_SENDER") or os.getenv("MAIL_USERNAME"),
+        # Por si tienes tests que desactivan envío:
+        MAIL_SUPPRESS_SEND=_str_to_bool(os.getenv("MAIL_SUPPRESS_SEND", "false"), False),
+    )
+
+    # CORS
     allowed_origins = [
-        "http://localhost:5173",          # dev local
-        "https://www.signo-app.com",      # front prod con www
-        "https://signo-app.com",          # root que redirige a www (por si algo llama directo)
-        # "https://signoapp-front.onrender.com",  # opcional, si quieres mantener por transición
+        "http://localhost:5173",
+        "https://www.signo-app.com",
+        "https://signo-app.com",
     ]
-
     CORS(
         app,
         resources={r"/api/*": {
@@ -40,13 +58,11 @@ def create_app():
         supports_credentials=True,
     )
 
-
     db.init_app(app)
     jwt.init_app(app)
     mail.init_app(app)
     migrate.init_app(app, db)
 
-    # Importa modelos ANTES de cualquier operación que necesite metadata
     with app.app_context():
         from .models import (
             user_model,
@@ -80,18 +96,14 @@ def create_app():
 
     app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=8)
 
-    # ✅ BLOQUEO CENTRAL
+    # Guard de billing (como lo tenías)
     @app.before_request
     def enforce_billing_guard():
         path = request.path or ""
         if not path.startswith("/api"):
-            return  # no API
-
-        # ✅ Deja pasar preflight siempre
+            return
         if request.method == "OPTIONS":
             return
-
-        # rutas permitidas aunque impago
         allow = (
             path.startswith("/api/auth/")
             or path.startswith("/api/health")
@@ -100,20 +112,15 @@ def create_app():
         if allow:
             return
 
-        # Si no hay JWT, deja que la ruta responda 401/403
         try:
             verify_jwt_in_request(optional=True)
         except Exception:
             return
-
         uid = get_jwt_identity()
         if not uid:
             return
 
-        # Import local para evitar ciclos
         from app.models.user_model import User
-
-        # get() tolera string, pero por si acaso lo forzamos a int si corresponde
         try:
             uid_val = int(uid)
         except Exception:
@@ -123,7 +130,7 @@ def create_app():
         if not user:
             return
 
-        from app.utils.billing import is_blocked  # seguro (no importa app)
+        from app.utils.billing import is_blocked
         if is_blocked(user):
             return jsonify({
                 "error": "payment_required",
@@ -135,5 +142,25 @@ def create_app():
         from pathlib import Path
         base = Path(app.root_path).parent / "uploads"
         return send_from_directory(str(base), filename, max_age=0)
+
+    # (Opcional) healthcheck de SMTP para debug rápido
+    @app.get("/api/health/smtp")
+    def smtp_health():
+        try:
+            u = app.config.get("MAIL_USERNAME")
+            s = app.config.get("MAIL_SERVER")
+            p = app.config.get("MAIL_PORT")
+            tls = app.config.get("MAIL_USE_TLS")
+            ssl = app.config.get("MAIL_USE_SSL")
+            # No intentamos loguear aquí para no bloquear; solo confirmamos config visible
+            return jsonify({
+                "ok": True,
+                "server": s, "port": p, "tls": tls, "ssl": ssl,
+                "username_present": bool(u),
+                "sender": app.config.get("MAIL_DEFAULT_SENDER"),
+                "suppressed": app.config.get("MAIL_SUPPRESS_SEND", False),
+            })
+        except Exception as e:
+            return jsonify({"ok": False, "error": str(e)}), 500
 
     return app

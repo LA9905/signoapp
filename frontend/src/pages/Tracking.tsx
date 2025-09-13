@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { AxiosError } from "axios";
+import { useEffect, useRef, useState } from "react";
+import type { AxiosError } from "axios";
 import { FiEdit2, FiTrash2, FiSave, FiX, FiPlus, FiMinus } from "react-icons/fi";
 import ClientSelector from "../components/ClientSelector";
 import DriverSelector from "../components/DriverSelector";
@@ -25,22 +25,42 @@ interface DispatchSummary {
 type ProductoRow = { nombre: string; cantidad: number; unidad: string };
 type ApiError = { error?: string; details?: string };
 
+// Estado de filtros de búsqueda (sólo en memoria)
+type SearchState = {
+  client: string;
+  order: string;
+  user: string;
+  driver: string;
+  date: string;
+  invoice: string;
+  date_from: string;
+  date_to: string;
+};
+
 const btnIcon =
   "rounded-full p-2 bg-white/10 text-white border border-white/50 transition-colors " +
   "focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-neutral-900";
 
 const Tracking = () => {
   const [dispatches, setDispatches] = useState<DispatchSummary[]>([]);
-  const [search, setSearch] = useState({
+
+  // --- Filtros sólo en memoria (se limpian al recargar o salir de la vista) ---
+  const [search, setSearch] = useState<SearchState>({
     client: "",
     order: "",
     user: "",
     driver: "",
-    date: "",        
+    date: "",
     invoice: "",
-    date_from: "",   
-    date_to: ""
+    date_from: "",
+    date_to: "",
   });
+  const searchRef = useRef<SearchState>(search);
+  useEffect(() => {
+    searchRef.current = search;
+  }, [search]);
+  // -----------------------------------------------------------------------------
+
   const [mensaje, setMensaje] = useState<string>("");
 
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -56,16 +76,21 @@ const Tracking = () => {
   const { drivers } = useDrivers();
 
   useEffect(() => {
-    fetchDispatches();
-    const onFocus = () => fetchDispatches();
+    // Primer fetch en el montaje con filtros vacíos (inicio)
+    fetchDispatches(searchRef.current);
+
+    // Al volver el foco a la pestaña, refresca conservando filtros actuales
+    const onFocus = () => fetchDispatches(searchRef.current);
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const fetchDispatches = async () => {
+  const fetchDispatches = async (params?: SearchState) => {
     try {
-      const response = await api.get<DispatchSummary[]>("/dispatches", { params: search });
+      const response = await api.get<DispatchSummary[]>("/dispatches", {
+        params: params ?? searchRef.current,
+      });
       setDispatches(response.data);
       setMensaje("");
     } catch (err) {
@@ -81,7 +106,7 @@ const Tracking = () => {
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    fetchDispatches();
+    fetchDispatches(search); // usar los filtros actuales
   };
 
   const startEditRow = (d: DispatchSummary) => {
@@ -440,6 +465,7 @@ const Tracking = () => {
                               <option value="kg">Kilogramos</option>
                               <option value="l">Litros</option>
                               <option value="cajas">Cajas</option>
+                              <option value="PQT">Paquetes</option>
                             </select>
                             <div className="sm:col-span-1 flex justify-end">
                               <button
