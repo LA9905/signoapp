@@ -463,7 +463,7 @@ const Tracking = () => {
                             >
                               <option value="unidades">Unidades</option>
                               <option value="kg">Kilogramos</option>
-                              <option value="l">Litros</option>
+                              <option value="lt">Litros</option>
                               <option value="cajas">Cajas</option>
                               <option value="PQT">Paquetes</option>
                             </select>

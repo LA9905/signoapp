@@ -70,6 +70,8 @@ def create_app():
             client_model,
             driver_model,
             dispatch_model,
+            supplier_model,
+            receipt_model,
         )
         env = os.getenv("FLASK_ENV") or os.getenv("ENV") or "production"
         if env != "production":
@@ -84,6 +86,8 @@ def create_app():
     from .routes.dispatch_routes import dispatch_bp
     from .routes.health_routes import health_bp
     from .routes.billing_routes import billing_bp
+    from .routes.supplier_routes import supplier_bp
+    from .routes.receipt_routes import receipt_bp
 
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
     app.register_blueprint(product_bp, url_prefix="/api")
@@ -93,6 +97,8 @@ def create_app():
     app.register_blueprint(dispatch_bp, url_prefix="/api")
     app.register_blueprint(health_bp, url_prefix="/api")
     app.register_blueprint(billing_bp, url_prefix="/api")
+    app.register_blueprint(supplier_bp, url_prefix="/api")
+    app.register_blueprint(receipt_bp, url_prefix="/api")
 
     app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=8)
 

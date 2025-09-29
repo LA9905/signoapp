@@ -16,8 +16,11 @@ import Clients from "./pages/Clients";
 import Drivers from "./pages/Drivers";
 import Tracking from "./pages/Tracking";
 import EditProfile from "./pages/EditProfile";
-import ProtectedShell from "./layouts/ProtectedShell";
 import AdminBilling from "./pages/AdminBilling";
+import SupplierList from "./pages/SupplierList";
+import ReceiveSupplier from "./pages/ReceiveSupplier"; 
+import SupplierTracking from "./pages/SupplierTracking"; 
+import ProtectedShell from "./layouts/ProtectedShell";
 
 // Hace un ping silencioso al backend para "despertarlo" en Render
 const WarmBoot: React.FC = () => {
@@ -81,7 +84,7 @@ const App: React.FC = () => {
           }
         />
         <Route
-          path="/Clients"
+          path="/clients"
           element={
             <ProtectedShell>
               <Clients />
@@ -89,7 +92,7 @@ const App: React.FC = () => {
           }
         />
         <Route
-          path="/Drivers"
+          path="/drivers"
           element={
             <ProtectedShell>
               <Drivers />
@@ -117,6 +120,30 @@ const App: React.FC = () => {
           element={
             <ProtectedShell>
               <AdminBilling />
+            </ProtectedShell>
+          }
+        />
+        <Route
+          path="/suppliers"
+          element={
+            <ProtectedShell>
+              <SupplierList />
+            </ProtectedShell>
+          }
+        />
+        <Route
+          path="/receive-supplier"
+          element={
+            <ProtectedShell>
+              <ReceiveSupplier />
+            </ProtectedShell>
+          }
+        />
+        <Route
+          path="/supplier-tracking"
+          element={
+            <ProtectedShell>
+              <SupplierTracking />
             </ProtectedShell>
           }
         />

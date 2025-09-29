@@ -4,6 +4,7 @@ import { jwtDecode } from "jwt-decode";
 import { ClientsProvider } from "../context/ClientsContext";
 import { DriversProvider } from "../context/DriversContext";
 import { getBillingStatus, markPaid } from "../services/billingService";
+import { SuppliersProvider } from "../context/SuppliersContext";
 
 type JWTPayload = { exp?: number };
 
@@ -130,8 +131,10 @@ const ProtectedShell: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
   return (
     <ClientsProvider>
-      <DriversProvider>{children}</DriversProvider>
-    </ClientsProvider>
+    <DriversProvider>
+      <SuppliersProvider>{children}</SuppliersProvider>
+    </DriversProvider>
+  </ClientsProvider>
   );
 };
 

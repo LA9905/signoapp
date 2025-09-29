@@ -3,7 +3,7 @@ import NavbarUser from "../components/NavbarUser";
 import ChartMonthlyOrders from "../components/ChartMonthlyOrders";
 import { useNavigate } from "react-router-dom";
 import { api } from "../services/http";
-import { me } from "../services/authService"; // 👈 falta este import
+import { me } from "../services/authService";
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -30,7 +30,10 @@ const Dashboard: React.FC = () => {
     { title: "Listado de productos", route: "/products" },
     { title: "Choferes", route: "/drivers" },
     { title: "Centros de Costos", route: "/clients" },
-    { title: "Seguimiento", route: "/tracking" },
+    { title: "Seguimiento de despachos", route: "/tracking" },
+    { title: "Recepción de Proveedores", route: "/receive-supplier" },
+    { title: "Recepciones registradas", route: "/supplier-tracking" },
+    { title: "Proveedores", route: "/suppliers" },
     ...(isAdmin ? [{ title: "Administración (pagos)", route: "/admin/billing" }] : []),
   ];
 
