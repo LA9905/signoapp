@@ -10,15 +10,32 @@ const Dashboard: React.FC = () => {
   const name = localStorage.getItem("name") || "Usuario";
   const [chartData, setChartData] = useState<number[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1); // 1-12
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const handleStart = () => navigate("/CreateDispatch");
 
   useEffect(() => {
-    api
-      .get("/dispatches/monthly")
-      .then((res) => setChartData(res.data || []))
-      .catch(() => setChartData([]));
+    const fetchChartData = async () => {
+      try {
+        const res = await api.get("/dispatches/monthly", {
+          params: {
+            year: selectedYear,
+            month: selectedMonth,
+          },
+        });
+        setChartData(res.data || []);
+        setErrorMessage(null);
+      } catch (err) {
+        setChartData([]);
+        setErrorMessage("Error al cargar los datos del gráfico. Verifica los parámetros o intenta de nuevo.");
+      }
+    };
+    fetchChartData();
+  }, [selectedYear, selectedMonth]);
 
+  useEffect(() => {
     me()
       .then((res) => setIsAdmin(!!res.data.is_admin))
       .catch(() => setIsAdmin(false));
@@ -35,6 +52,12 @@ const Dashboard: React.FC = () => {
     { title: "Recepciones registradas", route: "/supplier-tracking" },
     { title: "Proveedores", route: "/suppliers" },
     ...(isAdmin ? [{ title: "Administración (pagos)", route: "/admin/billing" }] : []),
+  ];
+
+  const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
+  const months = [
+    "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+    "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
   ];
 
   return (
@@ -66,7 +89,32 @@ const Dashboard: React.FC = () => {
         </div>
 
         <div className="mt-10">
-          <h3 className="text-lg font-semibold mb-2">Despachos del último mes</h3>
+          {errorMessage && <p className="text-red-500 mb-2">{errorMessage}</p>}
+          <div className="flex flex-col sm:flex-row gap-4 mb-4">
+            <select
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+              className="border p-2 rounded"
+            >
+              {years.map((year) => (
+                <option key={year} value={year}>
+                  {year}
+                </option>
+              ))}
+            </select>
+            <select
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+              className="border p-2 rounded"
+            >
+              {months.map((month, index) => (
+                <option key={index + 1} value={index + 1}>
+                  {month}
+                </option>
+              ))}
+            </select>
+          </div>
+          <h3 className="text-lg font-semibold mb-2">Despachos del mes seleccionado</h3>
           <ChartMonthlyOrders dataPoints={chartData} />
         </div>
       </div>

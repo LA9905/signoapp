@@ -465,15 +465,38 @@ def update_dispatch(dispatch_id):
 @jwt_required()
 def get_monthly_dispatches():
     try:
-        start_local = month_start_local_now()
+        # Obtener parámetros opcionales
+        year = request.args.get("year")
+        month = request.args.get("month")
+        
+        # Determinar el rango de fechas
+        if year and month:
+            try:
+                year = int(year)
+                month = int(month)
+                if not (1 <= month <= 12):
+                    raise ValueError("Mes inválido")
+                # Primer día del mes especificado
+                start_local = datetime(year, month, 1, tzinfo=CL_TZ)
+            except ValueError:
+                return jsonify({"error": "Año y mes deben ser números válidos (mes entre 1 y 12)"}), 400
+        else:
+            # Si no se especifican, usar el mes actual
+            start_local = month_start_local_now()
+
         start_utc_naive = to_utc_naive(start_local)
+        # Último día del mes (ajustado dinámicamente)
+        end_local = (start_local.replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(days=1)
+        end_utc_naive = to_utc_naive(end_local)
 
         data_points = [0] * 31
 
         current_user_id = str(get_jwt_identity())
 
         dispatches = Dispatch.query.filter(
-            Dispatch.created_by == current_user_id, Dispatch.fecha >= start_utc_naive
+            Dispatch.created_by == current_user_id,
+            Dispatch.fecha >= start_utc_naive,
+            Dispatch.fecha <= end_utc_naive
         ).all()
 
         for d in dispatches:
