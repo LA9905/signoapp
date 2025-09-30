@@ -160,7 +160,7 @@ const SupplierTracking = () => {
 
       <form onSubmit={handleSearchSubmit} className="space-y-4 mb-6">
         <input name="supplier" value={search.supplier} onChange={handleSearchChange} placeholder="Buscar por nombre del proveedor" className="w-full border p-2 rounded" />
-        <input name="order" value={search.order} onChange={handleSearchChange} placeholder="Buscar por número de orden" className="w-full border p-2 rounded" />
+        <input name="order" value={search.order} onChange={handleSearchChange} placeholder="Buscar por número de factura" className="w-full border p-2 rounded" />
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>

@@ -147,7 +147,7 @@ const ReceiveSupplier = () => {
           name="orden"
           value={form.orden}
           onChange={handleChange}
-          placeholder="Número de orden de compra"
+          placeholder="Número de factura"
           className="w-full border p-2 rounded"
           required
         />

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import type { AxiosError } from "axios";
 import { FiEdit2, FiTrash2, FiSave, FiX, FiPlus, FiMinus } from "react-icons/fi";
 import ClientSelector from "../components/ClientSelector";
@@ -13,19 +13,26 @@ interface DispatchSummary {
   cliente: string;
   chofer: string;
   created_by: string;
-  fecha: string;    // ISO local
-  status: string;   // pendiente | entregado_chofer | entregado_cliente | cancelado | ...
+  fecha: string; // ISO local
+  status: string; // pendiente | entregado_chofer | entregado_cliente | cancelado | ...
   delivered_driver: boolean;
   delivered_client: boolean;
   productos: { nombre: string; cantidad: number; unidad: string }[];
-  paquete_numero?: number;   // NUEVO (solo display)
-  factura_numero?: string;   // NUEVO (editable aquí)
+  paquete_numero?: number;
+  factura_numero?: string;
+}
+
+interface Product {
+  id: number;
+  name: string;
+  category: string;
+  created_by: string;
+  stock: number;
 }
 
 type ProductoRow = { nombre: string; cantidad: number; unidad: string };
 type ApiError = { error?: string; details?: string };
 
-// Estado de filtros de búsqueda (sólo en memoria)
 type SearchState = {
   client: string;
   order: string;
@@ -43,9 +50,25 @@ const btnIcon =
 
 const Tracking = () => {
   const [dispatches, setDispatches] = useState<DispatchSummary[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [page, setPage] = useState(1);
+  const [mensaje, setMensaje] = useState<string>("");
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [draft, setDraft] = useState<{
+    orden: string;
+    cliente: string;
+    chofer: string;
+    status: string;
+    productos: ProductoRow[];
+    factura_numero?: string;
+  } | null>(null);
+  // Nuevo: estado para los nombres de productos y sugerencias
+  const [productNames, setProductNames] = useState<string[]>([]);
+  const [suggestions, setSuggestions] = useState<Record<number, string[]>>({});
 
-  // --- Filtros sólo en memoria (se limpian al recargar o salir de la vista) ---
-  const [search, setSearch] = useState<SearchState>({
+  const { drivers } = useDrivers();
+  const searchRef = useRef<SearchState>({
     client: "",
     order: "",
     user: "",
@@ -55,58 +78,93 @@ const Tracking = () => {
     date_from: "",
     date_to: "",
   });
-  const searchRef = useRef<SearchState>(search);
-  useEffect(() => {
-    searchRef.current = search;
-  }, [search]);
-  // -----------------------------------------------------------------------------
+  const observer = useRef<IntersectionObserver | null>(null);
+  const lastDispatchRef = useRef<HTMLDivElement | null>(null);
 
-  const [mensaje, setMensaje] = useState<string>("");
-
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [draft, setDraft] = useState<{
-    orden: string;
-    cliente: string;
-    chofer: string; // id (string)
-    status: string;
-    productos: ProductoRow[];
-    factura_numero?: string;  // NUEVO
-  } | null>(null);
-
-  const { drivers } = useDrivers();
-
-  useEffect(() => {
-    // Primer fetch en el montaje con filtros vacíos (inicio)
-    fetchDispatches(searchRef.current);
-
-    // Al volver el foco a la pestaña, refresca conservando filtros actuales
-    const onFocus = () => fetchDispatches(searchRef.current);
-    window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const fetchDispatches = async (params?: SearchState) => {
+  // Nuevo: función para obtener los nombres de los productos
+  const fetchProducts = async () => {
     try {
-      const response = await api.get<DispatchSummary[]>("/dispatches", {
-        params: params ?? searchRef.current,
-      });
-      setDispatches(response.data);
-      setMensaje("");
+      const res = await api.get<Product[]>("/products");
+      setProductNames(res.data.map((p) => p.name));
     } catch (err) {
-      const error = err as AxiosError;
-      console.error("Error fetching dispatches:", error.response ? error.response.data : error.message);
-      setMensaje("Error al cargar despachos");
+      console.error("Error fetching products:", err);
+      setMensaje("Error al cargar lista de productos");
     }
   };
 
+  const fetchDispatches = useCallback(
+    async (params: SearchState, pageNum: number, append: boolean = false) => {
+      setIsLoading(true);
+      try {
+        const response = await api.get<DispatchSummary[]>("/dispatches", {
+          params: { ...params, page: pageNum, limit: 10 },
+          headers: { "Cache-Control": "no-cache" },
+        });
+        const newDispatches = response.data;
+        setDispatches((prev) => (append ? [...prev, ...newDispatches] : newDispatches));
+        setHasMore(newDispatches.length === 10);
+        setMensaje("");
+      } catch (err) {
+        const error = err as AxiosError;
+        console.error("Error fetching dispatches:", error.response?.data || error.message);
+        setMensaje("Error al cargar despachos");
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    []
+  );
+
+  useEffect(() => {
+    fetchDispatches(searchRef.current, 1);
+    fetchProducts(); // Nuevo: cargar productos al montar el componente
+    const onFocus = () => {
+      fetchDispatches(searchRef.current, 1);
+      fetchProducts();
+    };
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [fetchDispatches]);
+
+  useEffect(() => {
+    if (isLoading || !hasMore) return;
+
+    observer.current = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setPage((prev) => prev + 1);
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (lastDispatchRef.current) {
+      observer.current.observe(lastDispatchRef.current);
+    }
+
+    return () => {
+      if (observer.current) {
+        observer.current.disconnect();
+      }
+    };
+  }, [isLoading, hasMore]);
+
+  useEffect(() => {
+    if (page > 1) {
+      fetchDispatches(searchRef.current, page, true);
+    }
+  }, [page, fetchDispatches]);
+
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setSearch({ ...search, [e.target.name]: e.target.value });
+    searchRef.current = { ...searchRef.current, [e.target.name]: e.target.value };
+    setPage(1);
+    fetchDispatches(searchRef.current, 1);
   };
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    fetchDispatches(search); // usar los filtros actuales
+    setPage(1);
+    fetchDispatches(searchRef.current, 1);
   };
 
   const startEditRow = (d: DispatchSummary) => {
@@ -125,17 +183,19 @@ const Tracking = () => {
   const cancelEditRow = () => {
     setEditingId(null);
     setDraft(null);
+    setSuggestions({}); // Limpiar sugerencias al cancelar
   };
 
   const saveRow = async (id: number) => {
     if (!draft) return;
+    setIsLoading(true);
     try {
       const payload = {
         orden: draft.orden,
         cliente: draft.cliente,
         chofer: draft.chofer,
         status: draft.status,
-        factura_numero: draft.factura_numero, // NUEVO
+        factura_numero: draft.factura_numero,
         productos: draft.productos.map((p) => ({
           nombre: p.nombre,
           cantidad: p.cantidad,
@@ -144,25 +204,8 @@ const Tracking = () => {
       };
       const resp = await api.put<DispatchSummary>(`/dispatches/${id}`, payload);
       const updated = resp.data;
-
       setDispatches((prev) =>
-        prev.map((d) =>
-          d.id === id
-            ? {
-                ...d,
-                orden: updated.orden,
-                cliente: updated.cliente,
-                chofer: updated.chofer,
-                fecha: updated.fecha,
-                status: updated.status,
-                delivered_driver: updated.delivered_driver,
-                delivered_client: updated.delivered_client,
-                productos: updated.productos,
-                paquete_numero: updated.paquete_numero,
-                factura_numero: updated.factura_numero,
-              }
-            : d
-        )
+        prev.map((d) => (d.id === id ? { ...d, ...updated } : d))
       );
       setMensaje("Despacho actualizado. Puedes descargar/imprimir el PDF actualizado.");
       cancelEditRow();
@@ -170,11 +213,14 @@ const Tracking = () => {
       const error = err as AxiosError<ApiError>;
       console.error("Error al actualizar despacho:", error.response?.data || error.message);
       alert(error.response?.data?.error || "No se pudo actualizar el despacho");
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const deleteRow = async (id: number) => {
     if (!window.confirm("¿Eliminar este despacho? Esta acción es permanente.")) return;
+    setIsLoading(true);
     try {
       await api.delete(`/dispatches/${id}`);
       setDispatches((prev) => prev.filter((d) => d.id !== id));
@@ -184,61 +230,47 @@ const Tracking = () => {
       const error = err as AxiosError<ApiError>;
       console.error("Error eliminando despacho:", error.response?.data || error.message);
       alert(error.response?.data?.error || "No se pudo eliminar el despacho");
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  // Estados granulares -> endpoints dedicados
   const markToDriver = async (id: number) => {
+    setIsLoading(true);
     try {
       const resp = await api.post<DispatchSummary>(`/dispatches/${id}/mark-driver`, {});
       const updated = resp.data;
       setDispatches((prev) =>
-        prev.map((d) =>
-          d.id === id
-            ? {
-                ...d,
-                status: updated.status,
-                delivered_driver: updated.delivered_driver,
-                delivered_client: updated.delivered_client,
-                fecha: updated.fecha,
-              }
-            : d
-        )
+        prev.map((d) => (d.id === id ? { ...d, ...updated } : d))
       );
       setMensaje("Despacho marcado como 'Entregado a Chofer'.");
     } catch (err) {
       const error = err as AxiosError;
-      console.error("Error marcando chofer:", error.response ? error.response.data : error.message);
+      console.error("Error marcando chofer:", error.response?.data || error.message);
       setMensaje("No se pudo marcar 'Entregado a Chofer'.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const markToClient = async (id: number) => {
+    setIsLoading(true);
     try {
       const resp = await api.post<DispatchSummary>(`/dispatches/${id}/mark-client`, {});
       const updated = resp.data;
       setDispatches((prev) =>
-        prev.map((d) =>
-          d.id === id
-            ? {
-                ...d,
-                status: updated.status,
-                delivered_driver: updated.delivered_driver,
-                delivered_client: updated.delivered_client,
-                fecha: updated.fecha,
-              }
-            : d
-        )
+        prev.map((d) => (d.id === id ? { ...d, ...updated } : d))
       );
       setMensaje("Despacho marcado como 'Pedido Entregado'.");
     } catch (err) {
       const error = err as AxiosError;
-      console.error("Error marcando cliente:", error.response ? error.response.data : error.message);
+      console.error("Error marcando cliente:", error.response?.data || error.message);
       setMensaje("No se pudo marcar 'Pedido Entregado'.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  // PDF helpers
   const downloadPDF = async (id: number) => {
     try {
       const resp = await api.get(`/print/${id}`, {
@@ -256,7 +288,7 @@ const Tracking = () => {
       URL.revokeObjectURL(url);
     } catch (err) {
       const error = err as AxiosError;
-      console.error("Error descargando PDF:", error.response ? error.response.data : error.message);
+      console.error("Error descargando PDF:", error.response?.data || error.message);
       setMensaje("No se pudo descargar el PDF");
     }
   };
@@ -271,23 +303,39 @@ const Tracking = () => {
       const url = URL.createObjectURL(blob);
       const w = window.open(url, "_blank");
       w?.addEventListener("load", () => {
-        try { w.focus(); w.print(); } catch {}
+        try {
+          w.focus();
+          w.print();
+        } catch {}
       });
     } catch (err) {
       const error = err as AxiosError;
-      console.error("Error abriendo PDF para imprimir:", error.response ? error.response.data : error.message);
+      console.error("Error abriendo PDF para imprimir:", error.response?.data || error.message);
       setMensaje("No se pudo abrir el PDF para imprimir");
     }
   };
 
   const addRow = () => {
     if (!draft) return;
-    setDraft({ ...draft, productos: [...draft.productos, { nombre: "", cantidad: 0, unidad: "unidades" }] });
+    setDraft({
+      ...draft,
+      productos: [...draft.productos, { nombre: "", cantidad: 0, unidad: "unidades" }],
+    });
   };
+
   const removeRow = (idx: number) => {
     if (!draft) return;
-    setDraft({ ...draft, productos: draft.productos.filter((_, i) => i !== idx) });
+    setDraft({
+      ...draft,
+      productos: draft.productos.filter((_, i) => i !== idx),
+    });
+    setSuggestions((prev) => {
+      const copy = { ...prev };
+      delete copy[idx];
+      return copy;
+    });
   };
+
   const updateRow = (idx: number, patch: Partial<ProductoRow>) => {
     if (!draft) return;
     setDraft({
@@ -297,14 +345,29 @@ const Tracking = () => {
   };
 
   const DownloadIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      className="w-5 h-5"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
       <path d="M12 3v12" />
       <path d="M7 10l5 5 5-5" />
       <path d="M5 21h14" />
     </svg>
   );
+
   const PrinterIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      className="w-5 h-5"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
       <path d="M6 9V2h12v7" />
       <path d="M6 18h12v4H6z" />
       <path d="M6 14H5a3 3 0 0 1-3-3v-1a3 3 0 0 1 3-3h14a3 3 0 0 1 3 3v1a3 3 0 0 1-3 3h-1" />
@@ -326,20 +389,49 @@ const Tracking = () => {
       {mensaje && <p className="mb-4 text-emerald-400">{mensaje}</p>}
 
       <form onSubmit={handleSearchSubmit} className="space-y-4 mb-6">
-        <input name="client" value={search.client} onChange={handleSearchChange} placeholder="Buscar por nombre del centro de costo" className="w-full border p-2 rounded" />
-        <input name="order" value={search.order} onChange={handleSearchChange} placeholder="Buscar por número de orden" className="w-full border p-2 rounded" />
-        <input name="invoice" value={search.invoice} onChange={handleSearchChange} placeholder="Buscar por número de factura" className="w-full border p-2 rounded"/>
-        <input name="user" value={search.user} onChange={handleSearchChange} placeholder="Buscar por usuario que creó" className="w-full border p-2 rounded" />
-        <input name="driver" value={search.driver} onChange={handleSearchChange} placeholder="Buscar por nombre del chofer" className="w-full border p-2 rounded" />
+        <input
+          name="client"
+          value={searchRef.current.client}
+          onChange={handleSearchChange}
+          placeholder="Buscar por nombre del centro de costo"
+          className="w-full border p-2 rounded"
+        />
+        <input
+          name="order"
+          value={searchRef.current.order}
+          onChange={handleSearchChange}
+          placeholder="Buscar por número de orden"
+          className="w-full border p-2 rounded"
+        />
+        <input
+          name="invoice"
+          value={searchRef.current.invoice}
+          onChange={handleSearchChange}
+          placeholder="Buscar por número de factura"
+          className="w-full border p-2 rounded"
+        />
+        <input
+          name="user"
+          value={searchRef.current.user}
+          onChange={handleSearchChange}
+          placeholder="Buscar por usuario que creó"
+          className="w-full border p-2 rounded"
+        />
+        <input
+          name="driver"
+          value={searchRef.current.driver}
+          onChange={handleSearchChange}
+          placeholder="Buscar por nombre del chofer"
+          className="w-full border p-2 rounded"
+        />
 
-        {/* Rango de fechas */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="block text-sm text-gray-300 mb-1">Desde</label>
             <input
               name="date_from"
               type="date"
-              value={search.date_from}
+              value={searchRef.current.date_from}
               onChange={handleSearchChange}
               className="w-full border p-2 rounded"
             />
@@ -349,245 +441,295 @@ const Tracking = () => {
             <input
               name="date_to"
               type="date"
-              value={search.date_to}
+              value={searchRef.current.date_to}
               onChange={handleSearchChange}
               className="w-full border p-2 rounded"
             />
           </div>
         </div>
-        
-        <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Buscar</button>
+
+        <button
+          type="submit"
+          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:bg-blue-400"
+          disabled={isLoading}
+        >
+          Buscar
+        </button>
       </form>
 
-      <div className="space-y-4">
-        {dispatches.map((d) => {
-          const isDriverDone = d.delivered_driver || d.delivered_client;
-          const isClientDone = d.delivered_client;
-          const isEditingRow = editingId === d.id;
+      {isLoading && dispatches.length === 0 ? (
+        <div className="text-center py-8">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+          <p className="mt-2 text-gray-400">Cargando despachos...</p>
+        </div>
+      ) : dispatches.length === 0 ? (
+        <p className="text-center text-gray-400 py-8">No se encontraron despachos.</p>
+      ) : (
+        <div className="space-y-4">
+          {dispatches.map((d, index) => {
+            const isDriverDone = d.delivered_driver || d.delivered_client;
+            const isClientDone = d.delivered_client;
+            const isEditingRow = editingId === d.id;
+            const refProp = index === dispatches.length - 1 ? { ref: lastDispatchRef } : {};
 
-          return (
-            <div key={d.id} className="border p-4 hover:bg-gray-900/20 rounded">
-              <div className="flex items-start justify-between gap-4">
-                {!isEditingRow ? (
-                  <div>
-                    <p><strong>Orden:</strong> {d.orden}</p>
-                    {d.paquete_numero ? <p><strong>Paquete N°:</strong> {d.paquete_numero}</p> : null}
-                    {d.factura_numero ? <p><strong>Factura N°:</strong> {d.factura_numero}</p> : null}
-                    <p><strong>Centro de Costo:</strong> {d.cliente}</p>
-                    <p><strong>Chofer:</strong> {d.chofer}</p>
-                    <p><strong>Despachado por:</strong> {d.created_by}</p>
-                    <p><strong>Fecha:</strong> {new Date(d.fecha).toLocaleString()}</p>
-                    <p><strong>Estado:</strong> {humanStatus(d.status)}</p>
-                  </div>
-                ) : (
-                  <div className="w-full">
-                    <div className="grid sm:grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-sm mb-1">Orden</label>
-                        <input
-                          value={draft?.orden || ""}
-                          onChange={(e) => setDraft((prev) => prev ? { ...prev, orden: e.target.value } : prev)}
-                          className="w-full border p-2 rounded"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm mb-1">Centro de Costo</label>
-                        <ClientSelector
-                          value={draft?.cliente || ""}
-                          onChange={(cliente) => setDraft((prev) => prev ? { ...prev, cliente } : prev)}
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm mb-1">Chofer</label>
-                        <DriverSelector
-                          value={draft?.chofer || ""}
-                          onChange={(choferId) => setDraft((prev) => prev ? { ...prev, chofer: choferId } : prev)}
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm mb-1">Estado</label>
-                        <select
-                          value={draft?.status || "pendiente"}
-                          onChange={(e) => setDraft((prev) => prev ? { ...prev, status: e.target.value } : prev)}
-                          className="w-full border p-2 rounded"
-                        >
-                          <option value="pendiente">pendiente</option>
-                          <option value="entregado_chofer">entregado_chofer</option>
-                          <option value="entregado_cliente">entregado_cliente</option>
-                          <option value="cancelado">cancelado</option>
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="block text-sm mb-1">N° Factura asociada</label>
-                        <input
-                          className="w-full border p-2 rounded"
-                          value={draft?.factura_numero || ""}
-                          onChange={(e) => setDraft((prev) => prev ? { ...prev, factura_numero: e.target.value } : prev)}
-                          placeholder="Ej: 12345"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="mt-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <h4 className="font-bold">Productos</h4>
-                        <button className={`${btnIcon} hover:bg-blue-600`} onClick={addRow} title="Agregar producto" aria-label="Agregar producto">
-                          <FiPlus size={18} />
-                        </button>
-                      </div>
-
-                      <div className="space-y-2">
-                        {draft?.productos.map((row, idx) => (
-                          <div key={idx} className="grid sm:grid-cols-12 gap-2 items-center">
-                            <input
-                              className="border p-2 rounded sm:col-span-6"
-                              placeholder="Nombre"
-                              value={row.nombre}
-                              onChange={(e) => updateRow(idx, { nombre: e.target.value })}
-                            />
-                            <input
-                              type="number"
-                              className="border p-2 rounded sm:col-span-2"
-                              placeholder="Cantidad"
-                              value={row.cantidad}
-                              onChange={(e) => updateRow(idx, { cantidad: parseFloat(e.target.value) || 0 })}
-                            />
-                            <select
-                              className="border p-2 rounded sm:col-span-3"
-                              value={row.unidad}
-                              onChange={(e) => updateRow(idx, { unidad: e.target.value })}
-                            >
-                              <option value="unidades">Unidades</option>
-                              <option value="kg">Kilogramos</option>
-                              <option value="lt">Litros</option>
-                              <option value="cajas">Cajas</option>
-                              <option value="PQT">Paquetes</option>
-                            </select>
-                            <div className="sm:col-span-1 flex justify-end">
-                              <button
-                                className={`${btnIcon} hover:bg-red-600`}
-                                title="Quitar"
-                                aria-label="Quitar"
-                                onClick={() => removeRow(idx)}
-                              >
-                                <FiMinus size={18} />
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    className="flex items-center gap-2 px-3 py-2 rounded text-white bg-blue-600 hover:bg-blue-700"
-                    title="Descargar PDF"
-                    aria-label="Descargar PDF"
-                    onClick={() => downloadPDF(d.id)}
-                  >
-                    <DownloadIcon />
-                    <span className="text-xs font-medium">PDF</span>
-                  </button>
-
-                  <button
-                    className="flex items-center gap-2 px-3 py-2 rounded text-white bg-indigo-600 hover:bg-indigo-700"
-                    title="Imprimir PDF"
-                    aria-label="Imprimir PDF"
-                    onClick={() => printPDF(d.id)}
-                  >
-                    <PrinterIcon />
-                    <span className="text-xs font-medium">Imprimir</span>
-                  </button>
-
+            return (
+              <div key={d.id} className="border p-4 hover:bg-gray-900/20 rounded" {...refProp}>
+                <div className="flex items-start justify-between gap-4">
                   {!isEditingRow ? (
-                    <>
-                      <button
-                        className={`${btnIcon} hover:bg-blue-600`}
-                        title="Editar"
-                        aria-label="Editar"
-                        onClick={() => startEditRow(d)}
-                      >
-                        <FiEdit2 size={18} />
-                      </button>
-                      <button
-                        className={`${btnIcon} hover:bg-red-600`}
-                        title="Eliminar"
-                        aria-label="Eliminar"
-                        onClick={() => deleteRow(d.id)}
-                      >
-                        <FiTrash2 size={18} />
-                      </button>
-                    </>
+                    <div>
+                      <p><strong>Orden:</strong> {d.orden}</p>
+                      {d.paquete_numero ? <p><strong>Paquete N°:</strong> {d.paquete_numero}</p> : null}
+                      {d.factura_numero ? <p><strong>Factura N°:</strong> {d.factura_numero}</p> : null}
+                      <p><strong>Centro de Costo:</strong> {d.cliente}</p>
+                      <p><strong>Chofer:</strong> {d.chofer}</p>
+                      <p><strong>Despachado por:</strong> {d.created_by}</p>
+                      <p><strong>Fecha:</strong> {new Date(d.fecha).toLocaleString()}</p>
+                      <p><strong>Estado:</strong> {humanStatus(d.status)}</p>
+                    </div>
                   ) : (
-                    <>
-                      <button
-                        className={`${btnIcon} hover:bg-emerald-600`}
-                        title="Guardar"
-                        aria-label="Guardar"
-                        onClick={() => saveRow(d.id)}
-                      >
-                        <FiSave size={18} />
-                      </button>
-                      <button
-                        className={`${btnIcon} hover:bg-gray-600`}
-                        title="Cancelar"
-                        aria-label="Cancelar"
-                        onClick={cancelEditRow}
-                      >
-                        <FiX size={18} />
-                      </button>
-                    </>
+                    <div className="w-full">
+                      <div className="grid sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-sm mb-1">Orden</label>
+                          <input
+                            value={draft?.orden || ""}
+                            onChange={(e) => setDraft((prev) => (prev ? { ...prev, orden: e.target.value } : prev))}
+                            className="w-full border p-2 rounded"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm mb-1">Centro de Costo</label>
+                          <ClientSelector
+                            value={draft?.cliente || ""}
+                            onChange={(cliente) => setDraft((prev) => (prev ? { ...prev, cliente } : prev))}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm mb-1">Chofer</label>
+                          <DriverSelector
+                            value={draft?.chofer || ""}
+                            onChange={(choferId) => setDraft((prev) => (prev ? { ...prev, chofer: choferId } : prev))}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm mb-1">Estado</label>
+                          <select
+                            value={draft?.status || "pendiente"}
+                            onChange={(e) => setDraft((prev) => (prev ? { ...prev, status: e.target.value } : prev))}
+                            className="w-full border p-2 rounded"
+                          >
+                            <option value="pendiente">pendiente</option>
+                            <option value="entregado_chofer">entregado_chofer</option>
+                            <option value="entregado_cliente">entregado_cliente</option>
+                            <option value="cancelado">cancelado</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm mb-1">N° Factura asociada</label>
+                          <input
+                            className="w-full border p-2 rounded"
+                            value={draft?.factura_numero || ""}
+                            onChange={(e) =>
+                              setDraft((prev) => (prev ? { ...prev, factura_numero: e.target.value } : prev))
+                            }
+                            placeholder="Ej: 12345"
+                          />
+                        </div>
+                      </div>
+                      <div className="mt-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="font-bold">Productos</h4>
+                          <button
+                            className={`${btnIcon} hover:bg-blue-600`}
+                            onClick={addRow}
+                            title="Agregar producto"
+                            aria-label="Agregar producto"
+                          >
+                            <FiPlus size={18} />
+                          </button>
+                        </div>
+                        <div className="space-y-2">
+                          {draft?.productos.map((row, idx) => (
+                            <div key={idx} className="grid sm:grid-cols-12 gap-2 items-center">
+                              <div className="relative sm:col-span-6">
+                                <input
+                                  className="border p-2 rounded w-full"
+                                  placeholder="Nombre del producto"
+                                  value={row.nombre}
+                                  onChange={(e) => {
+                                    const value = e.target.value;
+                                    updateRow(idx, { nombre: value });
+                                    if (value) {
+                                      const filtered = productNames.filter((n) =>
+                                        n.toLowerCase().includes(value.toLowerCase())
+                                      );
+                                      setSuggestions((prev) => ({ ...prev, [idx]: filtered }));
+                                    } else {
+                                      setSuggestions((prev) => ({ ...prev, [idx]: [] }));
+                                    }
+                                  }}
+                                  onBlur={() => setSuggestions((prev) => ({ ...prev, [idx]: [] }))}
+                                />
+                                {suggestions[idx]?.length > 0 && (
+                                  <ul className="absolute z-10 bg-neutral-800 border border-gray-600 rounded mt-1 w-full max-h-40 overflow-auto text-white">
+                                    {suggestions[idx].map((sug, i) => (
+                                      <li
+                                        key={i}
+                                        className="p-2 hover:bg-neutral-700 cursor-pointer"
+                                        onMouseDown={() => {
+                                          updateRow(idx, { nombre: sug });
+                                          setSuggestions((prev) => ({ ...prev, [idx]: [] }));
+                                        }}
+                                      >
+                                        {sug}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                )}
+                              </div>
+                              <input
+                                type="number"
+                                className="border p-2 rounded sm:col-span-2"
+                                placeholder="Cantidad"
+                                value={row.cantidad}
+                                onChange={(e) => updateRow(idx, { cantidad: parseFloat(e.target.value) || 0 })}
+                              />
+                              <select
+                                className="border p-2 rounded sm:col-span-3"
+                                value={row.unidad}
+                                onChange={(e) => updateRow(idx, { unidad: e.target.value })}
+                              >
+                                <option value="unidades">Unidades</option>
+                                <option value="kg">Kilogramos</option>
+                                <option value="lt">Litros</option>
+                                <option value="cajas">Cajas</option>
+                                <option value="PQT">Paquetes</option>
+                              </select>
+                              <div className="sm:col-span-1 flex justify-end">
+                                <button
+                                  className={`${btnIcon} hover:bg-red-600`}
+                                  title="Quitar"
+                                  aria-label="Quitar"
+                                  onClick={() => removeRow(idx)}
+                                >
+                                  <FiMinus size={18} />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
                   )}
-
-                  {/* Estados específicos */}
-                  <button
-                    className={
-                      "px-3 py-2 rounded text-white " +
-                      (isDriverDone ? "bg-emerald-600 cursor-default" : "bg-green-600 hover:bg-green-700")
-                    }
-                    disabled={isDriverDone}
-                    onClick={() => markToDriver(d.id)}
-                    title={isDriverDone ? "Entregado a Chofer (bloqueado)" : "Marcar como Entregado a Chofer"}
-                  >
-                    {d.delivered_driver ? "Entregado a Chofer" : "Marcar como Entregado a Chofer"}
-                  </button>
-
-                  <button
-                    className={
-                      "px-3 py-2 rounded text-white " +
-                      (isClientDone ? "bg-emerald-600 cursor-default" : "bg-green-600 hover:bg-green-700")
-                    }
-                    disabled={isClientDone}
-                    onClick={() => markToClient(d.id)}
-                    title={isClientDone ? "Pedido Entregado (finalizado)" : "Marcar como Pedido Entregado"}
-                  >
-                    {d.delivered_client ? "Pedido Entregado" : "Marcar como Pedido Entregado"}
-                  </button>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      className="flex items-center gap-2 px-3 py-2 rounded text-white bg-blue-600 hover:bg-blue-700"
+                      title="Descargar PDF"
+                      aria-label="Descargar PDF"
+                      onClick={() => downloadPDF(d.id)}
+                    >
+                      <DownloadIcon />
+                      <span className="text-xs font-medium">PDF</span>
+                    </button>
+                    <button
+                      className="flex items-center gap-2 px-3 py-2 rounded text-white bg-indigo-600 hover:bg-indigo-700"
+                      title="Imprimir PDF"
+                      aria-label="Imprimir PDF"
+                      onClick={() => printPDF(d.id)}
+                    >
+                      <PrinterIcon />
+                      <span className="text-xs font-medium">Imprimir</span>
+                    </button>
+                    {!isEditingRow ? (
+                      <>
+                        <button
+                          className={`${btnIcon} hover:bg-blue-600`}
+                          title="Editar"
+                          aria-label="Editar"
+                          onClick={() => startEditRow(d)}
+                        >
+                          <FiEdit2 size={18} />
+                        </button>
+                        <button
+                          className={`${btnIcon} hover:bg-red-600`}
+                          title="Eliminar"
+                          aria-label="Eliminar"
+                          onClick={() => deleteRow(d.id)}
+                        >
+                          <FiTrash2 size={18} />
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          className={`${btnIcon} hover:bg-emerald-600`}
+                          title="Guardar"
+                          aria-label="Guardar"
+                          onClick={() => saveRow(d.id)}
+                        >
+                          <FiSave size={18} />
+                        </button>
+                        <button
+                          className={`${btnIcon} hover:bg-gray-600`}
+                          title="Cancelar"
+                          aria-label="Cancelar"
+                          onClick={cancelEditRow}
+                        >
+                          <FiX size={18} />
+                        </button>
+                      </>
+                    )}
+                    <button
+                      className={
+                        "px-3 py-2 rounded text-white " +
+                        (isDriverDone ? "bg-emerald-600 cursor-default" : "bg-green-600 hover:bg-green-700")
+                      }
+                      disabled={isDriverDone || isLoading}
+                      onClick={() => markToDriver(d.id)}
+                      title={isDriverDone ? "Entregado a Chofer (bloqueado)" : "Marcar como Entregado a Chofer"}
+                    >
+                      {d.delivered_driver ? "Entregado a Chofer" : "Marcar como Entregado a Chofer"}
+                    </button>
+                    <button
+                      className={
+                        "px-3 py-2 rounded text-white " +
+                        (isClientDone ? "bg-emerald-600 cursor-default" : "bg-green-600 hover:bg-green-700")
+                      }
+                      disabled={isClientDone || isLoading}
+                      onClick={() => markToClient(d.id)}
+                      title={isClientDone ? "Pedido Entregado (finalizado)" : "Marcar como Pedido Entregado"}
+                    >
+                      {d.delivered_client ? "Pedido Entregado" : "Marcar como Pedido Entregado"}
+                    </button>
+                  </div>
                 </div>
+                {!isEditingRow && (
+                  <>
+                    <p className="mt-3"><strong>Productos:</strong></p>
+                    <ul className="list-disc pl-5">
+                      {d.productos.map((p, i) => (
+                        <li key={i}>
+                          {p.nombre} - {p.cantidad} {p.unidad}
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                )}
               </div>
-
-              {!isEditingRow && (
-                <>
-                  <p className="mt-3"><strong>Productos:</strong></p>
-                  <ul className="list-disc pl-5">
-                    {d.productos.map((p, i) => (
-                      <li key={i}>
-                        {p.nombre} - {p.cantidad} {p.unidad}
-                      </li>
-                    ))}
-                  </ul>
-                </>
-              )}
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
+      {hasMore && !isLoading && (
+        <div className="text-center mt-6">
+          <button
+            onClick={() => setPage((prev) => prev + 1)}
+            className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700"
+          >
+            Cargar más
+          </button>
+        </div>
+      )}
     </div>
   );
 };

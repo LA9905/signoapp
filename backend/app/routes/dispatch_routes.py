@@ -110,18 +110,18 @@ def create_dispatch():
 @jwt_required()
 def get_dispatches():
     try:
-        search_client   = (request.args.get("client") or "").lower()
-        search_order    = (request.args.get("order") or "").lower()
-        search_user     = (request.args.get("user") or "").lower()
-        search_driver   = (request.args.get("driver") or "").lower()
-        search_invoice  = (request.args.get("invoice") or "").lower()
-
-        # Fechas:
-        # - date_from & date_to: rango inclusivo para el usuario, implementado como [from 00:00, to+1d 00:00)
-        # - sólo date_from o sólo date_to: un día
-        # - date (legado): un día
-        date_from_str   = (request.args.get("date_from") or "").strip()
-        date_to_str     = (request.args.get("date_to") or "").strip()
+        search_client = (request.args.get("client") or "").lower()
+        search_order = (request.args.get("order") or "").lower()
+        search_user = (request.args.get("user") or "").lower()
+        search_driver = (request.args.get("driver") or "").lower()
+        search_invoice = (request.args.get("invoice") or "").lower()
+        
+        # Paginación
+        page = int(request.args.get("page", 1))
+        limit = int(request.args.get("limit", 10))
+        
+        date_from_str = (request.args.get("date_from") or "").strip()
+        date_to_str = (request.args.get("date_to") or "").strip()
         date_single_str = (request.args.get("date") or "").strip()
 
         query = Dispatch.query
@@ -143,10 +143,10 @@ def get_dispatches():
         if search_invoice:
             query = query.filter(db.func.lower(Dispatch.factura_numero).like(f"%{search_invoice}%"))
 
-        # ---------- Filtro de fecha robusto (soporta datos UTC naive y LOCAL naive) ----------
+        # Filtro de fecha robusto (sin cambios)
         apply_local_window_check = False
         win_start_local = None
-        win_end_local   = None  # (aware, CL_TZ)
+        win_end_local = None
 
         def _day_bounds_local_aware(day_str: str):
             d = datetime.strptime(day_str, "%Y-%m-%d")
@@ -155,33 +155,29 @@ def get_dispatches():
             return start_local, end_local_exclusive
 
         def _normalize_range_local(start_local_aware: datetime, end_local_exclusive_aware: datetime):
-            # Rango supuesto para filas guardadas como UTC-naive
             a_start = to_utc_naive(start_local_aware)
-            a_end   = to_utc_naive(end_local_exclusive_aware)
-            # Rango supuesto para filas guardadas como LOCAL-naive
+            a_end = to_utc_naive(end_local_exclusive_aware)
             b_start = start_local_aware.replace(tzinfo=None)
-            b_end   = end_local_exclusive_aware.replace(tzinfo=None)
+            b_end = end_local_exclusive_aware.replace(tzinfo=None)
             return a_start, a_end, b_start, b_end
 
         if date_from_str and date_to_str:
             try:
                 d_from = datetime.strptime(date_from_str, "%Y-%m-%d")
-                d_to   = datetime.strptime(date_to_str, "%Y-%m-%d")
+                d_to = datetime.strptime(date_to_str, "%Y-%m-%d")
             except ValueError:
                 return jsonify({"error": "Formato de fecha inválido en date_from/date_to, use YYYY-MM-DD"}), 400
 
             if d_from > d_to:
                 d_from, d_to = d_to, d_from
 
-            # Ventana local (lo que el usuario pidió)
             win_start_local = d_from.replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=CL_TZ)
-            win_end_local   = (d_to + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=CL_TZ)
+            win_end_local = (d_to + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=CL_TZ)
             apply_local_window_check = True
 
-            # Superconjunto SQL (une ambos mundos)
             a_start, a_end, b_start, b_end = _normalize_range_local(win_start_local, win_end_local)
             sql_start = min(a_start, b_start)
-            sql_end   = max(a_end, b_end)
+            sql_end = max(a_end, b_end)
             query = query.filter(Dispatch.fecha >= sql_start, Dispatch.fecha < sql_end)
 
         elif date_from_str and not date_to_str:
@@ -190,10 +186,9 @@ def get_dispatches():
             except ValueError:
                 return jsonify({"error": "Formato de fecha inválido en date_from, use YYYY-MM-DD"}), 400
             apply_local_window_check = True
-
             a_start, a_end, b_start, b_end = _normalize_range_local(win_start_local, win_end_local)
             sql_start = min(a_start, b_start)
-            sql_end   = max(a_end, b_end)
+            sql_end = max(a_end, b_end)
             query = query.filter(Dispatch.fecha >= sql_start, Dispatch.fecha < sql_end)
 
         elif date_to_str and not date_from_str:
@@ -202,10 +197,9 @@ def get_dispatches():
             except ValueError:
                 return jsonify({"error": "Formato de fecha inválido en date_to, use YYYY-MM-DD"}), 400
             apply_local_window_check = True
-
             a_start, a_end, b_start, b_end = _normalize_range_local(win_start_local, win_end_local)
             sql_start = min(a_start, b_start)
-            sql_end   = max(a_end, b_end)
+            sql_end = max(a_end, b_end)
             query = query.filter(Dispatch.fecha >= sql_start, Dispatch.fecha < sql_end)
 
         elif date_single_str:
@@ -214,18 +208,17 @@ def get_dispatches():
             except ValueError:
                 return jsonify({"error": "Formato de fecha inválido en date, use YYYY-MM-DD"}), 400
             apply_local_window_check = True
-
             a_start, a_end, b_start, b_end = _normalize_range_local(win_start_local, win_end_local)
             sql_start = min(a_start, b_start)
-            sql_end   = max(a_end, b_end)
+            sql_end = max(a_end, b_end)
             query = query.filter(Dispatch.fecha >= sql_start, Dispatch.fecha < sql_end)
-        # --------------------------------------------------------------------------------------
 
         query = query.order_by(Dispatch.fecha.asc())
 
-        dispatches = query.all()
+        # Aplicar paginación
+        dispatches = query.paginate(page=page, per_page=limit, error_out=False).items
 
-        # Si el usuario pidió ventana de fechas, recorta según la FECHA LOCAL mostrada
+        # Filtro de ventana local
         if apply_local_window_check:
             dispatches = [
                 d for d in dispatches
