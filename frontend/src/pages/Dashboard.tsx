@@ -51,6 +51,8 @@ const Dashboard: React.FC = () => {
     { title: "Recepción de Proveedores", route: "/receive-supplier" },
     { title: "Recepciones registradas", route: "/supplier-tracking" },
     { title: "Proveedores", route: "/suppliers" },
+    { title: "Consumo Interno", route: "/create-internal" },
+    { title: "Registros de Consumos Internos", route: "/internal-tracking" },
     ...(isAdmin ? [{ title: "Administración (pagos)", route: "/admin/billing" }] : []),
   ];
 

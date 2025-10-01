@@ -5,6 +5,7 @@ from app.models.dispatch_model import Dispatch
 from app.models.client_model import Client
 from app.models.driver_model import Driver
 from app.models.user_model import User
+from app.models.internal_consumption_model import InternalConsumption, InternalConsumptionProduct
 from app.utils.print_utils import (
     generar_hoja_despacho,
     generar_etiqueta_despacho,
@@ -82,6 +83,42 @@ def print_despacho(despacho_id):
         pdf_buffer,
         as_attachment=not inline,
         download_name=f"despacho_{dispatch.id}.pdf",
+        mimetype="application/pdf",
+        max_age=0,
+    )
+
+
+@print_bp.route("/print-internal/<int:id>", methods=["GET"])
+@jwt_required()
+def print_internal(id):
+    consumption = InternalConsumption.query.get(id)
+    if not consumption:
+        return jsonify({"error": "Consumo interno no encontrado"}), 404
+
+    creator = User.query.get(consumption.created_by)
+
+    productos = [f"{p.nombre} — {p.cantidad} {p.unidad}" for p in consumption.productos]
+
+    data = {
+        "empresa": "Signo Representaciones Ltda.",
+        "fecha": to_local(consumption.fecha).strftime("%Y-%m-%d %H:%M"),
+        "auxiliar": creator.name if creator else str(consumption.created_by),
+        "nombre_retira": consumption.nombre_retira,
+        "area": consumption.area,
+        "motivo": consumption.motivo,
+        "productos": productos,
+        "folio": consumption.id,
+        # No incluir 'codigo_barras' para evitar intento de generación
+    }
+
+    # Usa formato POS80 adaptado
+    pdf_buffer = generar_ticket_pos80(data)
+
+    inline = request.args.get("inline", "0") == "1"
+    return send_file(
+        pdf_buffer,
+        as_attachment=not inline,
+        download_name=f"consumo_interno_{consumption.id}.pdf",
         mimetype="application/pdf",
         max_age=0,
     )

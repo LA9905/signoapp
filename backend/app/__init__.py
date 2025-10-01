@@ -88,6 +88,7 @@ def create_app():
     from .routes.billing_routes import billing_bp
     from .routes.supplier_routes import supplier_bp
     from .routes.receipt_routes import receipt_bp
+    from .routes.internal_consumption_routes import internal_bp
 
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
     app.register_blueprint(product_bp, url_prefix="/api")
@@ -99,6 +100,7 @@ def create_app():
     app.register_blueprint(billing_bp, url_prefix="/api")
     app.register_blueprint(supplier_bp, url_prefix="/api")
     app.register_blueprint(receipt_bp, url_prefix="/api")
+    app.register_blueprint(internal_bp, url_prefix="/api")
 
     app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=8)
 

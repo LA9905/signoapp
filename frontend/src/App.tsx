@@ -20,6 +20,8 @@ import AdminBilling from "./pages/AdminBilling";
 import SupplierList from "./pages/SupplierList";
 import ReceiveSupplier from "./pages/ReceiveSupplier"; 
 import SupplierTracking from "./pages/SupplierTracking"; 
+import CreateInternalConsumption from "./pages/CreateInternalConsumption";
+import InternalTracking from "./pages/InternalTracking";
 import ProtectedShell from "./layouts/ProtectedShell";
 
 // Hace un ping silencioso al backend para "despertarlo" en Render
@@ -144,6 +146,22 @@ const App: React.FC = () => {
           element={
             <ProtectedShell>
               <SupplierTracking />
+            </ProtectedShell>
+          }
+        />
+        <Route
+          path="/create-internal"
+          element={
+            <ProtectedShell>
+              <CreateInternalConsumption />
+            </ProtectedShell>
+          }
+        />
+        <Route
+          path="/internal-tracking"
+          element={
+            <ProtectedShell>
+              <InternalTracking />
             </ProtectedShell>
           }
         />

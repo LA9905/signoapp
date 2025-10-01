@@ -416,18 +416,28 @@ def _measure_ticket_pos80_height(c, d: dict) -> float:
 
     body = 0
     row_h = 11
-    body += row_h   # Fecha
-    body += row_h   # Chofer
-    body += row_h   # Centro de Costo
-    body += 9       # raya + aire
 
-    body += 12      # Orden
-    if d.get("paquete_numero"):
-        body += 12
-    if d.get("factura_numero"):
-        body += 12
-    body += 12      # Despachado por
+    # Común: Fecha y Registrado por
+    body += row_h  # Fecha
+    body += row_h  # Registrado por
 
+    # Específicos por tipo
+    if "chofer" in d:  # Es un despacho
+        body += row_h  # Chofer
+        body += row_h  # Centro de Costo
+        body += 9      # raya + aire
+        body += 12     # Orden
+        if d.get("paquete_numero"):
+            body += 12
+        if d.get("factura_numero"):
+            body += 12
+    else:  # Es un consumo interno
+        body += row_h  # Nombre quien retira
+        body += row_h  # Área
+        body += row_h  # Motivo
+        body += 9      # raya + aire
+
+    # Productos común
     productos = d.get("productos", []) or []
     if productos:
         body += 11  # título
@@ -440,9 +450,10 @@ def _measure_ticket_pos80_height(c, d: dict) -> float:
             lines = _wrap_text(c, str(item), max_w_text, "Helvetica", 10)
             body += line_h * max(1, len(lines))
 
-    body += 10      # separador antes del código
-    bh = 28 * mm    # alto del código
-    body += bh
+    body += 10      # separador antes del código (solo si hay código)
+    if "codigo_barras" in d:  # Solo para despachos
+        bh = 28 * mm    # alto del código
+        body += bh
 
     total = My + max(header_h, 0) + body + My
     return max(total, 120 * mm)
@@ -492,51 +503,65 @@ def generar_ticket_pos80(d: dict) -> BytesIO:
 
     y -= used_h + 3 * mm
 
-    # ---- Fila: Fecha (izq) y Chofer (der) como DOS COLUMNAS, con wrapping ----
+    # ---- Campos comunes y específicos ----
     c.setFont("Helvetica", 10.5)
-    w_fecha  = (W - 2 * Mx) * 0.55
-    w_chofer = (W - 2 * Mx) * 0.45
-    x_fecha  = Mx
-    x_chofer = Mx + w_fecha
-    line_h   = 11
+    w_left = (W - 2 * Mx) * 0.55
+    w_right = (W - 2 * Mx) * 0.45
+    x_left = Mx
+    x_right = Mx + w_left
+    line_h = 11
 
-    # Envolver cada columna
-    fecha_lines  = _wrap_text(c, f"Fecha: {d.get('fecha','')}",  w_fecha,  "Helvetica", 10.5)
-    chofer_lines = _wrap_text(c, f"Chofer: {d.get('chofer','')}", w_chofer, "Helvetica", 10.5)
-
-    # Pintar en paralelo para que queden alineadas en altura
-    for i in range(max(len(fecha_lines), len(chofer_lines))):
+    # Fecha (izq) y Registrado por (der)
+    fecha_lines = _wrap_text(c, f"Fecha: {d.get('fecha','')}", w_left, "Helvetica", 10.5)
+    auxiliar_lines = _wrap_text(c, f"Despachado por: {d.get('auxiliar','')}", w_right, "Helvetica", 10.5)
+    for i in range(max(len(fecha_lines), len(auxiliar_lines))):
         if i < len(fecha_lines):
-            c.drawString(x_fecha, y, fecha_lines[i])
-        if i < len(chofer_lines):
-            c.drawString(x_chofer, y, chofer_lines[i])
+            c.drawString(x_left, y, fecha_lines[i])
+        if i < len(auxiliar_lines):
+            c.drawString(x_right, y, auxiliar_lines[i])
         y -= line_h
 
-    # Centro de Costo (ocupa todo el ancho con wrapping)
-    cliente_lines = _wrap_text(c, f"Centro de Costo: {d.get('cliente','')}", line_w, "Helvetica", 10.5)
-    for line in cliente_lines:
-        c.drawString(Mx, y, line)
-        y -= line_h
-
-    # Línea separadora
-    c.setLineWidth(0.5)
-    c.line(Mx, y, W - Mx, y)
-    y -= 12
-
-    # Orden / Paquete / Factura / Despachado por
-    c.setFont("Helvetica", 10.5)
-    c.drawString(Mx, y, f"Orden: {d.get('orden','')}")
-    y -= 12
-    if d.get("paquete_numero"):
-        c.drawString(Mx, y, f"Paquete N°: {d.get('paquete_numero')}")
+    # Específicos por tipo
+    if "chofer" in d:  # Despacho
+        chofer_lines = _wrap_text(c, f"Chofer: {d.get('chofer','')}", w_right, "Helvetica", 10.5)
+        for line in chofer_lines:
+            c.drawString(Mx, y, line)
+            y -= line_h
+        cliente_lines = _wrap_text(c, f"Centro de Costo: {d.get('cliente','')}", line_w, "Helvetica", 10.5)
+        for line in cliente_lines:
+            c.drawString(Mx, y, line)
+            y -= line_h
+        # Línea separadora
+        c.setLineWidth(0.5)
+        c.line(Mx, y, W - Mx, y)
         y -= 12
-    if d.get("factura_numero"):
-        c.drawString(Mx, y, f"Factura N°: {d.get('factura_numero')}")
+        c.drawString(Mx, y, f"Orden: {d.get('orden','')}")
         y -= 12
-    c.drawString(Mx, y, f"Despachado por: {d.get('auxiliar','')}")
-    y -= 12
+        if d.get("paquete_numero"):
+            c.drawString(Mx, y, f"Paquete N°: {d.get('paquete_numero')}")
+            y -= 12
+        if d.get("factura_numero"):
+            c.drawString(Mx, y, f"Factura N°: {d.get('factura_numero')}")
+            y -= 12
+    else:  # Consumo interno
+        nombre_lines = _wrap_text(c, f"Nombre quien retira: {d.get('nombre_retira','')}", line_w, "Helvetica", 10.5)
+        for line in nombre_lines:
+            c.drawString(Mx, y, line)
+            y -= line_h
+        area_lines = _wrap_text(c, f"Área: {d.get('area','')}", line_w, "Helvetica", 10.5)
+        for line in area_lines:
+            c.drawString(Mx, y, line)
+            y -= line_h
+        motivo_lines = _wrap_text(c, f"Motivo: {d.get('motivo','')}", line_w, "Helvetica", 10.5)
+        for line in motivo_lines:
+            c.drawString(Mx, y, line)
+            y -= line_h
+        # Línea separadora
+        c.setLineWidth(0.5)
+        c.line(Mx, y, W - Mx, y)
+        y -= 12
 
-    # Productos (wrapping con sangría tras "n. ")
+    # Productos común
     productos = d.get("productos", []) or []
     if productos:
         c.setFont("Helvetica-Bold", 10.5)
@@ -556,26 +581,27 @@ def generar_ticket_pos80(d: dict) -> BytesIO:
                     c.drawString(Mx + pref_w, y, ln)
                 y -= line_h
 
-    # Separador antes del código
-    y -= 4
-    c.setLineWidth(0.4)
-    c.line(Mx, y, W - Mx, y)
-    y -= 6
+    # Separador antes del código (solo si hay código)
+    if "codigo_barras" in d:
+        y -= 4
+        c.setLineWidth(0.4)
+        c.line(Mx, y, W - Mx, y)
+        y -= 6
 
-    # Código de barras
-    try:
-        barcode_img_buf = _gen_code128_image(d.get("codigo_barras", ""))
-        img = ImageReader(barcode_img_buf)
-        bw = min(line_w, 58 * mm)   # ancho útil recomendado en 80 mm
-        bh = 28 * mm
-        x = (W - bw) / 2.0
-        c.drawImage(img, x, y - bh, width=bw, height=bh, preserveAspectRatio=True, mask="auto")
-        y -= bh
-    except Exception:
-        c.setFont("Helvetica-Oblique", 9)
-        c.setFillColor(colors.red)
-        c.drawString(Mx, y, "No se pudo generar el código de barras.")
-        c.setFillColor(colors.black)
+        # Código de barras
+        try:
+            barcode_img_buf = _gen_code128_image(d.get("codigo_barras", ""))
+            img = ImageReader(barcode_img_buf)
+            bw = min(line_w, 58 * mm)
+            bh = 28 * mm
+            x = (W - bw) / 2.0
+            c.drawImage(img, x, y - bh, width=bw, height=bh, preserveAspectRatio=True, mask="auto")
+            y -= bh
+        except Exception:
+            c.setFont("Helvetica-Oblique", 9)
+            c.setFillColor(colors.red)
+            c.drawString(Mx, y, "No se pudo generar el código de barras.")
+            c.setFillColor(colors.black)
 
     c.save()
     buffer.seek(0)
