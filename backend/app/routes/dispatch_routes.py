@@ -485,8 +485,9 @@ def get_monthly_dispatches():
             start_local = month_start_local_now()
 
         start_utc_naive = to_utc_naive(start_local)
-        # Último día del mes (ajustado dinámicamente)
+        # Último día del mes (ajustado dinámicamente) incluyendo el final del día
         end_local = (start_local.replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(days=1)
+        end_local = end_local.replace(hour=23, minute=59, second=59, microsecond=999)  # Fin del día
         end_utc_naive = to_utc_naive(end_local)
 
         data_points = [0] * 31

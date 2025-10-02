@@ -9,8 +9,15 @@ from datetime import datetime, timedelta
 from sqlalchemy import func
 from app.utils.timezone import to_local, to_utc_naive, CL_TZ
 from sqlalchemy.exc import IntegrityError
+from flask_cors import CORS
+from collections import defaultdict
 
 receipt_bp = Blueprint("receipts", __name__)
+CORS(
+    receipt_bp,
+    resources={r"/*": {"origins": "*"}},
+    supports_credentials=True,
+)
 
 @receipt_bp.route("/receipts", methods=["POST"])
 @jwt_required()
@@ -84,10 +91,14 @@ def create_receipt():
 def get_receipts():
     try:
         search_supplier = (request.args.get("supplier") or "").lower()
-        search_order    = (request.args.get("order") or "").lower()
-        search_user     = (request.args.get("user") or "").lower()
-        date_from_str   = (request.args.get("date_from") or "").strip()
-        date_to_str     = (request.args.get("date_to") or "").strip()
+        search_order = (request.args.get("order") or "").lower()
+        search_user = (request.args.get("user") or "").lower()
+        date_from_str = (request.args.get("date_from") or "").strip()
+        date_to_str = (request.args.get("date_to") or "").strip()
+        
+        # Paginación
+        page = int(request.args.get("page", 1))
+        limit = int(request.args.get("limit", 10))
 
         query = Receipt.query
 
@@ -102,21 +113,24 @@ def get_receipts():
                 db.func.lower(User.name).like(f"%{search_user}%")
             )
 
-        # Filtro de fechas similar a dispatch
         if date_from_str and date_to_str:
-            d_from = datetime.strptime(date_from_str, "%Y-%m-%d")
-            d_to = datetime.strptime(date_to_str, "%Y-%m-%d")
-            if d_from > d_to:
-                d_from, d_to = d_to, d_from
-            start_local = d_from.replace(tzinfo=CL_TZ)
-            end_local = (d_to + timedelta(days=1)).replace(tzinfo=CL_TZ)
-            a_start = to_utc_naive(start_local)
-            a_end = to_utc_naive(end_local)
-            query = query.filter(Receipt.fecha >= a_start, Receipt.fecha < a_end)
+            try:
+                d_from = datetime.strptime(date_from_str, "%Y-%m-%d")
+                d_to = datetime.strptime(date_to_str, "%Y-%m-%d")
+                if d_from > d_to:
+                    d_from, d_to = d_to, d_from
+                start_local = d_from.replace(tzinfo=CL_TZ)
+                end_local = (d_to + timedelta(days=1)).replace(tzinfo=CL_TZ)
+                a_start = to_utc_naive(start_local)
+                a_end = to_utc_naive(end_local)
+                query = query.filter(Receipt.fecha >= a_start, Receipt.fecha < a_end)
+            except ValueError:
+                return jsonify({"error": "Formato de fecha inválido en date_from/date_to, use YYYY-MM-DD"}), 400
 
         query = query.order_by(Receipt.fecha.asc())
 
-        receipts = query.all()
+        # Aplicar paginación
+        receipts = query.paginate(page=page, per_page=limit, error_out=False).items
 
         result = []
         for r in receipts:
@@ -197,22 +211,48 @@ def update_receipt(receipt_id):
         # Actualizar orden
         receipt.orden = data["orden"]
 
-        # Guardar las cantidades antiguas de los productos para ajuste diferencial
-        old_products = {p.nombre: p.cantidad for p in receipt.productos}
+        if "status" in data:
+            receipt.status = data["status"]
 
-        # Manejar productos (eliminar existentes y agregar nuevos con ajuste de stock)
+        # Calcular cantidades antiguas sumadas por nombre
+        old_qty_by_name = defaultdict(float)
+        for p in receipt.productos:
+            old_qty_by_name[p.nombre] += float(p.cantidad or 0)
+
+        # Eliminar productos existentes
         for product in receipt.productos:
             db.session.delete(product)
 
+        # Crear productos nuevos si no existen y preparar nuevas cantidades sumadas
+        new_qty_by_name = defaultdict(float)
         for p in data["productos"]:
             if not all(k in p for k in ("nombre", "cantidad", "unidad")):
+                db.session.rollback()
                 return jsonify({"error": "Faltan campos en productos (nombre, cantidad, unidad)"}), 400
             nombre = (p["nombre"] or "").strip()
             prod_row = Product.query.filter(func.lower(Product.name) == nombre.lower()).first()
             if not prod_row:
                 db.session.add(Product(name=nombre, category="Otros", created_by=user_id, stock=0.0))
-                db.session.flush()
+            new_qty_by_name[nombre] += float(p["cantidad"] or 0)
 
+        db.session.flush()  # Asegurar que nuevos productos estén en DB
+
+        # Ajustar stock para todos los nombres involucrados
+        all_names = set(old_qty_by_name.keys()) | set(new_qty_by_name.keys())
+        for nombre in all_names:
+            old_q = old_qty_by_name[nombre]
+            new_q = new_qty_by_name[nombre]
+            delta = new_q - old_q
+            if delta != 0:
+                prod_row = Product.query.filter(func.lower(Product.name) == nombre.lower()).first()
+                if prod_row:
+                    prod_row.stock = float(prod_row.stock or 0) + delta
+                    if prod_row.stock < 0:
+                        prod_row.stock = 0
+
+        # Agregar nuevos productos al receipt
+        for p in data["productos"]:
+            nombre = (p["nombre"] or "").strip()
             db.session.add(
                 ReceiptProduct(
                     nombre=nombre,
@@ -221,16 +261,6 @@ def update_receipt(receipt_id):
                     receipt=receipt,
                 )
             )
-
-            if prod_row:
-                try:
-                    old_quantity = float(old_products.get(nombre, 0))
-                    new_quantity = float(p["cantidad"] or 0)
-                    prod_row.stock = float(prod_row.stock or 0) - old_quantity + new_quantity
-                    if prod_row.stock < 0:
-                        prod_row.stock = 0  # Evitar stock negativo
-                except Exception:
-                    pass  # Manejo básico, podrías loguear esto
 
         db.session.commit()
         return jsonify(receipt.to_dict()), 200
