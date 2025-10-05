@@ -1,17 +1,15 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import type { AxiosError } from "axios";
 import { FiEdit2, FiTrash2, FiSave, FiX, FiPlus, FiMinus } from "react-icons/fi";
-import SupplierSelector from "../components/SupplierSelector";
+import OperatorSelector from "../components/OperatorSelector";
 import ArrowBackButton from "../components/ArrowBackButton";
 import { api } from "../services/http";
 
-interface ReceiptSummary {
+interface ProductionSummary {
   id: number;
-  orden: string;
-  supplier: string;
+  operator: string;
   created_by: string;
   fecha: string;
-  status: string;
   productos: { nombre: string; cantidad: number; unidad: string }[];
 }
 
@@ -27,8 +25,7 @@ type ProductoRow = { nombre: string; cantidad: number; unidad: string };
 type ApiError = { error?: string; details?: string };
 
 type SearchState = {
-  supplier: string;
-  order: string;
+  operator: string;
   user: string;
   date_from: string;
   date_to: string;
@@ -38,31 +35,28 @@ const btnIcon =
   "rounded-full p-2 bg-white/10 text-white border border-white/50 transition-colors " +
   "focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-neutral-900";
 
-const SupplierTracking = () => {
-  const [receipts, setReceipts] = useState<ReceiptSummary[]>([]);
+const ProductionTracking = () => {
+  const [productions, setProductions] = useState<ProductionSummary[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [page, setPage] = useState(1);
   const [mensaje, setMensaje] = useState<string>("");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [draft, setDraft] = useState<{
-    orden: string;
-    supplier: string;
-    status: string;
+    operator: string;
     productos: ProductoRow[];
   } | null>(null);
   const [productNames, setProductNames] = useState<string[]>([]);
   const [suggestions, setSuggestions] = useState<Record<number, string[]>>({});
 
   const searchRef = useRef<SearchState>({
-    supplier: "",
-    order: "",
+    operator: "",
     user: "",
     date_from: "",
     date_to: "",
   });
   const observer = useRef<IntersectionObserver | null>(null);
-  const lastReceiptRef = useRef<HTMLDivElement | null>(null);
+  const lastProductionRef = useRef<HTMLDivElement | null>(null);
 
   const fetchProducts = async () => {
     try {
@@ -74,22 +68,22 @@ const SupplierTracking = () => {
     }
   };
 
-  const fetchReceipts = useCallback(
+  const fetchProductions = useCallback(
     async (params: SearchState, pageNum: number, append: boolean = false) => {
       setIsLoading(true);
       try {
-        const response = await api.get<ReceiptSummary[]>("/receipts", {
+        const response = await api.get<ProductionSummary[]>("/productions", {
           params: { ...params, page: pageNum, limit: 10 },
           headers: { "Cache-Control": "no-cache" },
         });
-        const newReceipts = response.data;
-        setReceipts((prev) => (append ? [...prev, ...newReceipts] : newReceipts));
-        setHasMore(newReceipts.length === 10);
+        const newProductions = response.data;
+        setProductions((prev) => (append ? [...prev, ...newProductions] : newProductions));
+        setHasMore(newProductions.length === 10);
         setMensaje("");
       } catch (err) {
         const error = err as AxiosError;
-        console.error("Error fetching receipts:", error.response?.data || error.message);
-        setMensaje("Error al cargar recepciones");
+        console.error("Error fetching productions:", error.response?.data || error.message);
+        setMensaje("Error al cargar producciones");
       } finally {
         setIsLoading(false);
       }
@@ -98,15 +92,15 @@ const SupplierTracking = () => {
   );
 
   useEffect(() => {
-    fetchReceipts(searchRef.current, 1);
+    fetchProductions(searchRef.current, 1);
     fetchProducts();
     const onFocus = () => {
-      fetchReceipts(searchRef.current, 1);
+      fetchProductions(searchRef.current, 1);
       fetchProducts();
     };
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
-  }, [fetchReceipts]);
+  }, [fetchProductions]);
 
   useEffect(() => {
     if (isLoading || !hasMore) return;
@@ -120,8 +114,8 @@ const SupplierTracking = () => {
       { threshold: 0.1 }
     );
 
-    if (lastReceiptRef.current) {
-      observer.current.observe(lastReceiptRef.current);
+    if (lastProductionRef.current) {
+      observer.current.observe(lastProductionRef.current);
     }
 
     return () => {
@@ -133,29 +127,27 @@ const SupplierTracking = () => {
 
   useEffect(() => {
     if (page > 1) {
-      fetchReceipts(searchRef.current, page, true);
+      fetchProductions(searchRef.current, page, true);
     }
-  }, [page, fetchReceipts]);
+  }, [page, fetchProductions]);
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     searchRef.current = { ...searchRef.current, [e.target.name]: e.target.value };
     setPage(1);
-    fetchReceipts(searchRef.current, 1);
+    fetchProductions(searchRef.current, 1);
   };
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setPage(1);
-    fetchReceipts(searchRef.current, 1);
+    fetchProductions(searchRef.current, 1);
   };
 
-  const startEditRow = (r: ReceiptSummary) => {
-    setEditingId(r.id);
+  const startEditRow = (p: ProductionSummary) => {
+    setEditingId(p.id);
     setDraft({
-      orden: r.orden,
-      supplier: r.supplier,
-      status: r.status || "pendiente",
-      productos: r.productos.map((p) => ({ ...p })),
+      operator: p.operator,
+      productos: p.productos.map((pr) => ({ ...pr })),
     });
   };
 
@@ -170,42 +162,41 @@ const SupplierTracking = () => {
     setIsLoading(true);
     try {
       const payload = {
-        orden: draft.orden,
-        supplier: draft.supplier,
-        productos: draft.productos.map((p) => ({
-          nombre: p.nombre,
-          cantidad: p.cantidad,
-          unidad: p.unidad,
+        operator: draft.operator,
+        productos: draft.productos.map((pr) => ({
+          nombre: pr.nombre,
+          cantidad: pr.cantidad,
+          unidad: pr.unidad,
         })),
       };
-      const response = await api.put<ReceiptSummary>(`/receipts/${editingId}`, payload);
+      const response = await api.put<ProductionSummary>(`/productions/${editingId}`, payload);
       const updated = response.data;
-      setReceipts((prev) =>
-        prev.map((r) => (r.id === editingId ? { ...r, ...updated } : r))
+      setProductions((prev) =>
+        prev.map((pr) => (pr.id === editingId ? { ...pr, ...updated } : pr))
       );
-      setMensaje("Recepción actualizada correctamente");
+      setMensaje("Producción actualizada correctamente");
       cancelEditRow();
     } catch (err) {
       const error = err as AxiosError<ApiError>;
-      console.error("Error al actualizar recepción:", error.response?.data || error.message);
-      alert(error.response?.data?.error || "No se pudo actualizar la recepción");
+      console.error("Error al actualizar producción:", error.response?.data || error.message);
+      alert(error.response?.data?.error || "No se pudo actualizar la producción");
     } finally {
       setIsLoading(false);
     }
   };
 
   const deleteRow = async (id: number) => {
-    if (!window.confirm("¿Eliminar esta recepción? Esta acción es permanente y revertirá el stock.")) return;
+    if (!window.confirm("¿Eliminar esta producción? Esta acción es permanente y revertirá el stock.")) return;
     setIsLoading(true);
     try {
-      await api.delete(`/receipts/${id}`);
-      setReceipts((prev) => prev.filter((r) => r.id !== id));
+      await api.delete(`/productions/${id}`);
+      setProductions((prev) => prev.filter((pr) => pr.id !== id));
       if (editingId === id) cancelEditRow();
-      setMensaje("Recepción eliminada y stock revertido");
+      setMensaje("Producción eliminada y stock revertido");
     } catch (err) {
       const error = err as AxiosError<ApiError>;
-      console.error("Error eliminando recepción:", error.response?.data || error.message);
-      alert(error.response?.data?.error || "No se pudo eliminar la recepción");
+      console.error("Error eliminando producción:", error.response?.data || error.message);
+      alert(error.response?.data?.error || "No se pudo eliminar la producción");
     } finally {
       setIsLoading(false);
     }
@@ -239,28 +230,21 @@ const SupplierTracking = () => {
       productos: draft.productos.map((r, i) => (i === idx ? { ...r, ...patch } : r)),
     });
   };
-  
+
   return (
     <div className="max-w-4xl mx-auto p-6">
       <div className="mb-12">
         <ArrowBackButton />
       </div>
-      <h2 className="text-xl font-bold mb-4">Seguimiento de Recepciones</h2>
+      <h2 className="text-xl font-bold mb-4">Registros de Producción</h2>
       {mensaje && <p className="mb-4 text-emerald-400">{mensaje}</p>}
 
       <form onSubmit={handleSearchSubmit} className="space-y-4 mb-6">
         <input
-          name="supplier"
-          value={searchRef.current.supplier}
+          name="operator"
+          value={searchRef.current.operator}
           onChange={handleSearchChange}
-          placeholder="Buscar por nombre del proveedor"
-          className="w-full border p-2 rounded"
-        />
-        <input
-          name="order"
-          value={searchRef.current.order}
-          onChange={handleSearchChange}
-          placeholder="Buscar por número de factura"
+          placeholder="Buscar por nombre del operario"
           className="w-full border p-2 rounded"
         />
         <input
@@ -301,45 +285,36 @@ const SupplierTracking = () => {
         </button>
       </form>
 
-      {isLoading && receipts.length === 0 ? (
+      {isLoading && productions.length === 0 ? (
         <div className="text-center py-8">
           <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
-          <p className="mt-2 text-gray-400">Cargando recepciones...</p>
+          <p className="mt-2 text-gray-400">Cargando producciones...</p>
         </div>
-      ) : receipts.length === 0 ? (
-        <p className="text-center text-gray-400 py-8">No se encontraron recepciones.</p>
+      ) : productions.length === 0 ? (
+        <p className="text-center text-gray-400 py-8">No se encontraron producciones.</p>
       ) : (
         <div className="space-y-4">
-          {receipts.map((r, index) => {
-            const isEditingRow = editingId === r.id;
-            const refProp = index === receipts.length - 1 ? { ref: lastReceiptRef } : {};
+          {productions.map((p, index) => {
+            const isEditingRow = editingId === p.id;
+            const refProp = index === productions.length - 1 ? { ref: lastProductionRef } : {};
 
             return (
-              <div key={r.id} className="border p-4 hover:bg-gray-900/20 rounded" {...refProp}>
+              <div key={p.id} className="border p-4 hover:bg-gray-900/20 rounded" {...refProp}>
                 <div className="flex items-start justify-between gap-4">
                   {!isEditingRow ? (
                     <div>
-                      <p><strong>Orden:</strong> {r.orden}</p>
-                      <p><strong>Proveedor:</strong> {r.supplier}</p>
-                      <p><strong>Ingresado por:</strong> {r.created_by}</p>
-                      <p><strong>Fecha:</strong> {new Date(r.fecha).toLocaleString()}</p>
+                      <p><strong>Operario:</strong> {p.operator}</p>
+                      <p><strong>Ingresado por:</strong> {p.created_by}</p>
+                      <p><strong>Fecha:</strong> {new Date(p.fecha).toLocaleString()}</p>
                     </div>
                   ) : (
                     <div className="w-full">
                       <div className="grid sm:grid-cols-2 gap-3">
                         <div>
-                          <label className="block text-sm mb-1">Orden</label>
-                          <input
-                            value={draft?.orden || ""}
-                            onChange={(e) => setDraft((prev) => (prev ? { ...prev, orden: e.target.value } : prev))}
-                            className="w-full border p-2 rounded"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm mb-1">Proveedor</label>
-                          <SupplierSelector
-                            value={draft?.supplier || ""}
-                            onChange={(supplier) => setDraft((prev) => (prev ? { ...prev, supplier } : prev))}
+                          <label className="block text-sm mb-1">Operario</label>
+                          <OperatorSelector
+                            value={draft?.operator || ""}
+                            onChange={(operator) => setDraft((prev) => (prev ? { ...prev, operator } : prev))}
                           />
                         </div>
                       </div>
@@ -435,7 +410,7 @@ const SupplierTracking = () => {
                           className={`${btnIcon} hover:bg-blue-600`}
                           title="Editar"
                           aria-label="Editar"
-                          onClick={() => startEditRow(r)}
+                          onClick={() => startEditRow(p)}
                         >
                           <FiEdit2 size={18} />
                         </button>
@@ -443,7 +418,7 @@ const SupplierTracking = () => {
                           className={`${btnIcon} hover:bg-red-600`}
                           title="Eliminar"
                           aria-label="Eliminar"
-                          onClick={() => deleteRow(r.id)}
+                          onClick={() => deleteRow(p.id)}
                         >
                           <FiTrash2 size={18} />
                         </button>
@@ -474,9 +449,9 @@ const SupplierTracking = () => {
                   <>
                     <p className="mt-3"><strong>Productos:</strong></p>
                     <ul className="list-disc pl-5">
-                      {r.productos.map((p, i) => (
+                      {p.productos.map((pr, i) => (
                         <li key={i}>
-                          {p.nombre} - {p.cantidad} {p.unidad}
+                          {pr.nombre} - {pr.cantidad} {pr.unidad}
                         </li>
                       ))}
                     </ul>
@@ -501,4 +476,4 @@ const SupplierTracking = () => {
   );
 };
 
-export default SupplierTracking;
+export default ProductionTracking;

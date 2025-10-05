@@ -5,6 +5,7 @@ import { ClientsProvider } from "../context/ClientsContext";
 import { DriversProvider } from "../context/DriversContext";
 import { getBillingStatus, markPaid } from "../services/billingService";
 import { SuppliersProvider } from "../context/SuppliersContext";
+import { OperatorsProvider } from "../context/OperatorsContext";
 
 type JWTPayload = { exp?: number };
 
@@ -130,12 +131,16 @@ const ProtectedShell: React.FC<{ children: React.ReactNode }> = ({ children }) =
   }
 
   return (
-    <ClientsProvider>
+  <ClientsProvider>
     <DriversProvider>
-      <SuppliersProvider>{children}</SuppliersProvider>
+      <SuppliersProvider>
+        <OperatorsProvider>
+          {children}
+        </OperatorsProvider>
+      </SuppliersProvider>
     </DriversProvider>
   </ClientsProvider>
-  );
+);
 };
 
 export default ProtectedShell;

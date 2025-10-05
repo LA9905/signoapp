@@ -19,11 +19,10 @@ def _str_to_bool(v: str, default: bool = False) -> bool:
     return str(v).strip().lower() in ("1", "true", "t", "yes", "y")
 
 def create_app():
-    # Carga .env desde el root del proyecto si existe
+    # Carga .env desde el root del proyecto
     load_dotenv()
 
     app = Flask(__name__)
-    # Si tienes config.Config, puedes cargarla primero
     try:
         app.config.from_object("config.Config")
     except Exception:
@@ -38,7 +37,6 @@ def create_app():
         MAIL_USERNAME=os.getenv("MAIL_USERNAME"),
         MAIL_PASSWORD=(os.getenv("MAIL_PASSWORD") or "").strip(),
         MAIL_DEFAULT_SENDER=os.getenv("MAIL_DEFAULT_SENDER") or os.getenv("MAIL_USERNAME"),
-        # Por si tienes tests que desactivan envío:
         MAIL_SUPPRESS_SEND=_str_to_bool(os.getenv("MAIL_SUPPRESS_SEND", "false"), False),
     )
 
@@ -72,6 +70,8 @@ def create_app():
             dispatch_model,
             supplier_model,
             receipt_model,
+            operator_model,
+            production_model,
         )
         env = os.getenv("FLASK_ENV") or os.getenv("ENV") or "production"
         if env != "production":
@@ -89,6 +89,8 @@ def create_app():
     from .routes.supplier_routes import supplier_bp
     from .routes.receipt_routes import receipt_bp
     from .routes.internal_consumption_routes import internal_bp
+    from .routes.operator_routes import operator_bp
+    from .routes.production_routes import production_bp
 
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
     app.register_blueprint(product_bp, url_prefix="/api")
@@ -101,10 +103,12 @@ def create_app():
     app.register_blueprint(supplier_bp, url_prefix="/api")
     app.register_blueprint(receipt_bp, url_prefix="/api")
     app.register_blueprint(internal_bp, url_prefix="/api")
+    app.register_blueprint(operator_bp, url_prefix="/api")
+    app.register_blueprint(production_bp, url_prefix="/api")
 
     app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=8)
 
-    # Guard de billing (como lo tenías)
+    # Guard de billing
     @app.before_request
     def enforce_billing_guard():
         path = request.path or ""
@@ -151,7 +155,7 @@ def create_app():
         base = Path(app.root_path).parent / "uploads"
         return send_from_directory(str(base), filename, max_age=0)
 
-    # (Opcional) healthcheck de SMTP para debug rápido
+    #healthcheck de SMTP para debug rápido
     @app.get("/api/health/smtp")
     def smtp_health():
         try:
@@ -160,7 +164,7 @@ def create_app():
             p = app.config.get("MAIL_PORT")
             tls = app.config.get("MAIL_USE_TLS")
             ssl = app.config.get("MAIL_USE_SSL")
-            # No intentamos loguear aquí para no bloquear; solo confirmamos config visible
+            # No se intenta loguear aquí para no bloquear; solo confirmamos config visible
             return jsonify({
                 "ok": True,
                 "server": s, "port": p, "tls": tls, "ssl": ssl,

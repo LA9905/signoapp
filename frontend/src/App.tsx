@@ -22,6 +22,9 @@ import ReceiveSupplier from "./pages/ReceiveSupplier";
 import SupplierTracking from "./pages/SupplierTracking"; 
 import CreateInternalConsumption from "./pages/CreateInternalConsumption";
 import InternalTracking from "./pages/InternalTracking";
+import OperatorList from "./pages/OperatorList";
+import CreateProduction from "./pages/CreateProduction";
+import ProductionTracking from "./pages/ProductionTracking";
 import ProtectedShell from "./layouts/ProtectedShell";
 
 // Hace un ping silencioso al backend para "despertarlo" en Render
@@ -162,6 +165,31 @@ const App: React.FC = () => {
           element={
             <ProtectedShell>
               <InternalTracking />
+            </ProtectedShell>
+          }
+        />
+
+        <Route
+        path="/operators"
+        element={
+          <ProtectedShell>
+            <OperatorList />
+          </ProtectedShell>
+        }
+        />
+        <Route
+          path="/create-production"
+          element={
+            <ProtectedShell>
+              <CreateProduction />
+            </ProtectedShell>
+          }
+        />
+        <Route
+          path="/production-tracking"
+          element={
+            <ProtectedShell>
+              <ProductionTracking />
             </ProtectedShell>
           }
         />
