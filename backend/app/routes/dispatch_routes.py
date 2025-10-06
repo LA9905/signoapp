@@ -42,6 +42,7 @@ def create_dispatch():
         chofer_id = int(data["chofer"])
         productos = data.get("productos", [])
         paquete_numero = data.get("paquete_numero")  # opcional int
+        force = data.get("force", False)  # NUEVO: parámetro para forzar creación
 
         cliente_norm = " ".join((cliente_name or "").strip().split())
         cliente = Client.query.filter(func.lower(Client.name) == cliente_norm.lower()).first()
@@ -53,6 +54,11 @@ def create_dispatch():
         chofer = Driver.query.get(chofer_id)
         if not chofer:
             return jsonify({"error": f"Chofer con ID {chofer_id} no encontrado"}), 404
+
+        # NUEVO: Verificar si la orden ya existe, excluyendo casos donde force se usa para sobrescribir
+        existing = Dispatch.query.filter_by(orden=orden).first()
+        if existing and not force:
+            return jsonify({"error": "duplicate_order", "msg": "Ya existe un despacho con ese número de orden. Confirme para continuar."}), 409
 
         new_dispatch = Dispatch(
             orden=orden,

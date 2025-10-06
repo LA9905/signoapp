@@ -17,10 +17,26 @@ interface Producto {
 
 interface FormularioDespacho {
   orden: string;
-  chofer: string;   // id del chofer como string
-  cliente: string;  // nombre del cliente
+  chofer: string; // id del chofer como string
+  cliente: string; // nombre del cliente
   numero_paquete?: string; // NUEVO
   productos: Producto[];
+}
+
+// NUEVO: Interfaz para el payload del despacho
+interface DispatchPayload {
+  orden: string;
+  cliente: string;
+  chofer: string;
+  paquete_numero?: string;
+  productos: { nombre: string; cantidad: number; unidad: string }[];
+  force?: boolean; // Propiedad opcional para forzar creación
+}
+
+// NUEVO: Interfaz para errores de la API
+interface ApiError {
+  error?: string;
+  msg?: string;
 }
 
 const CreateDispatch = () => {
@@ -30,7 +46,7 @@ const CreateDispatch = () => {
     orden: "",
     chofer: "",
     cliente: "",
-    numero_paquete: "", // por defecto 1
+    numero_paquete: "",
     productos: [],
   });
   const [mensaje, setMensaje] = useState<string>("");
@@ -63,7 +79,7 @@ const CreateDispatch = () => {
 
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-      if (name === "numero_paquete") {
+    if (name === "numero_paquete") {
       setForm({ ...form, numero_paquete: value || undefined });
     } else {
       setForm({ ...form, [name]: value });
@@ -78,18 +94,28 @@ const CreateDispatch = () => {
     }
 
     try {
-      const payload = {
+      // Verificar si ya existe un despacho con esa orden
+      const checkResp = await api.get("/dispatches", { params: { order: form.orden } });
+      let payload: DispatchPayload = {
         orden: form.orden,
-        cliente: form.cliente, // nombre del cliente
-        chofer: form.chofer,   // id del chofer (string)
-        paquete_numero: form.numero_paquete, // NUEVO
+        cliente: form.cliente,
+        chofer: form.chofer,
+        paquete_numero: form.numero_paquete,
         productos: form.productos.map((p) => ({
           nombre: p.name,
           cantidad: p.cantidad,
           unidad: p.unidad,
         })),
       };
-      console.log("Payload enviado a /api/dispatches:", payload);
+
+      // Solo mostrar alerta si hay un despacho con ese orden
+      if (checkResp.data.length > 0) {
+        if (!window.confirm("Ya existe un despacho registrado con ese número de orden. ¿Desea continuar?")) {
+          return; // Usuario cancela: no registrar nada
+        }
+        // Usuario acepta: agregar force=true
+        payload = { ...payload, force: true };
+      }
 
       // Registrar productos NUEVOS (no existentes en la lista inicial)
       const newProducts = form.productos.filter(
@@ -103,17 +129,18 @@ const CreateDispatch = () => {
             name: product.name,
             category: product.category || "Otros",
           });
-        } catch (err: any) {
+        } catch (err: unknown) {
+          const error = err as AxiosError<ApiError>;
           const msg =
-            err?.response?.data?.error ||
-            err?.response?.data?.msg ||
+            error.response?.data?.error ||
+            error.response?.data?.msg ||
             "Error al crear producto";
           // Si es el error de ya-existe por nombre, detenemos y avisamos:
           if (typeof msg === "string" && msg.toLowerCase().includes("ya existe un producto")) {
             setMensaje(`El producto "${product.name}" ya existe. Búscalo en la lista y selecciónalo.`);
-            return; // ❗ aborta aquí: NO se crea el despacho
+            return; // Aborta: NO se crea el despacho
           }
-          // Cualquier otro error también aborta, para que el usuario lo vea
+          // Cualquier otro error también aborta
           setMensaje(msg);
           return;
         }
@@ -138,10 +165,15 @@ const CreateDispatch = () => {
       }
 
       setTimeout(() => navigate("/dashboard"), 2000);
-    } catch (err) {
-      const error = err as AxiosError;
+    } catch (err: unknown) {
+      const error = err as AxiosError<ApiError>;
       console.error("Error en handleSubmit:", error.response ? error.response.data : error.message);
-      setMensaje("Error al crear despacho, ya existe un producto con ese nombre");
+      if (error.response?.status === 409 && error.response?.data?.error === "duplicate_order") {
+        // El backend ya maneja el force, pero si llega aquí (raro), mostrar mensaje
+        setMensaje(error.response.data?.msg || "Ya existe un despacho con ese número de orden");
+      } else {
+        setMensaje("Error al crear despacho");
+      }
     }
   };
 

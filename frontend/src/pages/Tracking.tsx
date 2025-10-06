@@ -63,12 +63,16 @@ const Tracking = () => {
     productos: ProductoRow[];
     factura_numero?: string;
   } | null>(null);
-  // Nuevo: estado para los nombres de productos y sugerencias
+
   const [productNames, setProductNames] = useState<string[]>([]);
   const [suggestions, setSuggestions] = useState<Record<number, string[]>>({});
 
   const { drivers } = useDrivers();
-  const searchRef = useRef<SearchState>({
+  const observer = useRef<IntersectionObserver | null>(null);
+  const lastDispatchRef = useRef<HTMLDivElement | null>(null);
+
+  // --- NUEVO: estado controlado para los inputs de búsqueda ---
+  const [searchState, setSearchState] = useState<SearchState>({
     client: "",
     order: "",
     user: "",
@@ -78,10 +82,14 @@ const Tracking = () => {
     date_from: "",
     date_to: "",
   });
-  const observer = useRef<IntersectionObserver | null>(null);
-  const lastDispatchRef = useRef<HTMLDivElement | null>(null);
 
-  // Nuevo: función para obtener los nombres de los productos
+  // debounce
+  const [debouncedSearch, setDebouncedSearch] = useState<SearchState>(searchState);
+
+  // controller para cancelar requests no deseados (solo para búsquedas no "append")
+  const fetchControllerRef = useRef<AbortController | null>(null);
+
+  // Cargar nombres de productos
   const fetchProducts = async () => {
     try {
       const res = await api.get<Product[]>("/products");
@@ -92,21 +100,47 @@ const Tracking = () => {
     }
   };
 
+  // fetchDispatches ahora soporta append y signal
   const fetchDispatches = useCallback(
-    async (params: SearchState, pageNum: number, append: boolean = false) => {
+    async (params: SearchState, pageNum: number, append: boolean = false, signal?: AbortSignal) => {
+      // Si no es append, manejamos el controller para permitir cancelación
+      if (!append) {
+        // abort previous
+        if (fetchControllerRef.current) {
+          try {
+            fetchControllerRef.current.abort();
+          } catch {}
+        }
+        // si no se proporciona signal, creamos uno y lo guardamos
+        if (!signal) {
+          const c = new AbortController();
+          fetchControllerRef.current = c;
+          signal = c.signal;
+        } else {
+          // si nos pasan signal, no tocamos fetchControllerRef (ej: llamadas externas)
+          fetchControllerRef.current = null;
+        }
+      }
+
       setIsLoading(true);
       try {
         const response = await api.get<DispatchSummary[]>("/dispatches", {
           params: { ...params, page: pageNum, limit: 10 },
           headers: { "Cache-Control": "no-cache" },
+          signal,
         });
         const newDispatches = response.data;
         setDispatches((prev) => (append ? [...prev, ...newDispatches] : newDispatches));
         setHasMore(newDispatches.length === 10);
         setMensaje("");
-      } catch (err) {
+      } catch (err: any) {
+        // axios puede lanzar error con code === 'ERR_CANCELED' o nombre 'CanceledError'
+        if (err?.code === "ERR_CANCELED" || err?.name === "CanceledError" || err?.name === "AbortError") {
+          // petición cancelada: silenciosa
+          return;
+        }
         const error = err as AxiosError;
-        console.error("Error fetching dispatches:", error.response?.data || error.message);
+        console.error("Error fetching dispatches:", error?.response?.data || error?.message || err);
         setMensaje("Error al cargar despachos");
       } finally {
         setIsLoading(false);
@@ -115,17 +149,23 @@ const Tracking = () => {
     []
   );
 
+  // Al montar: cargar productos y la primera búsqueda (usa debouncedSearch para evitar duplicación)
   useEffect(() => {
-    fetchDispatches(searchRef.current, 1);
-    fetchProducts(); // Nuevo: cargar productos al montar el componente
+    fetchProducts();
+    // trigger initial load usando searchState actual -> setDebouncedSearch dará lugar a fetch en el effect de debouncedSearch
+    setDebouncedSearch(searchState);
     const onFocus = () => {
-      fetchDispatches(searchRef.current, 1);
+      // recargar al volver a la pestaña (igual: cancelación manejada en fetchDispatches)
       fetchProducts();
+      // forzamos una búsqueda con el estado actual
+      setDebouncedSearch(searchState);
     };
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
-  }, [fetchDispatches]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // solo al montar
 
+  // infinite observer
   useEffect(() => {
     if (isLoading || !hasMore) return;
 
@@ -149,24 +189,78 @@ const Tracking = () => {
     };
   }, [isLoading, hasMore]);
 
+  // cuando cambia page cargamos más (append)
   useEffect(() => {
     if (page > 1) {
-      fetchDispatches(searchRef.current, page, true);
+      fetchDispatches(debouncedSearch, page, true);
     }
-  }, [page, fetchDispatches]);
+  }, [page, debouncedSearch, fetchDispatches]);
 
+  // debounce effect para evitar buscar en cada tecla
+  useEffect(() => {
+    const id = setTimeout(() => {
+      // resetear paginación cuando cambia búsqueda
+      setPage(1);
+      setDebouncedSearch(searchState);
+    }, 300); // 300ms debounce
+    return () => clearTimeout(id);
+  }, [searchState]);
+
+  // cuando cambia debouncedSearch hacemos la búsqueda (page 1, no append)
+  useEffect(() => {
+    // reset paginación ya hecha en debounce effect; aquí solo llamamos fetch
+    fetchDispatches(debouncedSearch, 1, false);
+    // cleanup: abort si cambia antes de terminar
+    return () => {
+      if (fetchControllerRef.current) {
+        try {
+          fetchControllerRef.current.abort();
+        } catch {}
+      }
+    };
+  }, [debouncedSearch, fetchDispatches]);
+
+  // Handlers de búsqueda: ahora controlados por estado, muy rápidos al tipear
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    searchRef.current = { ...searchRef.current, [e.target.name]: e.target.value };
-    setPage(1);
-    fetchDispatches(searchRef.current, 1);
+    const { name, value } = e.target;
+    setSearchState((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setPage(1);
-    fetchDispatches(searchRef.current, 1);
+    // cancelar debounce y forzar búsqueda inmediata
+    if (fetchControllerRef.current) {
+      try {
+        fetchControllerRef.current.abort();
+      } catch {}
+    }
+    // forzar fetch inmediato con estado actual
+    (async () => {
+      const controller = new AbortController();
+      fetchControllerRef.current = controller;
+      setIsLoading(true);
+      try {
+        const response = await api.get<DispatchSummary[]>("/dispatches", {
+          params: { ...searchState, page: 1, limit: 10 },
+          headers: { "Cache-Control": "no-cache" },
+          signal: controller.signal,
+        });
+        setDispatches(response.data);
+        setHasMore(response.data.length === 10);
+        setMensaje("");
+        setPage(1);
+        setDebouncedSearch(searchState);
+      } catch (err: any) {
+        if (err?.code === "ERR_CANCELED" || err?.name === "CanceledError" || err?.name === "AbortError") return;
+        console.error("Error fetching dispatches:", err?.response?.data || err?.message || err);
+        setMensaje("Error al cargar despachos");
+      } finally {
+        setIsLoading(false);
+      }
+    })();
   };
 
+  // Resto de funciones (edición, guardar, borrar, marcar, PDF...) se mantienen prácticamente iguales
   const startEditRow = (d: DispatchSummary) => {
     const choferId = drivers.find((x) => x.name === d.chofer)?.id;
     setEditingId(d.id);
@@ -183,7 +277,7 @@ const Tracking = () => {
   const cancelEditRow = () => {
     setEditingId(null);
     setDraft(null);
-    setSuggestions({}); // Limpiar sugerencias al cancelar
+    setSuggestions({});
   };
 
   const saveRow = async (id: number) => {
@@ -204,9 +298,7 @@ const Tracking = () => {
       };
       const resp = await api.put<DispatchSummary>(`/dispatches/${id}`, payload);
       const updated = resp.data;
-      setDispatches((prev) =>
-        prev.map((d) => (d.id === id ? { ...d, ...updated } : d))
-      );
+      setDispatches((prev) => prev.map((d) => (d.id === id ? { ...d, ...updated } : d)));
       setMensaje("Despacho actualizado. Puedes descargar/imprimir el PDF actualizado.");
       cancelEditRow();
     } catch (err) {
@@ -240,9 +332,7 @@ const Tracking = () => {
     try {
       const resp = await api.post<DispatchSummary>(`/dispatches/${id}/mark-driver`, {});
       const updated = resp.data;
-      setDispatches((prev) =>
-        prev.map((d) => (d.id === id ? { ...d, ...updated } : d))
-      );
+      setDispatches((prev) => prev.map((d) => (d.id === id ? { ...d, ...updated } : d)));
       setMensaje("Despacho marcado como 'Entregado a Chofer'.");
     } catch (err) {
       const error = err as AxiosError;
@@ -258,9 +348,7 @@ const Tracking = () => {
     try {
       const resp = await api.post<DispatchSummary>(`/dispatches/${id}/mark-client`, {});
       const updated = resp.data;
-      setDispatches((prev) =>
-        prev.map((d) => (d.id === id ? { ...d, ...updated } : d))
-      );
+      setDispatches((prev) => prev.map((d) => (d.id === id ? { ...d, ...updated } : d)));
       setMensaje("Despacho marcado como 'Pedido Entregado'.");
     } catch (err) {
       const error = err as AxiosError;
@@ -391,35 +479,35 @@ const Tracking = () => {
       <form onSubmit={handleSearchSubmit} className="space-y-4 mb-6">
         <input
           name="client"
-          value={searchRef.current.client}
+          value={searchState.client}
           onChange={handleSearchChange}
           placeholder="Buscar por nombre del centro de costo"
           className="w-full border p-2 rounded"
         />
         <input
           name="order"
-          value={searchRef.current.order}
+          value={searchState.order}
           onChange={handleSearchChange}
           placeholder="Buscar por número de orden"
           className="w-full border p-2 rounded"
         />
         <input
           name="invoice"
-          value={searchRef.current.invoice}
+          value={searchState.invoice}
           onChange={handleSearchChange}
           placeholder="Buscar por número de factura"
           className="w-full border p-2 rounded"
         />
         <input
           name="user"
-          value={searchRef.current.user}
+          value={searchState.user}
           onChange={handleSearchChange}
           placeholder="Buscar por usuario que creó"
           className="w-full border p-2 rounded"
         />
         <input
           name="driver"
-          value={searchRef.current.driver}
+          value={searchState.driver}
           onChange={handleSearchChange}
           placeholder="Buscar por nombre del chofer"
           className="w-full border p-2 rounded"
@@ -431,7 +519,7 @@ const Tracking = () => {
             <input
               name="date_from"
               type="date"
-              value={searchRef.current.date_from}
+              value={searchState.date_from}
               onChange={handleSearchChange}
               className="w-full border p-2 rounded"
             />
@@ -441,7 +529,7 @@ const Tracking = () => {
             <input
               name="date_to"
               type="date"
-              value={searchRef.current.date_to}
+              value={searchState.date_to}
               onChange={handleSearchChange}
               className="w-full border p-2 rounded"
             />
