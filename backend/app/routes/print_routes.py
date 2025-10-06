@@ -13,6 +13,7 @@ from app.utils.print_utils import (
     _sanitize_barcode_text,
 )
 from app.utils.timezone import to_local
+from app.models.credit_note_model import CreditNote, CreditNoteProduct
 
 print_bp = Blueprint("print", __name__)
 
@@ -119,6 +120,43 @@ def print_internal(id):
         pdf_buffer,
         as_attachment=not inline,
         download_name=f"consumo_interno_{consumption.id}.pdf",
+        mimetype="application/pdf",
+        max_age=0,
+    )
+
+
+@print_bp.route("/print-credit-note/<int:credit_note_id>", methods=["GET"])
+@jwt_required()
+def print_credit_note(credit_note_id):
+    credit_note = CreditNote.query.get(credit_note_id)
+    if not credit_note:
+        return jsonify({"error": "Nota de crédito no encontrada"}), 404
+
+    client = Client.query.get(credit_note.client_id)
+    creator = User.query.get(credit_note.created_by)
+
+    productos = [f"{p.nombre} — {p.cantidad} {p.unidad}" for p in credit_note.productos]
+
+    data = {
+        "empresa": "Signo Representaciones Ltda.",
+        "fecha": to_local(credit_note.fecha).strftime("%Y-%m-%d %H:%M"),
+        "auxiliar": creator.name if creator else credit_note.created_by,
+        "cliente": client.name if client else str(credit_note.client_id),
+        "orden": credit_note.order_number,
+        "factura_numero": credit_note.invoice_number,
+        "credit_note_number": credit_note.credit_note_number,
+        "motivo": credit_note.reason,
+        "productos": productos,
+        "folio": credit_note.id,
+    }
+
+    pdf_buffer = generar_ticket_pos80(data)
+
+    inline = request.args.get("inline", "0") == "1"
+    return send_file(
+        pdf_buffer,
+        as_attachment=not inline,
+        download_name=f"nota_credito_{credit_note_id}.pdf",
         mimetype="application/pdf",
         max_age=0,
     )

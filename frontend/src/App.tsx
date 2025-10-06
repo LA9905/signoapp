@@ -25,6 +25,8 @@ import InternalTracking from "./pages/InternalTracking";
 import OperatorList from "./pages/OperatorList";
 import CreateProduction from "./pages/CreateProduction";
 import ProductionTracking from "./pages/ProductionTracking";
+import CreateCreditNote from "./pages/CreateCreditNote";
+import CreditNoteTracking from "./pages/CreditNoteTracking";
 import ProtectedShell from "./layouts/ProtectedShell";
 
 // Hace un ping silencioso al backend para "despertarlo" en Render
@@ -190,6 +192,23 @@ const App: React.FC = () => {
           element={
             <ProtectedShell>
               <ProductionTracking />
+            </ProtectedShell>
+          }
+        />
+
+        <Route
+          path="/create-credit-note"
+          element={
+            <ProtectedShell>
+              <CreateCreditNote />
+            </ProtectedShell>
+          }
+        />
+        <Route
+          path="/credit-note-tracking"
+          element={
+            <ProtectedShell>
+              <CreditNoteTracking />
             </ProtectedShell>
           }
         />

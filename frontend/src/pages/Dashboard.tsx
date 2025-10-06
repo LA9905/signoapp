@@ -54,6 +54,8 @@ const Dashboard: React.FC = () => {
     { title: "Operarios", route: "/operators" },
     { title: "Ingreso de Producción", route: "/create-production" },
     { title: "Registros de Producción", route: "/production-tracking" },
+    { title: "Crear Nota de Crédito", route: "/create-credit-note" },
+    { title: "Seguimiento de Notas de Crédito", route: "/credit-note-tracking" },
     { title: "Consumo Interno", route: "/create-internal" },
     { title: "Registros de Consumos Internos", route: "/internal-tracking" },
     ...(isAdmin ? [{ title: "Administración (pagos)", route: "/admin/billing" }] : []),

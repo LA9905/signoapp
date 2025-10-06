@@ -431,6 +431,13 @@ def _measure_ticket_pos80_height(c, d: dict) -> float:
             body += 12
         if d.get("factura_numero"):
             body += 12
+    elif "credit_note_number" in d:  # NUEVO: Nota de Crédito
+        body += row_h  # Centro de Costo
+        body += row_h  # Orden
+        body += row_h  # Factura N°
+        body += row_h  # Nota de Crédito N°
+        body += row_h  # Motivo
+        body += 9      # raya + aire
     else:  # Es un consumo interno
         body += row_h  # Nombre quien retira
         body += row_h  # Área
@@ -543,6 +550,31 @@ def generar_ticket_pos80(d: dict) -> BytesIO:
         if d.get("factura_numero"):
             c.drawString(Mx, y, f"Factura N°: {d.get('factura_numero')}")
             y -= 12
+    elif "credit_note_number" in d:  # NUEVO: Nota de Crédito
+        cliente_lines = _wrap_text(c, f"Centro de Costo: {d.get('cliente','')}", line_w, "Helvetica", 10.5)
+        for line in cliente_lines:
+            c.drawString(Mx, y, line)
+            y -= line_h
+        orden_lines = _wrap_text(c, f"Orden: {d.get('orden','')}", line_w, "Helvetica", 10.5)
+        for line in orden_lines:
+            c.drawString(Mx, y, line)
+            y -= line_h
+        factura_lines = _wrap_text(c, f"Factura N°: {d.get('factura_numero','')}", line_w, "Helvetica", 10.5)
+        for line in factura_lines:
+            c.drawString(Mx, y, line)
+            y -= line_h
+        credit_note_lines = _wrap_text(c, f"Nota de Crédito N°: {d.get('credit_note_number','')}", line_w, "Helvetica", 10.5)
+        for line in credit_note_lines:
+            c.drawString(Mx, y, line)
+            y -= line_h
+        motivo_lines = _wrap_text(c, f"Motivo: {d.get('motivo','')}", line_w, "Helvetica", 10.5)
+        for line in motivo_lines:
+            c.drawString(Mx, y, line)
+            y -= line_h
+        # Línea separadora
+        c.setLineWidth(0.5)
+        c.line(Mx, y, W - Mx, y)
+        y -= 12
     else:  # Consumo interno
         nombre_lines = _wrap_text(c, f"Nombre quien retira: {d.get('nombre_retira','')}", line_w, "Helvetica", 10.5)
         for line in nombre_lines:
