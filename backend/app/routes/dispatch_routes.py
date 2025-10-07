@@ -1,6 +1,6 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 from app import db
-from app.models.dispatch_model import Dispatch, DispatchProduct
+from app.models.dispatch_model import Dispatch, DispatchProduct, DispatchImage
 from app.models.client_model import Client
 from app.models.driver_model import Driver
 from app.models.user_model import User
@@ -14,6 +14,12 @@ from app.utils.timezone import (
     to_utc_naive,
     CL_TZ,
 )
+
+import cloudinary 
+import cloudinary.uploader
+import json  # Para parsear form data
+
+# La configuración de Cloudinary se realiza en app/__init__.py (create_app).
 
 # CORS para este blueprint
 from flask_cors import CORS, cross_origin
@@ -32,7 +38,11 @@ CORS(
 @jwt_required()
 def create_dispatch():
     try:
-        data = request.get_json() or {}
+        # Manejar multipart/form-data (datos en 'data', files en request.files)
+        if not request.form.get('data'):
+            return jsonify({"error": "Faltan datos"}), 400
+        data = json.loads(request.form['data'])
+
         if not data.get("orden") or not data.get("cliente") or not data.get("chofer"):
             return jsonify({"error": "Faltan campos requeridos (orden, cliente, chofer)"}), 400
 
@@ -41,8 +51,8 @@ def create_dispatch():
         cliente_name = data["cliente"]
         chofer_id = int(data["chofer"])
         productos = data.get("productos", [])
-        paquete_numero = data.get("paquete_numero")  # opcional int
-        force = data.get("force", False)  # NUEVO: parámetro para forzar creación
+        paquete_numero = data.get("paquete_numero")  # opcional
+        force = data.get("force", False)  # Para duplicados
 
         cliente_norm = " ".join((cliente_name or "").strip().split())
         cliente = Client.query.filter(func.lower(Client.name) == cliente_norm.lower()).first()
@@ -55,7 +65,7 @@ def create_dispatch():
         if not chofer:
             return jsonify({"error": f"Chofer con ID {chofer_id} no encontrado"}), 404
 
-        # NUEVO: Verificar si la orden ya existe, excluyendo casos donde force se usa para sobrescribir
+        # Verificar duplicado
         existing = Dispatch.query.filter_by(orden=orden).first()
         if existing and not force:
             return jsonify({"error": "duplicate_order", "msg": "Ya existe un despacho con ese número de orden. Confirme para continuar."}), 409
@@ -67,40 +77,45 @@ def create_dispatch():
             created_by=user_id,
             paquete_numero=paquete_numero,
         )
-        # Guardamos UTC naive (desde hora local CL)
         new_dispatch.fecha = to_utc_naive(datetime.now(CL_TZ))
 
         db.session.add(new_dispatch)
+        db.session.flush()  # Para obtener ID antes de commit
 
-        # Items y rebaja de stock por nombre (si existe)
+        # Productos
         for p in productos:
             if not all(k in p for k in ("nombre", "cantidad", "unidad")):
-                return jsonify({"error": "Faltan campos en productos (nombre, cantidad, unidad)"}), 400
+                return jsonify({"error": "Faltan campos en productos"}), 400
 
-            # Fallback: si el producto NO existe, créalo (sin duplicar por nombre, case-insensitive)
             nombre = (p["nombre"] or "").strip()
             prod_row = Product.query.filter(func.lower(Product.name) == nombre.lower()).first()
             if not prod_row:
                 db.session.add(Product(name=nombre, category="Otros", created_by=user_id, stock=0.0))
                 db.session.flush()
 
-            # Item del despacho
             db.session.add(
                 DispatchProduct(
                     nombre=nombre,
                     cantidad=p["cantidad"],
                     unidad=p["unidad"],
-                    dispatch=new_dispatch,
+                    dispatch_id=new_dispatch.id,
                 )
             )
 
-            # Ajuste de stock (case-insensitive)
             prod_row = Product.query.filter(func.lower(Product.name) == nombre.lower()).first()
             if prod_row:
-                try:
-                    prod_row.stock = float(prod_row.stock or 0) - float(p["cantidad"] or 0)
-                except Exception:
-                    pass
+                prod_row.stock = float(prod_row.stock or 0) - float(p["cantidad"] or 0)
+
+        # Manejar imágenes (opcional, múltiples)
+        images = request.files.getlist('images')  # Lista de files
+        for img in images:
+            if img:
+                upload_result = cloudinary.uploader.upload(img, folder="dispatches")
+                new_image = DispatchImage(
+                    dispatch_id=new_dispatch.id,
+                    image_url=upload_result['secure_url']
+                )
+                db.session.add(new_image)
 
         db.session.commit()
         return jsonify(new_dispatch.to_dict()), 201
@@ -259,6 +274,7 @@ def get_dispatches():
                     "productos": [
                         {"nombre": p.nombre, "cantidad": p.cantidad, "unidad": p.unidad} for p in d.productos
                     ],
+                    "images": [i.to_dict() for i in d.images],  # CORRECCIÓN: Incluir imágenes
                 }
             )
         return jsonify(result), 200
@@ -300,6 +316,7 @@ def get_dispatch_details(dispatch_id):
                 "productos": [
                     {"nombre": p.nombre, "cantidad": p.cantidad, "unidad": p.unidad} for p in d.productos
                 ],
+                "images": [i.to_dict() for i in d.images],  # CORRECCIÓN: Incluir imágenes por consistencia
             }
         ), 200
     except Exception as e:
@@ -313,7 +330,11 @@ def get_dispatch_details(dispatch_id):
 def update_dispatch(dispatch_id):
     try:
         d = Dispatch.query.get_or_404(dispatch_id)
-        data = request.get_json() or {}
+
+        # Manejar multipart/form-data
+        if not request.form.get('data'):
+            return jsonify({"error": "Faltan datos"}), 400
+        data = json.loads(request.form['data'])
 
         if "orden" in data and data["orden"]:
             d.orden = data["orden"]
@@ -336,14 +357,13 @@ def update_dispatch(dispatch_id):
                 return jsonify({"error": f"Chofer con ID {chofer_id} no encontrado"}), 404
             d.chofer_id = chofer_id
 
-        # Nuevos: paquete y factura
         if "paquete_numero" in data:
             d.paquete_numero = data.get("paquete_numero") or None
 
         if "factura_numero" in data:
             d.factura_numero = (data.get("factura_numero") or "").strip() or None
 
-        # Estados con protección
+        # Estados
         if "status" in data and data["status"]:
             new_status = data["status"]
             if d.delivered_client:
@@ -372,38 +392,29 @@ def update_dispatch(dispatch_id):
             except Exception:
                 pass
 
+        # Productos
         if "productos" in data and isinstance(data["productos"], list):
-            # 1) Mapear cantidades actuales del despacho (antes de modificar) por nombre
-            old_qty_by_name: dict[str, float] = {}
+            old_qty_by_name = {}
             for item in d.productos:
-                try:
-                    q = float(item.cantidad or 0)
-                except Exception:
-                    q = 0.0
+                q = float(item.cantidad or 0)
                 old_qty_by_name[item.nombre] = old_qty_by_name.get(item.nombre, 0.0) + q
 
-            # 2) Validar y preparar las filas nuevas + mapear cantidades nuevas por nombre
-            new_rows: list[DispatchProduct] = []
-            new_qty_by_name: dict[str, float] = {}
+            new_rows = []
+            new_qty_by_name = {}
 
             for p in data["productos"]:
                 if not all(k in p for k in ("nombre", "cantidad", "unidad")):
-                    db.session.rollback()
                     return jsonify({"error": "Cada producto requiere nombre, cantidad y unidad"}), 400
 
                 nombre = p["nombre"]
                 unidad = p["unidad"]
-                try:
-                    cantidad = float(p["cantidad"] or 0)
-                except Exception:
-                    cantidad = 0.0
+                cantidad = float(p["cantidad"] or 0)
 
                 new_rows.append(
                     DispatchProduct(dispatch_id=d.id, nombre=nombre, cantidad=cantidad, unidad=unidad)
                 )
                 new_qty_by_name[nombre] = new_qty_by_name.get(nombre, 0.0) + cantidad
 
-            # Asegurar existencia de productos nuevos por nombre (no duplica si ya existe)
             current_user = get_jwt_identity()
             for nombre in new_qty_by_name.keys():
                 nn = (nombre or "").strip()
@@ -411,55 +422,42 @@ def update_dispatch(dispatch_id):
                 if not exists:
                     db.session.add(Product(name=nn, category="Otros", created_by=current_user, stock=0.0))
 
-            # 3) Calcular diferencias y ajustar stock global de Product por nombre
             all_names = set(old_qty_by_name.keys()) | set(new_qty_by_name.keys())
             for nombre in all_names:
                 old_q = float(old_qty_by_name.get(nombre, 0.0))
                 new_q = float(new_qty_by_name.get(nombre, 0.0))
-                delta_en_despacho = new_q - old_q
-                if delta_en_despacho != 0:
-                    prod_row =  Product.query.filter(func.lower(Product.name) == nombre.lower()).first()
+                delta = new_q - old_q
+                if delta != 0:
+                    prod_row = Product.query.filter(func.lower(Product.name) == nombre.lower()).first()
                     if prod_row:
-                        try:
-                            prod_row.stock = float(prod_row.stock or 0) - float(delta_en_despacho)
-                        except Exception:
-                            pass
+                        prod_row.stock = float(prod_row.stock or 0) - delta
 
-            # 4) Reemplazar los ítems del despacho por los nuevos
             DispatchProduct.query.filter_by(dispatch_id=d.id).delete()
             for row in new_rows:
                 db.session.add(row)
 
-        db.session.commit()
+        #   Manejar imágenes en edición
+        # - delete_image_ids: lista de IDs a eliminar
+        # - Nuevas imágenes en request.files.getlist('new_images')
+        delete_image_ids = data.get("delete_image_ids", [])  # Lista de IDs a borrar
+        for img_id in delete_image_ids:
+            img = DispatchImage.query.get(img_id)
+            if img and img.dispatch_id == d.id:
+                # Destruir en Cloudinary (cloudinary.uploader.destroy(public_id))
+                db.session.delete(img)
 
-        client = Client.query.get(d.cliente_id)
-        driver = Driver.query.get(d.chofer_id)
-        creator = User.query.get(d.created_by)
-        derived_status = (
-            "entregado_cliente"
-            if d.delivered_client
-            else "entregado_chofer"
-            if d.delivered_driver
-            else (d.status or "pendiente")
-        )
-        return jsonify(
-            {
-                "id": d.id,
-                "orden": d.orden,
-                "cliente": client.name if client else str(d.cliente_id),
-                "chofer": driver.name if driver else str(d.chofer_id),
-                "created_by": creator.name if creator else d.created_by,
-                "fecha": to_local(d.fecha).isoformat(timespec="seconds"),
-                "status": derived_status,
-                "delivered_driver": d.delivered_driver,
-                "delivered_client": d.delivered_client,
-                "paquete_numero": d.paquete_numero,
-                "factura_numero": d.factura_numero,
-                "productos": [
-                    {"nombre": p.nombre, "cantidad": p.cantidad, "unidad": p.unidad} for p in d.productos
-                ],
-            }
-        ), 200
+        new_images = request.files.getlist('new_images')
+        for img in new_images:
+            if img:
+                upload_result = cloudinary.uploader.upload(img, folder="dispatches")
+                new_image = DispatchImage(
+                    dispatch_id=d.id,
+                    image_url=upload_result['secure_url']
+                )
+                db.session.add(new_image)
+
+        db.session.commit()
+        return jsonify(d.to_dict()), 200
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": "No se pudo actualizar el despacho", "details": str(e)}), 500

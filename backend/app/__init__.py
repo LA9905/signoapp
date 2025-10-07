@@ -7,6 +7,7 @@ from flask_jwt_extended import JWTManager, verify_jwt_in_request, get_jwt_identi
 from flask_mail import Mail
 from flask_migrate import Migrate
 from dotenv import load_dotenv
+import cloudinary
 
 db = SQLAlchemy()
 jwt = JWTManager()
@@ -26,9 +27,8 @@ def create_app():
     try:
         app.config.from_object("config.Config")
     except Exception:
-        pass  # opcional
+        pass
 
-    # Override/asegura valores críticos desde .env (con tipos correctos)
     app.config.update(
         MAIL_SERVER=os.getenv("MAIL_SERVER", "smtp.gmail.com"),
         MAIL_PORT=int(os.getenv("MAIL_PORT", "587")),
@@ -38,6 +38,14 @@ def create_app():
         MAIL_PASSWORD=(os.getenv("MAIL_PASSWORD") or "").strip(),
         MAIL_DEFAULT_SENDER=os.getenv("MAIL_DEFAULT_SENDER") or os.getenv("MAIL_USERNAME"),
         MAIL_SUPPRESS_SEND=_str_to_bool(os.getenv("MAIL_SUPPRESS_SEND", "false"), False),
+    )
+
+    # Configuración de Cloudinary desde .env
+    cloudinary.config(
+        cloud_name=os.getenv('CLOUDINARY_CLOUD_NAME'),
+        api_key=os.getenv('CLOUDINARY_API_KEY'),
+        api_secret=os.getenv('CLOUDINARY_API_SECRET'),
+        secure=True  # Para usar HTTPS
     )
 
     # CORS

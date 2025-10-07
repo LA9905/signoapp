@@ -1,9 +1,10 @@
-import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
+import { useEffect, useState, type ChangeEvent, type FormEvent, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import ProductSelector from "../components/ProductSelector.tsx";
 import ClientSelector from "../components/ClientSelector.tsx";
 import DriverSelector from "../components/DriverSelector.tsx";
 import ArrowBackButton from "../components/ArrowBackButton";
+import Webcam from "react-webcam";
 import { api } from "../services/http";
 import type { AxiosError } from "axios";
 
@@ -12,28 +13,26 @@ interface Producto {
   name: string;
   cantidad: number;
   unidad: string;
-  category?: string; // categoría opcional para productos nuevos
+  category?: string;
 }
 
 interface FormularioDespacho {
   orden: string;
-  chofer: string; // id del chofer como string
-  cliente: string; // nombre del cliente
-  numero_paquete?: string; // NUEVO
+  chofer: string;
+  cliente: string;
+  numero_paquete?: string;
   productos: Producto[];
 }
 
-// NUEVO: Interfaz para el payload del despacho
 interface DispatchPayload {
   orden: string;
   cliente: string;
   chofer: string;
   paquete_numero?: string;
   productos: { nombre: string; cantidad: number; unidad: string }[];
-  force?: boolean; // Propiedad opcional para forzar creación
+  force?: boolean;
 }
 
-// NUEVO: Interfaz para errores de la API
 interface ApiError {
   error?: string;
   msg?: string;
@@ -50,9 +49,11 @@ const CreateDispatch = () => {
     productos: [],
   });
   const [mensaje, setMensaje] = useState<string>("");
+  const [images, setImages] = useState<File[]>([]);
+  const [showCamera, setShowCamera] = useState(false);
+  const webcamRef = useRef<Webcam>(null);
 
   useEffect(() => {
-    // Carga inicial de productos existentes
     api
       .get("/products")
       .then((res) => {
@@ -67,14 +68,10 @@ const CreateDispatch = () => {
             }))
           );
         } else {
-          console.error("Formato inesperado al obtener productos:", res.data);
           setProductos([]);
         }
       })
-      .catch((err) => {
-        console.error("Error fetching products:", err);
-        setProductos([]);
-      });
+      .catch(() => setProductos([]));
   }, []);
 
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -86,17 +83,40 @@ const CreateDispatch = () => {
     }
   };
 
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const files = Array.from<File>(e.target.files);
+      setImages((prev) => [...prev, ...files]);
+    }
+  };
+
+  const capturePhoto = () => {
+    const imageSrc = webcamRef.current?.getScreenshot();
+    if (imageSrc) {
+      fetch(imageSrc)
+        .then((res) => res.blob())
+        .then((blob) => {
+          const file = new File([blob], `photo_${Date.now()}.jpg`, { type: "image/jpeg" });
+          setImages((prev) => [...prev, file]);
+          setShowCamera(false);
+        });
+    }
+  };
+
+  const removeImage = (idx: number) => {
+    setImages(images.filter((_, i) => i !== idx));
+  };
+
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!form.orden || !form.cliente || !form.chofer || form.productos.length === 0) {
-      setMensaje("Todos los campos (orden, cliente, chofer y al menos un producto) son requeridos");
+      setMensaje("Todos los campos requeridos");
       return;
     }
 
     try {
-      // Verificar si ya existe un despacho con esa orden
       const checkResp = await api.get("/dispatches", { params: { order: form.orden } });
-      let payload: DispatchPayload = {
+      const dispatchData: DispatchPayload = {
         orden: form.orden,
         cliente: form.cliente,
         chofer: form.chofer,
@@ -108,57 +128,45 @@ const CreateDispatch = () => {
         })),
       };
 
-      // Solo mostrar alerta si hay un despacho con ese orden
       if (checkResp.data.length > 0) {
-        if (!window.confirm("Ya existe un despacho registrado con ese número de orden. ¿Desea continuar?")) {
-          return; // Usuario cancela: no registrar nada
+        if (!window.confirm("Ya existe un despacho con ese número de orden. ¿Desea continuar?")) {
+          return;
         }
-        // Usuario acepta: agregar force=true
-        payload = { ...payload, force: true };
+        dispatchData.force = true;
       }
 
-      // Registrar productos NUEVOS (no existentes en la lista inicial)
-      const newProducts = form.productos.filter(
-        (p) => !productos.some((ep) => ep.id === p.id) // id no coincide con ninguno existente => es “nuevo”
-      );
+      const formData = new FormData();
+      formData.append('data', JSON.stringify(dispatchData));
+      images.forEach((img) => formData.append('images', img));
 
-      // Intenta crearlos uno por uno. Si alguno ya existe por nombre, detenemos todo.
+      const newProducts = form.productos.filter((p) => !productos.some((ep) => ep.id === p.id));
       for (const product of newProducts) {
         try {
-          await api.post("/products", {
-            name: product.name,
-            category: product.category || "Otros",
-          });
+          await api.post("/products", { name: product.name, category: product.category || "Otros" });
         } catch (err: unknown) {
           const error = err as AxiosError<ApiError>;
-          const msg =
-            error.response?.data?.error ||
-            error.response?.data?.msg ||
-            "Error al crear producto";
-          // Si es el error de ya-existe por nombre, detenemos y avisamos:
-          if (typeof msg === "string" && msg.toLowerCase().includes("ya existe un producto")) {
-            setMensaje(`El producto "${product.name}" ya existe. Búscalo en la lista y selecciónalo.`);
-            return; // Aborta: NO se crea el despacho
+          const msg = error.response?.data?.error || error.response?.data?.msg || "Error al crear producto";
+          if (msg.toLowerCase().includes("ya existe un producto")) {
+            setMensaje(`El producto "${product.name}" ya existe.`);
+            return;
           }
-          // Cualquier otro error también aborta
           setMensaje(msg);
           return;
         }
       }
 
-      // Crear despacho y obtener su ID
-      const createResp = await api.post("/dispatches", payload);
+      const createResp = await api.post("/dispatches", formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
       const dispatchId: number = createResp.data?.id;
 
       setMensaje("Despacho creado correctamente");
 
-      // Abrir PDF en pestaña nueva con el layout POS 80 (alto dinámico)
       if (dispatchId) {
         const pdfResp = await api.get(`/print/${dispatchId}`, {
           params: { inline: "1", format: "pos80" },
           responseType: "blob",
         });
-
         const blob = new Blob([pdfResp.data], { type: "application/pdf" });
         const url = URL.createObjectURL(blob);
         window.open(url, "_blank");
@@ -167,10 +175,8 @@ const CreateDispatch = () => {
       setTimeout(() => navigate("/dashboard"), 2000);
     } catch (err: unknown) {
       const error = err as AxiosError<ApiError>;
-      console.error("Error en handleSubmit:", error.response ? error.response.data : error.message);
       if (error.response?.status === 409 && error.response?.data?.error === "duplicate_order") {
-        // El backend ya maneja el force, pero si llega aquí (raro), mostrar mensaje
-        setMensaje(error.response.data?.msg || "Ya existe un despacho con ese número de orden");
+        setMensaje(error.response.data?.msg || "Ya existe un despacho");
       } else {
         setMensaje("Error al crear despacho");
       }
@@ -204,24 +210,45 @@ const CreateDispatch = () => {
           placeholder="Número de paquete (ej. 1/4)"
         />
 
-        {/* Cliente (nombre) */}
         <ClientSelector
           value={form.cliente}
           onChange={(cliente: string) => setForm({ ...form, cliente })}
         />
 
-        {/* Chofer (id como string) */}
         <DriverSelector
           value={form.chofer}
           onChange={(id: string) => setForm({ ...form, chofer: id })}
         />
 
-        {/* Productos */}
         <ProductSelector
           productos={form.productos}
           setProductos={(prods: Producto[]) => setForm({ ...form, productos: prods })}
           existingProductos={productos}
         />
+
+        <div className="border p-4 rounded">
+          <h3 className="font-bold mb-2">Imágenes (opcional, múltiples)</h3>
+          <input type="file" multiple accept="image/*" onChange={handleFileChange} className="mb-2" />
+          <button type="button" onClick={() => setShowCamera(!showCamera)} className="bg-green-500 text-white px-4 py-2 rounded mb-2">
+            {showCamera ? "Cerrar Cámara" : "Tomar Foto"}
+          </button>
+          {showCamera && (
+            <div>
+              <Webcam audio={false} screenshotFormat="image/jpeg" ref={webcamRef} />
+              <button type="button" onClick={capturePhoto} className="bg-blue-500 text-white px-4 py-2 rounded">
+                Capturar
+              </button>
+            </div>
+          )}
+          <div className="flex flex-wrap gap-2">
+            {images.map((img, idx) => (
+              <div key={idx}>
+                <img src={URL.createObjectURL(img)} alt="preview" className="w-20 h-20 object-cover" />
+                <button type="button" onClick={() => removeImage(idx)} className="text-red-500">Eliminar</button>
+              </div>
+            ))}
+          </div>
+        </div>
 
         <button type="submit" className="bg-blue-500 text-white px-4 py-2 rounded">
           Guardar Despacho

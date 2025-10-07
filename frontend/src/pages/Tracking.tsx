@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, type ChangeEvent } from "react";
 import type { AxiosError } from "axios";
 import { FiEdit2, FiTrash2, FiSave, FiX, FiPlus, FiMinus } from "react-icons/fi";
 import ClientSelector from "../components/ClientSelector";
 import DriverSelector from "../components/DriverSelector";
 import { useDrivers } from "../context/DriversContext";
 import ArrowBackButton from "../components/ArrowBackButton";
+import Webcam from "react-webcam";
 import { api } from "../services/http";
 
 interface DispatchSummary {
@@ -13,13 +14,14 @@ interface DispatchSummary {
   cliente: string;
   chofer: string;
   created_by: string;
-  fecha: string; // ISO local
-  status: string; // pendiente | entregado_chofer | entregado_cliente | cancelado | ...
+  fecha: string;
+  status: string;
   delivered_driver: boolean;
   delivered_client: boolean;
   productos: { nombre: string; cantidad: number; unidad: string }[];
   paquete_numero?: number;
   factura_numero?: string;
+  images?: { id: number; image_url: string; uploaded_at?: string }[];
 }
 
 interface Product {
@@ -44,9 +46,7 @@ type SearchState = {
   date_to: string;
 };
 
-const btnIcon =
-  "rounded-full p-2 bg-white/10 text-white border border-white/50 transition-colors " +
-  "focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-neutral-900";
+const btnIcon = "rounded-full p-2 bg-white/10 text-white border border-white/50 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-neutral-900";
 
 const Tracking = () => {
   const [dispatches, setDispatches] = useState<DispatchSummary[]>([]);
@@ -71,7 +71,6 @@ const Tracking = () => {
   const observer = useRef<IntersectionObserver | null>(null);
   const lastDispatchRef = useRef<HTMLDivElement | null>(null);
 
-  // --- NUEVO: estado controlado para los inputs de búsqueda ---
   const [searchState, setSearchState] = useState<SearchState>({
     client: "",
     order: "",
@@ -83,13 +82,23 @@ const Tracking = () => {
     date_to: "",
   });
 
-  // debounce
   const [debouncedSearch, setDebouncedSearch] = useState<SearchState>(searchState);
 
-  // controller para cancelar requests no deseados (solo para búsquedas no "append")
+  const searchStateRef = useRef<SearchState>(searchState);
+  useEffect(() => {
+    searchStateRef.current = searchState;
+  }, [searchState]);
+
   const fetchControllerRef = useRef<AbortController | null>(null);
 
-  // Cargar nombres de productos
+  const [existingImages, setExistingImages] = useState<{ id: number; image_url: string }[]>([]);
+  const [newImages, setNewImages] = useState<File[]>([]);
+  const [deleteImageIds, setDeleteImageIds] = useState<number[]>([]);
+  const [showCamera, setShowCamera] = useState(false);
+  const webcamRef = useRef<Webcam>(null);
+
+  const [scrollToId, setScrollToId] = useState<number | null>(null);
+
   const fetchProducts = async () => {
     try {
       const res = await api.get<Product[]>("/products");
@@ -100,24 +109,19 @@ const Tracking = () => {
     }
   };
 
-  // fetchDispatches ahora soporta append y signal
   const fetchDispatches = useCallback(
     async (params: SearchState, pageNum: number, append: boolean = false, signal?: AbortSignal) => {
-      // Si no es append, manejamos el controller para permitir cancelación
+      let scrollPosition = 0;
       if (!append) {
-        // abort previous
+        scrollPosition = window.pageYOffset;
         if (fetchControllerRef.current) {
-          try {
-            fetchControllerRef.current.abort();
-          } catch {}
+          fetchControllerRef.current.abort();
         }
-        // si no se proporciona signal, creamos uno y lo guardamos
         if (!signal) {
           const c = new AbortController();
           fetchControllerRef.current = c;
           signal = c.signal;
         } else {
-          // si nos pasan signal, no tocamos fetchControllerRef (ej: llamadas externas)
           fetchControllerRef.current = null;
         }
       }
@@ -134,38 +138,31 @@ const Tracking = () => {
         setHasMore(newDispatches.length === 10);
         setMensaje("");
       } catch (err: any) {
-        // axios puede lanzar error con code === 'ERR_CANCELED' o nombre 'CanceledError'
-        if (err?.code === "ERR_CANCELED" || err?.name === "CanceledError" || err?.name === "AbortError") {
-          // petición cancelada: silenciosa
-          return;
-        }
-        const error = err as AxiosError;
-        console.error("Error fetching dispatches:", error?.response?.data || error?.message || err);
+        if (err?.code === "ERR_CANCELED" || err?.name === "CanceledError" || err?.name === "AbortError") return;
+        console.error("Error fetching dispatches:", err);
         setMensaje("Error al cargar despachos");
       } finally {
         setIsLoading(false);
+        if (!append) {
+          window.scrollTo(0, scrollPosition);
+        }
       }
     },
     []
   );
 
-  // Al montar: cargar productos y la primera búsqueda (usa debouncedSearch para evitar duplicación)
   useEffect(() => {
     fetchProducts();
-    // trigger initial load usando searchState actual -> setDebouncedSearch dará lugar a fetch en el effect de debouncedSearch
     setDebouncedSearch(searchState);
+
     const onFocus = () => {
-      // recargar al volver a la pestaña (igual: cancelación manejada en fetchDispatches)
       fetchProducts();
-      // forzamos una búsqueda con el estado actual
-      setDebouncedSearch(searchState);
+      setDebouncedSearch(searchStateRef.current);
     };
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // solo al montar
+  }, []);
 
-  // infinite observer
   useEffect(() => {
     if (isLoading || !hasMore) return;
 
@@ -189,38 +186,39 @@ const Tracking = () => {
     };
   }, [isLoading, hasMore]);
 
-  // cuando cambia page cargamos más (append)
   useEffect(() => {
     if (page > 1) {
       fetchDispatches(debouncedSearch, page, true);
     }
   }, [page, debouncedSearch, fetchDispatches]);
 
-  // debounce effect para evitar buscar en cada tecla
   useEffect(() => {
     const id = setTimeout(() => {
-      // resetear paginación cuando cambia búsqueda
       setPage(1);
       setDebouncedSearch(searchState);
-    }, 300); // 300ms debounce
+    }, 300);
     return () => clearTimeout(id);
   }, [searchState]);
 
-  // cuando cambia debouncedSearch hacemos la búsqueda (page 1, no append)
   useEffect(() => {
-    // reset paginación ya hecha en debounce effect; aquí solo llamamos fetch
     fetchDispatches(debouncedSearch, 1, false);
-    // cleanup: abort si cambia antes de terminar
     return () => {
       if (fetchControllerRef.current) {
-        try {
-          fetchControllerRef.current.abort();
-        } catch {}
+        fetchControllerRef.current.abort();
       }
     };
   }, [debouncedSearch, fetchDispatches]);
 
-  // Handlers de búsqueda: ahora controlados por estado, muy rápidos al tipear
+  useEffect(() => {
+    if (scrollToId !== null) {
+      const element = document.getElementById(`dispatch-${scrollToId}`);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+      setScrollToId(null);
+    }
+  }, [scrollToId]);
+
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setSearchState((prev) => ({ ...prev, [name]: value }));
@@ -228,13 +226,9 @@ const Tracking = () => {
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // cancelar debounce y forzar búsqueda inmediata
     if (fetchControllerRef.current) {
-      try {
-        fetchControllerRef.current.abort();
-      } catch {}
+      fetchControllerRef.current.abort();
     }
-    // forzar fetch inmediato con estado actual
     (async () => {
       const controller = new AbortController();
       fetchControllerRef.current = controller;
@@ -252,7 +246,6 @@ const Tracking = () => {
         setDebouncedSearch(searchState);
       } catch (err: any) {
         if (err?.code === "ERR_CANCELED" || err?.name === "CanceledError" || err?.name === "AbortError") return;
-        console.error("Error fetching dispatches:", err?.response?.data || err?.message || err);
         setMensaje("Error al cargar despachos");
       } finally {
         setIsLoading(false);
@@ -260,7 +253,6 @@ const Tracking = () => {
     })();
   };
 
-  // Resto de funciones (edición, guardar, borrar, marcar, PDF...) se mantienen prácticamente iguales
   const startEditRow = (d: DispatchSummary) => {
     const choferId = drivers.find((x) => x.name === d.chofer)?.id;
     setEditingId(d.id);
@@ -272,12 +264,59 @@ const Tracking = () => {
       productos: d.productos.map((p) => ({ ...p })),
       factura_numero: d.factura_numero || "",
     });
+    setExistingImages(d.images || []);
+    setNewImages([]);
+    setDeleteImageIds([]);
+    setScrollToId(d.id);
   };
 
   const cancelEditRow = () => {
+    const currentId = editingId;
     setEditingId(null);
     setDraft(null);
     setSuggestions({});
+    setExistingImages([]);
+    setNewImages([]);
+    setDeleteImageIds([]);
+    setShowCamera(false);
+    if (currentId !== null) {
+      setScrollToId(currentId);
+    }
+  };
+
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const files = Array.from<File>(e.target.files);
+      setNewImages((prev) => [...prev, ...files]);
+      if (editingId !== null) {
+        setScrollToId(editingId);
+      }
+    }
+  };
+
+  const capturePhoto = () => {
+    const imageSrc = webcamRef.current?.getScreenshot();
+    if (imageSrc) {
+      fetch(imageSrc)
+        .then((res) => res.blob())
+        .then((blob) => {
+          const file = new File([blob], `photo_${Date.now()}.jpg`, { type: "image/jpeg" });
+          setNewImages((prev) => [...prev, file]);
+          setShowCamera(false);
+          if (editingId !== null) {
+            setScrollToId(editingId);
+          }
+        });
+    }
+  };
+
+  const removeExistingImage = (id: number) => {
+    setExistingImages(existingImages.filter((img) => img.id !== id));
+    setDeleteImageIds([...deleteImageIds, id]);
+  };
+
+  const removeNewImage = (idx: number) => {
+    setNewImages(newImages.filter((_, i) => i !== idx));
   };
 
   const saveRow = async (id: number) => {
@@ -295,16 +334,24 @@ const Tracking = () => {
           cantidad: p.cantidad,
           unidad: p.unidad,
         })),
+        delete_image_ids: deleteImageIds,
       };
-      const resp = await api.put<DispatchSummary>(`/dispatches/${id}`, payload);
+
+      const formData = new FormData();
+      formData.append('data', JSON.stringify(payload));
+      newImages.forEach((img) => formData.append('new_images', img));
+
+      const resp = await api.put<DispatchSummary>(`/dispatches/${id}`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
       const updated = resp.data;
       setDispatches((prev) => prev.map((d) => (d.id === id ? { ...d, ...updated } : d)));
-      setMensaje("Despacho actualizado. Puedes descargar/imprimir el PDF actualizado.");
+      setMensaje("Despacho actualizado.");
       cancelEditRow();
+      setScrollToId(id);
     } catch (err) {
       const error = err as AxiosError<ApiError>;
-      console.error("Error al actualizar despacho:", error.response?.data || error.message);
-      alert(error.response?.data?.error || "No se pudo actualizar el despacho");
+      alert(error.response?.data?.error || "No se pudo actualizar");
     } finally {
       setIsLoading(false);
     }
@@ -320,8 +367,7 @@ const Tracking = () => {
       setMensaje("Despacho eliminado");
     } catch (err) {
       const error = err as AxiosError<ApiError>;
-      console.error("Error eliminando despacho:", error.response?.data || error.message);
-      alert(error.response?.data?.error || "No se pudo eliminar el despacho");
+      alert(error.response?.data?.error || "No se pudo eliminar");
     } finally {
       setIsLoading(false);
     }
@@ -335,8 +381,6 @@ const Tracking = () => {
       setDispatches((prev) => prev.map((d) => (d.id === id ? { ...d, ...updated } : d)));
       setMensaje("Despacho marcado como 'Entregado a Chofer'.");
     } catch (err) {
-      const error = err as AxiosError;
-      console.error("Error marcando chofer:", error.response?.data || error.message);
       setMensaje("No se pudo marcar 'Entregado a Chofer'.");
     } finally {
       setIsLoading(false);
@@ -351,8 +395,6 @@ const Tracking = () => {
       setDispatches((prev) => prev.map((d) => (d.id === id ? { ...d, ...updated } : d)));
       setMensaje("Despacho marcado como 'Pedido Entregado'.");
     } catch (err) {
-      const error = err as AxiosError;
-      console.error("Error marcando cliente:", error.response?.data || error.message);
       setMensaje("No se pudo marcar 'Pedido Entregado'.");
     } finally {
       setIsLoading(false);
@@ -375,8 +417,6 @@ const Tracking = () => {
       a.remove();
       URL.revokeObjectURL(url);
     } catch (err) {
-      const error = err as AxiosError;
-      console.error("Error descargando PDF:", error.response?.data || error.message);
       setMensaje("No se pudo descargar el PDF");
     }
   };
@@ -397,8 +437,6 @@ const Tracking = () => {
         } catch {}
       });
     } catch (err) {
-      const error = err as AxiosError;
-      console.error("Error abriendo PDF para imprimir:", error.response?.data || error.message);
       setMensaje("No se pudo abrir el PDF para imprimir");
     }
   };
@@ -561,7 +599,7 @@ const Tracking = () => {
             const refProp = index === dispatches.length - 1 ? { ref: lastDispatchRef } : {};
 
             return (
-              <div key={d.id} className="border p-4 hover:bg-gray-900/20 rounded" {...refProp}>
+              <div key={d.id} id={`dispatch-${d.id}`} className="border p-4 hover:bg-gray-900/20 rounded" {...refProp}>
                 <div className="flex items-start justify-between gap-4">
                   {!isEditingRow ? (
                     <div>
@@ -703,6 +741,37 @@ const Tracking = () => {
                                   <FiMinus size={18} />
                                 </button>
                               </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="mt-4 border p-4 rounded">
+                        <h4 className="font-bold mb-2">Imágenes</h4>
+                        <div className="flex flex-wrap gap-2 mb-2">
+                          {existingImages.map((img) => (
+                            <div key={img.id}>
+                              <img src={img.image_url} alt="existing" className="w-20 h-20 object-cover" />
+                              <button onClick={() => removeExistingImage(img.id)} className="text-red-500">Eliminar</button>
+                            </div>
+                          ))}
+                        </div>
+                        <input type="file" multiple accept="image/*" onChange={handleFileChange} className="mb-2" />
+                        <button type="button" onClick={() => setShowCamera(!showCamera)} className="bg-green-500 text-white px-4 py-2 rounded mb-2">
+                          {showCamera ? "Cerrar Cámara" : "Tomar Foto"}
+                        </button>
+                        {showCamera && (
+                          <div>
+                            <Webcam audio={false} screenshotFormat="image/jpeg" ref={webcamRef} />
+                            <button type="button" onClick={capturePhoto} className="bg-blue-500 text-white px-4 py-2 rounded">
+                              Capturar
+                            </button>
+                          </div>
+                        )}
+                        <div className="flex flex-wrap gap-2">
+                          {newImages.map((img, idx) => (
+                            <div key={idx}>
+                              <img src={URL.createObjectURL(img)} alt="new" className="w-20 h-20 object-cover" />
+                              <button onClick={() => removeNewImage(idx)} className="text-red-500">Eliminar</button>
                             </div>
                           ))}
                         </div>

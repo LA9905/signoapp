@@ -27,6 +27,7 @@ class Dispatch(db.Model):
     delivered_client_at = db.Column(db.DateTime, nullable=True)  # UTC naive
 
     productos = db.relationship('DispatchProduct', backref='dispatch', lazy=True)
+    images = db.relationship('DispatchImage', backref='dispatch', lazy=True, cascade="all, delete-orphan")  # NUEVO: Relación con imágenes
 
     def to_dict(self):
         derived_status = (
@@ -46,7 +47,8 @@ class Dispatch(db.Model):
             'delivered_client': self.delivered_client,
             'paquete_numero': self.paquete_numero,
             'factura_numero': self.factura_numero,
-            'productos': [p.to_dict() for p in self.productos]
+            'productos': [p.to_dict() for p in self.productos],
+            'images': [i.to_dict() for i in self.images]  # NUEVO: Incluir imágenes
         }
 
 
@@ -65,4 +67,20 @@ class DispatchProduct(db.Model):
             'nombre': self.nombre,
             'cantidad': self.cantidad,
             'unidad': self.unidad
+        } 
+
+# NUEVO: Modelo para imágenes de despachos
+class DispatchImage(db.Model):
+    __tablename__ = 'dispatch_image'
+
+    id = db.Column(db.Integer, primary_key=True)
+    dispatch_id = db.Column(db.Integer, db.ForeignKey('dispatch.id'), nullable=False)
+    image_url = db.Column(db.String(255), nullable=False)  # URL de Cloudinary
+    uploaded_at = db.Column(db.DateTime, default=utcnow)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'image_url': self.image_url,
+            'uploaded_at': to_local(self.uploaded_at).isoformat(timespec="seconds")
         }
