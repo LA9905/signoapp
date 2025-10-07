@@ -13,7 +13,6 @@ class Dispatch(db.Model):
     fecha = db.Column(db.DateTime, default=utcnow)
     created_by = db.Column(db.String(50), nullable=False)
 
-    # NUEVO
     paquete_numero = db.Column(db.String(50), nullable=True)          # p.ej. 1, 2, 3...
     factura_numero = db.Column(db.String(50), nullable=True)       # editable luego del despacho
 
@@ -27,7 +26,7 @@ class Dispatch(db.Model):
     delivered_client_at = db.Column(db.DateTime, nullable=True)  # UTC naive
 
     productos = db.relationship('DispatchProduct', backref='dispatch', lazy=True)
-    images = db.relationship('DispatchImage', backref='dispatch', lazy=True, cascade="all, delete-orphan")  # NUEVO: Relación con imágenes
+    images = db.relationship('DispatchImage', backref='dispatch', lazy=True, cascade="all, delete-orphan")  #Relación con imágenes
 
     def to_dict(self):
         derived_status = (
@@ -48,7 +47,7 @@ class Dispatch(db.Model):
             'paquete_numero': self.paquete_numero,
             'factura_numero': self.factura_numero,
             'productos': [p.to_dict() for p in self.productos],
-            'images': [i.to_dict() for i in self.images]  # NUEVO: Incluir imágenes
+            'images': [i.to_dict() for i in self.images]  #Incluir imágenes
         }
 
 
@@ -69,7 +68,7 @@ class DispatchProduct(db.Model):
             'unidad': self.unidad
         } 
 
-# NUEVO: Modelo para imágenes de despachos
+# Modelo para imágenes de despachos
 class DispatchImage(db.Model):
     __tablename__ = 'dispatch_image'
 
