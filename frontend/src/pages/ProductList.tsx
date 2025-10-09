@@ -9,6 +9,7 @@ interface Product {
   category: string;
   created_by: string;
   stock: number;
+  usage?: number;  //uso calculado (suma de cantidades despachadas)
 }
 
 const categories = [

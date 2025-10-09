@@ -6,7 +6,8 @@ interface Producto {
   name: string;
   cantidad: number;
   unidad: string;
-  category?: string; // opcional (si vino de la BD)
+  category?: string; //opcional (si vino de la BD)
+  usage?: number;  //uso calculado (suma de cantidades despachadas)
 }
 
 interface ProductSelectorProps {
@@ -103,9 +104,9 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
     }));
   };
 
-  const filteredProducts = existingProductos.filter((p) =>
-    p.name.toLowerCase().includes(searchProduct.toLowerCase())
-  );
+  const filteredProducts = existingProductos
+  .filter((p) => p.name.toLowerCase().includes(searchProduct.toLowerCase()))
+  .sort((a, b) => (b.usage || 0) - (a.usage || 0));  // Ordenar por uso descendente (más usados primero)
 
   // acciones sobre productos ya añadidos al formulario
   const startEdit = (p: Producto) => {

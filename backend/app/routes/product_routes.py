@@ -41,8 +41,28 @@ def create_product():
 @product_bp.route('/products', methods=['GET'])
 @jwt_required()
 def list_products():
+    search = request.args.get('search', '').lower()
     products = Product.query.all()
-    return jsonify([p.to_dict() for p in products]), 200
+
+    # Calcular usage (suma de cantidades despachadas) por nombre lower
+    from app.models.dispatch_model import DispatchProduct
+    usages = db.session.query(
+        func.lower(DispatchProduct.nombre),
+        func.sum(DispatchProduct.cantidad)
+    ).group_by(func.lower(DispatchProduct.nombre)).all()
+
+    usage_dict = {lower_name: float(usage or 0) for lower_name, usage in usages}
+
+    result = []
+    for p in products:
+        dict_p = p.to_dict()
+        dict_p['usage'] = usage_dict.get(p.name.lower(), 0.0)
+        result.append(dict_p)
+
+    if search:
+        result = [p for p in result if search in p['name'].lower()]
+
+    return jsonify(result), 200
 
 
 @product_bp.route('/products/<int:product_id>', methods=['PUT', 'PATCH'])

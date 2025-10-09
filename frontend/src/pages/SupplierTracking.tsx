@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, type ChangeEvent } from "react";
 import type { AxiosError } from "axios";
 import { FiEdit2, FiTrash2, FiSave, FiX, FiPlus, FiMinus } from "react-icons/fi";
 import SupplierSelector from "../components/SupplierSelector";
@@ -54,13 +54,23 @@ const SupplierTracking = () => {
   const [productNames, setProductNames] = useState<string[]>([]);
   const [suggestions, setSuggestions] = useState<Record<number, string[]>>({});
 
-  const searchRef = useRef<SearchState>({
+  const [searchState, setSearchState] = useState<SearchState>({
     supplier: "",
     order: "",
     user: "",
     date_from: "",
     date_to: "",
   });
+
+  const [debouncedSearch, setDebouncedSearch] = useState<SearchState>(searchState);
+
+  const searchStateRef = useRef<SearchState>(searchState);
+  useEffect(() => {
+    searchStateRef.current = searchState;
+  }, [searchState]);
+
+  const fetchControllerRef = useRef<AbortController | null>(null);
+
   const observer = useRef<IntersectionObserver | null>(null);
   const lastReceiptRef = useRef<HTMLDivElement | null>(null);
 
@@ -75,38 +85,58 @@ const SupplierTracking = () => {
   };
 
   const fetchReceipts = useCallback(
-    async (params: SearchState, pageNum: number, append: boolean = false) => {
+    async (params: SearchState, pageNum: number, append: boolean = false, signal?: AbortSignal) => {
+      let scrollPosition = 0;
+      if (!append) {
+        scrollPosition = window.pageYOffset;
+        if (fetchControllerRef.current) {
+          fetchControllerRef.current.abort();
+        }
+        if (!signal) {
+          const c = new AbortController();
+          fetchControllerRef.current = c;
+          signal = c.signal;
+        } else {
+          fetchControllerRef.current = null;
+        }
+      }
+
       setIsLoading(true);
       try {
         const response = await api.get<ReceiptSummary[]>("/receipts", {
           params: { ...params, page: pageNum, limit: 10 },
           headers: { "Cache-Control": "no-cache" },
+          signal,
         });
         const newReceipts = response.data;
         setReceipts((prev) => (append ? [...prev, ...newReceipts] : newReceipts));
         setHasMore(newReceipts.length === 10);
         setMensaje("");
-      } catch (err) {
-        const error = err as AxiosError;
-        console.error("Error fetching receipts:", error.response?.data || error.message);
+      } catch (err: any) {
+        if (err?.code === "ERR_CANCELED" || err?.name === "CanceledError" || err?.name === "AbortError") return;
+        console.error("Error fetching receipts:", err);
         setMensaje("Error al cargar recepciones");
       } finally {
         setIsLoading(false);
+        if (!append) {
+          window.scrollTo(0, scrollPosition);
+        }
       }
     },
     []
   );
 
   useEffect(() => {
-    fetchReceipts(searchRef.current, 1);
     fetchProducts();
+    setDebouncedSearch(searchState);
+
     const onFocus = () => {
-      fetchReceipts(searchRef.current, 1);
       fetchProducts();
+      setDebouncedSearch(searchStateRef.current);
     };
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
-  }, [fetchReceipts]);
+  }, []);
 
   useEffect(() => {
     if (isLoading || !hasMore) return;
@@ -133,20 +163,59 @@ const SupplierTracking = () => {
 
   useEffect(() => {
     if (page > 1) {
-      fetchReceipts(searchRef.current, page, true);
+      fetchReceipts(debouncedSearch, page, true);
     }
-  }, [page, fetchReceipts]);
+  }, [page, debouncedSearch, fetchReceipts]);
 
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    searchRef.current = { ...searchRef.current, [e.target.name]: e.target.value };
-    setPage(1);
-    fetchReceipts(searchRef.current, 1);
+  useEffect(() => {
+    const id = setTimeout(() => {
+      setPage(1);
+      setDebouncedSearch(searchState);
+    }, 300);
+    return () => clearTimeout(id);
+  }, [searchState]);
+
+  useEffect(() => {
+    fetchReceipts(debouncedSearch, 1, false);
+    return () => {
+      if (fetchControllerRef.current) {
+        fetchControllerRef.current.abort();
+      }
+    };
+  }, [debouncedSearch, fetchReceipts]);
+
+  const handleSearchChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setSearchState((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setPage(1);
-    fetchReceipts(searchRef.current, 1);
+    if (fetchControllerRef.current) {
+      fetchControllerRef.current.abort();
+    }
+    (async () => {
+      const controller = new AbortController();
+      fetchControllerRef.current = controller;
+      setIsLoading(true);
+      try {
+        const response = await api.get<ReceiptSummary[]>("/receipts", {
+          params: { ...searchState, page: 1, limit: 10 },
+          headers: { "Cache-Control": "no-cache" },
+          signal: controller.signal,
+        });
+        setReceipts(response.data);
+        setHasMore(response.data.length === 10);
+        setMensaje("");
+        setPage(1);
+        setDebouncedSearch(searchState);
+      } catch (err: any) {
+        if (err?.code === "ERR_CANCELED" || err?.name === "CanceledError" || err?.name === "AbortError") return;
+        setMensaje("Error al cargar recepciones");
+      } finally {
+        setIsLoading(false);
+      }
+    })();
   };
 
   const startEditRow = (r: ReceiptSummary) => {
@@ -251,23 +320,16 @@ const SupplierTracking = () => {
       <form onSubmit={handleSearchSubmit} className="space-y-4 mb-6">
         <input
           name="supplier"
-          value={searchRef.current.supplier}
+          value={searchState.supplier}
           onChange={handleSearchChange}
           placeholder="Buscar por nombre del proveedor"
           className="w-full border p-2 rounded"
         />
         <input
           name="order"
-          value={searchRef.current.order}
+          value={searchState.order}
           onChange={handleSearchChange}
           placeholder="Buscar por número de factura"
-          className="w-full border p-2 rounded"
-        />
-        <input
-          name="user"
-          value={searchRef.current.user}
-          onChange={handleSearchChange}
-          placeholder="Buscar por usuario que creó"
           className="w-full border p-2 rounded"
         />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -276,7 +338,7 @@ const SupplierTracking = () => {
             <input
               name="date_from"
               type="date"
-              value={searchRef.current.date_from}
+              value={searchState.date_from}
               onChange={handleSearchChange}
               className="w-full border p-2 rounded"
             />
@@ -286,7 +348,7 @@ const SupplierTracking = () => {
             <input
               name="date_to"
               type="date"
-              value={searchRef.current.date_to}
+              value={searchState.date_to}
               onChange={handleSearchChange}
               className="w-full border p-2 rounded"
             />

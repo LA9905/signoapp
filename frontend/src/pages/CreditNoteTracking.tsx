@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, type ChangeEvent } from "react";
 import type { AxiosError } from "axios";
 import { FiEdit2, FiTrash2, FiSave, FiX, FiPlus, FiMinus } from "react-icons/fi";
 import ClientSelector from "../components/ClientSelector";
@@ -61,7 +61,7 @@ const CreditNoteTracking = () => {
   const [productNames, setProductNames] = useState<string[]>([]);
   const [suggestions, setSuggestions] = useState<Record<number, string[]>>({});
 
-  const searchRef = useRef<SearchState>({
+  const [searchState, setSearchState] = useState<SearchState>({
     client: "",
     order_number: "",
     invoice_number: "",
@@ -71,6 +71,16 @@ const CreditNoteTracking = () => {
     date_from: "",
     date_to: "",
   });
+
+  const [debouncedSearch, setDebouncedSearch] = useState<SearchState>(searchState);
+
+  const searchStateRef = useRef<SearchState>(searchState);
+  useEffect(() => {
+    searchStateRef.current = searchState;
+  }, [searchState]);
+
+  const fetchControllerRef = useRef<AbortController | null>(null);
+
   const observer = useRef<IntersectionObserver | null>(null);
   const lastCreditNoteRef = useRef<HTMLDivElement | null>(null);
 
@@ -85,38 +95,58 @@ const CreditNoteTracking = () => {
   };
 
   const fetchCreditNotes = useCallback(
-    async (params: SearchState, pageNum: number, append: boolean = false) => {
+    async (params: SearchState, pageNum: number, append: boolean = false, signal?: AbortSignal) => {
+      let scrollPosition = 0;
+      if (!append) {
+        scrollPosition = window.pageYOffset;
+        if (fetchControllerRef.current) {
+          fetchControllerRef.current.abort();
+        }
+        if (!signal) {
+          const c = new AbortController();
+          fetchControllerRef.current = c;
+          signal = c.signal;
+        } else {
+          fetchControllerRef.current = null;
+        }
+      }
+
       setIsLoading(true);
       try {
         const response = await api.get<CreditNoteSummary[]>("/credit-notes", {
           params: { ...params, page: pageNum, limit: 10 },
           headers: { "Cache-Control": "no-cache" },
+          signal,
         });
         const newCreditNotes = response.data;
         setCreditNotes((prev) => (append ? [...prev, ...newCreditNotes] : newCreditNotes));
         setHasMore(newCreditNotes.length === 10);
         setMensaje("");
-      } catch (err) {
-        const error = err as AxiosError;
-        console.error("Error fetching credit notes:", error.response?.data || error.message);
+      } catch (err: any) {
+        if (err?.code === "ERR_CANCELED" || err?.name === "CanceledError" || err?.name === "AbortError") return;
+        console.error("Error fetching credit notes:", err);
         setMensaje("Error al cargar notas de crédito");
       } finally {
         setIsLoading(false);
+        if (!append) {
+          window.scrollTo(0, scrollPosition);
+        }
       }
     },
     []
   );
 
   useEffect(() => {
-    fetchCreditNotes(searchRef.current, 1);
     fetchProducts();
+    setDebouncedSearch(searchState);
+
     const onFocus = () => {
-      fetchCreditNotes(searchRef.current, 1);
       fetchProducts();
+      setDebouncedSearch(searchStateRef.current);
     };
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
-  }, [fetchCreditNotes]);
+  }, []);
 
   useEffect(() => {
     if (isLoading || !hasMore) return;
@@ -143,20 +173,59 @@ const CreditNoteTracking = () => {
 
   useEffect(() => {
     if (page > 1) {
-      fetchCreditNotes(searchRef.current, page, true);
+      fetchCreditNotes(debouncedSearch, page, true);
     }
-  }, [page, fetchCreditNotes]);
+  }, [page, debouncedSearch, fetchCreditNotes]);
 
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    searchRef.current = { ...searchRef.current, [e.target.name]: e.target.value };
-    setPage(1);
-    fetchCreditNotes(searchRef.current, 1);
+  useEffect(() => {
+    const id = setTimeout(() => {
+      setPage(1);
+      setDebouncedSearch(searchState);
+    }, 300);
+    return () => clearTimeout(id);
+  }, [searchState]);
+
+  useEffect(() => {
+    fetchCreditNotes(debouncedSearch, 1, false);
+    return () => {
+      if (fetchControllerRef.current) {
+        fetchControllerRef.current.abort();
+      }
+    };
+  }, [debouncedSearch, fetchCreditNotes]);
+
+  const handleSearchChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setSearchState((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setPage(1);
-    fetchCreditNotes(searchRef.current, 1);
+    if (fetchControllerRef.current) {
+      fetchControllerRef.current.abort();
+    }
+    (async () => {
+      const controller = new AbortController();
+      fetchControllerRef.current = controller;
+      setIsLoading(true);
+      try {
+        const response = await api.get<CreditNoteSummary[]>("/credit-notes", {
+          params: { ...searchState, page: 1, limit: 10 },
+          headers: { "Cache-Control": "no-cache" },
+          signal: controller.signal,
+        });
+        setCreditNotes(response.data);
+        setHasMore(response.data.length === 10);
+        setMensaje("");
+        setPage(1);
+        setDebouncedSearch(searchState);
+      } catch (err: any) {
+        if (err?.code === "ERR_CANCELED" || err?.name === "CanceledError" || err?.name === "AbortError") return;
+        setMensaje("Error al cargar notas de crédito");
+      } finally {
+        setIsLoading(false);
+      }
+    })();
   };
 
   const startEditRow = (cn: CreditNoteSummary) => {
@@ -336,42 +405,42 @@ const CreditNoteTracking = () => {
       <form onSubmit={handleSearchSubmit} className="space-y-4 mb-6">
         <input
           name="client"
-          value={searchRef.current.client}
+          value={searchState.client}
           onChange={handleSearchChange}
           placeholder="Buscar por centro de costo"
           className="w-full border p-2 rounded"
         />
         <input
           name="order_number"
-          value={searchRef.current.order_number}
+          value={searchState.order_number}
           onChange={handleSearchChange}
           placeholder="Buscar por número de orden"
           className="w-full border p-2 rounded"
         />
         <input
           name="invoice_number"
-          value={searchRef.current.invoice_number}
+          value={searchState.invoice_number}
           onChange={handleSearchChange}
           placeholder="Buscar por número de factura"
           className="w-full border p-2 rounded"
         />
         <input
           name="credit_note_number"
-          value={searchRef.current.credit_note_number}
+          value={searchState.credit_note_number}
           onChange={handleSearchChange}
           placeholder="Buscar por número de nota de crédito"
           className="w-full border p-2 rounded"
         />
         <input
           name="reason"
-          value={searchRef.current.reason}
+          value={searchState.reason}
           onChange={handleSearchChange}
           placeholder="Buscar por motivo"
           className="w-full border p-2 rounded"
         />
         <input
           name="user"
-          value={searchRef.current.user}
+          value={searchState.user}
           onChange={handleSearchChange}
           placeholder="Buscar por usuario que creó"
           className="w-full border p-2 rounded"
@@ -382,7 +451,7 @@ const CreditNoteTracking = () => {
             <input
               name="date_from"
               type="date"
-              value={searchRef.current.date_from}
+              value={searchState.date_from}
               onChange={handleSearchChange}
               className="w-full border p-2 rounded"
             />
@@ -392,7 +461,7 @@ const CreditNoteTracking = () => {
             <input
               name="date_to"
               type="date"
-              value={searchRef.current.date_to}
+              value={searchState.date_to}
               onChange={handleSearchChange}
               className="w-full border p-2 rounded"
             />

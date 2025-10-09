@@ -1,5 +1,6 @@
 import { useEffect, useState, type ChangeEvent, type FormEvent, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { FiX } from "react-icons/fi"; // Agrega FiX para el botón de cerrar el modal
 import ProductSelector from "../components/ProductSelector.tsx";
 import ClientSelector from "../components/ClientSelector.tsx";
 import DriverSelector from "../components/DriverSelector.tsx";
@@ -51,6 +52,7 @@ const CreateDispatch = () => {
   const [mensaje, setMensaje] = useState<string>("");
   const [images, setImages] = useState<File[]>([]);
   const [showCamera, setShowCamera] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null); // Estado para la imagen seleccionada
   const webcamRef = useRef<Webcam>(null);
 
   useEffect(() => {
@@ -65,6 +67,7 @@ const CreateDispatch = () => {
               cantidad: 0,
               unidad: "unidades",
               category: p.category,
+              usage: p.usage,  //incluir uso para ordenar en el selector
             }))
           );
         } else {
@@ -248,7 +251,12 @@ const CreateDispatch = () => {
           <div className="flex flex-wrap gap-2">
             {images.map((img, idx) => (
               <div key={idx}>
-                <img src={URL.createObjectURL(img)} alt="preview" className="w-20 h-20 object-cover" />
+                <img 
+                  src={URL.createObjectURL(img)} 
+                  alt="preview" 
+                  className="w-20 h-20 object-cover cursor-pointer" // Agrega cursor-pointer para indicar click
+                  onClick={() => setSelectedImage(URL.createObjectURL(img))} // Abre el modal con la imagen
+                />
                 <button type="button" onClick={() => removeImage(idx)} className="text-red-500">Eliminar</button>
               </div>
             ))}
@@ -259,6 +267,27 @@ const CreateDispatch = () => {
           Guardar Despacho
         </button>
       </form>
+
+      {selectedImage && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50" 
+          onClick={() => setSelectedImage(null)} // Cierra al click fuera
+        >
+          <div className="relative max-w-full max-h-full p-4">
+            <img 
+              src={selectedImage} 
+              alt="Imagen en grande" 
+              className="max-w-screen-lg max-h-screen object-contain" // Zoomed, ajustado a pantalla
+            />
+            <button 
+              className="absolute top-2 right-2 text-white bg-red-600 p-1 rounded-full" 
+              onClick={() => setSelectedImage(null)}
+            >
+              <FiX size={15} />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
