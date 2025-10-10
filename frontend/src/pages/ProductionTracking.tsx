@@ -4,6 +4,7 @@ import { FiEdit2, FiTrash2, FiSave, FiX, FiPlus, FiMinus } from "react-icons/fi"
 import OperatorSelector from "../components/OperatorSelector";
 import ArrowBackButton from "../components/ArrowBackButton";
 import { api } from "../services/http";
+import * as XLSX from "xlsx";  //para generar Excel
 
 interface ProductionSummary {
   id: number;
@@ -346,6 +347,79 @@ const ProductionTracking = () => {
           Buscar
         </button>
       </form>
+
+      {/*Botón de descarga de docmuento excel con la infromación filtrada*/}
+      {productions.length > 0 && (
+        <div className="flex justify-end mb-4">
+          <button
+            className="flex items-center gap-2 px-3 py-2 rounded text-white bg-emerald-600 hover:bg-emerald-700"
+            title="Descargar Excel de producciones filtradas"
+            aria-label="Descargar Excel"
+            onClick={() => {
+              // Calcular totales por producto (agrupar por nombre, sumar cantidades)
+              const totals: Record<string, number> = {};
+              productions.forEach((p) => {
+                p.productos.forEach((pr) => {
+                  totals[pr.nombre] = (totals[pr.nombre] || 0) + pr.cantidad;
+                });
+              });
+
+              // Datos de producciones con esquema consistente
+              const data = productions.map((p) => ({
+                "Operario": p.operator,
+                "Ingresado por": p.created_by,
+                "Fecha": new Date(p.fecha).toLocaleString(),
+                "Productos": p.productos.map((pr) => `${pr.nombre}: ${pr.cantidad} ${pr.unidad}`).join("; "),
+              }));
+
+              // Agregar fila vacía y luego totales con todas las columnas
+              data.push({
+                "Operario": "",
+                "Ingresado por": "",
+                "Fecha": "",
+                "Productos": "",
+              }); // Fila vacía para separar
+              data.push({
+                "Operario": "Totales por Producto",
+                "Ingresado por": "",
+                "Fecha": "",
+                "Productos": "",
+              }); // Encabezado de totales
+              Object.entries(totals).forEach(([producto, total]) => {
+                data.push({
+                  "Operario": producto,
+                  "Ingresado por": "",
+                  "Fecha": "",
+                  "Productos": `Total: ${total}`,
+                });
+              });
+
+              // Crear hoja y libro
+              const ws = XLSX.utils.json_to_sheet(data);
+              const wb = XLSX.utils.book_new();
+              XLSX.utils.book_append_sheet(wb, ws, "Producciones");
+
+              // Descargar
+              XLSX.writeFile(wb, "producciones_filtradas.xlsx");
+            }}
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="w-5 h-5"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path d="M12 3v12" />
+              <path d="M7 10l5 5 5-5" />
+              <path d="M5 21h14" />
+            </svg>
+            <span className="text-xs font-medium">Descargar Excel</span>
+          </button>
+        </div>
+      )}
+
 
       {isLoading && productions.length === 0 ? (
         <div className="text-center py-8">

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { FaRegEdit, FaTrashAlt, FaSave, FaTimes } from "react-icons/fa";
 import ArrowBackButton from "../components/ArrowBackButton";
 import { api } from "../services/http";
+import * as XLSX from "xlsx";  //para generar Excel
 
 interface Product {
   id: number;
@@ -238,7 +239,7 @@ const ProductList = () => {
         onChange={(e) => setSearch(e.target.value)}
       />
 
-      {/* NUEVO: selector de categoría (opcional) */}
+      {/* selector de categoría (opcional) */}
       <select
         className="border p-2 rounded w-full mb-6"
         value={categoryFilter}
@@ -252,6 +253,61 @@ const ProductList = () => {
           </option>
         ))}
       </select>
+
+      {/* Botón de descarga de documento Excel con la información de los productos y su stock */}
+      <div className="flex justify-end mb-4">
+        <button
+          className="flex items-center gap-2 px-3 py-2 rounded text-white bg-emerald-600 hover:bg-emerald-700"
+          title="Descargar Excel de productos"
+          aria-label="Descargar Excel"
+          onClick={() => {
+            // Datos filtrados según categoryFilter
+            const dataToExport = filtered.map((p) => ({
+              "Nombre": p.name,
+              "Categoría": p.category,
+              "Stock": p.stock,
+            }));
+
+            // Agregar fecha y hora de generación en la primera fila como comentario o dato especial
+            const now = new Date().toLocaleString("es-CL", {
+              timeZone: "America/Santiago",
+              year: "numeric",
+              month: "2-digit",
+              day: "2-digit",
+              hour: "2-digit",
+              minute: "2-digit",
+              hour12: false,
+            });
+            dataToExport.unshift({
+              "Nombre": "Generado el",
+              "Categoría": now,
+              "Stock": 0, // Usar 0 como valor numérico por defecto
+            });
+
+            // Crear hoja y libro
+            const ws = XLSX.utils.json_to_sheet(dataToExport);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Productos");
+
+            // Descargar
+            XLSX.writeFile(wb, "listado_productos.xlsx");
+          }}
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="w-5 h-5"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <path d="M12 3v12" />
+            <path d="M7 10l5 5 5-5" />
+            <path d="M5 21h14" />
+          </svg>
+          <span className="text-xs font-medium">Descargar Excel</span>
+        </button>
+      </div>
 
       {loading && <p className="text-sm text-gray-500 mb-2">Cargando...</p>}
 

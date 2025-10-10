@@ -6,7 +6,7 @@ class Product(db.Model):
     category = db.Column(db.String(100), nullable=False)
     created_by = db.Column(db.String(100), nullable=False)
 
-    # NUEVO: stock global
+    # stock global
     stock = db.Column(db.Float, nullable=False, default=0.0)
 
     def to_dict(self):

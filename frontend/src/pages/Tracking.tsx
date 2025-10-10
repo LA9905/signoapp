@@ -7,6 +7,7 @@ import { useDrivers } from "../context/DriversContext";
 import ArrowBackButton from "../components/ArrowBackButton";
 import Webcam from "react-webcam";
 import { api } from "../services/http";
+import * as XLSX from "xlsx";  //para generar Excel
 
 interface DispatchSummary {
   id: number;
@@ -583,6 +584,91 @@ const Tracking = () => {
           Buscar
         </button>
       </form>
+
+      {/* Botón de descarga de busqueda filtrada*/}
+      {dispatches.length > 0 && (
+        <div className="flex justify-end mb-4">
+          <button
+            className="flex items-center gap-2 px-3 py-2 rounded text-white bg-emerald-600 hover:bg-emerald-700"
+            title="Descargar Excel de despachos filtrados"
+            aria-label="Descargar Excel"
+            onClick={() => {
+              // Calcular totales por producto (agrupar por nombre, sumar cantidades)
+              const totals: Record<string, number> = {};
+              dispatches.forEach((d) => {
+                d.productos.forEach((p) => {
+                  totals[p.nombre] = (totals[p.nombre] || 0) + p.cantidad;
+                });
+              });
+
+              // Datos de despachos con esquema consistente
+              const data = dispatches.map((d) => ({
+                "Orden de Compra": d.orden,
+                "Número de Factura": d.factura_numero || "",
+                "Centro de Costo": d.cliente,
+                "Usuario que Despachó": d.created_by,
+                "Fecha y Hora": new Date(d.fecha).toLocaleString(),
+                "Estado": humanStatus(d.status),
+                "Productos": d.productos.map((p) => `${p.nombre}: ${p.cantidad} ${p.unidad}`).join("; "),
+              }));
+
+              // Agregar fila vacía y luego totales con todas las columnas
+              data.push({
+                "Orden de Compra": "",
+                "Número de Factura": "",
+                "Centro de Costo": "",
+                "Usuario que Despachó": "",
+                "Fecha y Hora": "",
+                "Estado": "",
+                "Productos": "",
+              }); // Fila vacía para separar
+              data.push({
+                "Orden de Compra": "Totales por Producto",
+                "Número de Factura": "",
+                "Centro de Costo": "",
+                "Usuario que Despachó": "",
+                "Fecha y Hora": "",
+                "Estado": "",
+                "Productos": "",
+              }); // Encabezado de totales
+              Object.entries(totals).forEach(([producto, total]) => {
+                data.push({
+                  "Orden de Compra": producto,
+                  "Número de Factura": "",
+                  "Centro de Costo": "",
+                  "Usuario que Despachó": "",
+                  "Fecha y Hora": "",
+                  "Estado": "",
+                  "Productos": `Total: ${total}`,
+                });
+              });
+
+              // Crear hoja y libro
+              const ws = XLSX.utils.json_to_sheet(data);
+              const wb = XLSX.utils.book_new();
+              XLSX.utils.book_append_sheet(wb, ws, "Despachos");
+
+              // Descargar
+              XLSX.writeFile(wb, "despachos_filtrados.xlsx");
+            }}
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="w-5 h-5"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path d="M12 3v12" />
+              <path d="M7 10l5 5 5-5" />
+              <path d="M5 21h14" />
+            </svg>
+            <span className="text-xs font-medium">Descargar Excel</span>
+          </button>
+        </div>
+      )}
+
 
       {isLoading && dispatches.length === 0 ? (
         <div className="text-center py-8">
