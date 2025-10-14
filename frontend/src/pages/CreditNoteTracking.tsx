@@ -480,72 +480,82 @@ const CreditNoteTracking = () => {
       {/* Botón de descarga de documento excel con la información filtrada */}
       {creditNotes.length > 0 && (
         <div className="flex justify-end mb-4">
-          <button
+                    <button
             className="flex items-center gap-2 px-3 py-2 rounded text-white bg-emerald-600 hover:bg-emerald-700"
             title="Descargar Excel de notas de crédito filtradas"
             aria-label="Descargar Excel"
-            onClick={() => {
-              // Calcular totales por producto (agrupar por nombre, sumar cantidades)
-              const totals: Record<string, number> = {};
-              creditNotes.forEach((cn) => {
-                cn.productos.forEach((p) => {
-                  totals[p.nombre] = (totals[p.nombre] || 0) + p.cantidad;
+            onClick={async () => {
+              try {
+                const res = await api.get<CreditNoteSummary[]>("/credit-notes", {
+                  params: { ...debouncedSearch, all: 1 },
                 });
-              });
+                const fullCreditNotes = res.data;
 
-              // Datos de notas de crédito
-              const data = creditNotes.map((cn) => ({
-                "Centro de Costo": cn.client,
-                "N° Orden": cn.order_number,
-                "N° Factura": cn.invoice_number,
-                "N° Nota de Crédito": cn.credit_note_number,
-                "Motivo": cn.reason,
-                "Ingresado por": cn.created_by,
-                "Fecha": new Date(cn.fecha).toLocaleString(),
-                "Productos": cn.productos.map((p) => `${p.nombre}: ${p.cantidad} ${p.unidad}`).join("; "),
-              }));
+                // Calcular totales por producto (agrupar por nombre, sumar cantidades)
+                const totals: Record<string, number> = {};
+                fullCreditNotes.forEach((cn) => {
+                  cn.productos.forEach((p) => {
+                    totals[p.nombre] = (totals[p.nombre] || 0) + p.cantidad;
+                  });
+                });
 
-              // Agregar fila vacía y luego totales con todas las columnas
-              data.push({
-                "Centro de Costo": "",
-                "N° Orden": "",
-                "N° Factura": "",
-                "N° Nota de Crédito": "",
-                "Motivo": "",
-                "Ingresado por": "",
-                "Fecha": "",
-                "Productos": "",
-              }); // Fila vacía para separar
-              data.push({
-                "Centro de Costo": "Totales por Producto",
-                "N° Orden": "",
-                "N° Factura": "",
-                "N° Nota de Crédito": "",
-                "Motivo": "",
-                "Ingresado por": "",
-                "Fecha": "",
-                "Productos": "",
-              }); // Encabezado de totales
-              Object.entries(totals).forEach(([producto, total]) => {
+                // Datos de notas de crédito
+                const data = fullCreditNotes.map((cn) => ({
+                  "Centro de Costo": cn.client,
+                  "N° Orden": cn.order_number,
+                  "N° Factura": cn.invoice_number,
+                  "N° Nota de Crédito": cn.credit_note_number,
+                  "Motivo": cn.reason,
+                  "Ingresado por": cn.created_by,
+                  "Fecha": new Date(cn.fecha).toLocaleString(),
+                  "Productos": cn.productos.map((p) => `${p.nombre}: ${p.cantidad} ${p.unidad}`).join("; "),
+                }));
+
+                // Agregar fila vacía y luego totales con todas las columnas
                 data.push({
-                  "Centro de Costo": producto,
+                  "Centro de Costo": "",
                   "N° Orden": "",
                   "N° Factura": "",
                   "N° Nota de Crédito": "",
                   "Motivo": "",
                   "Ingresado por": "",
                   "Fecha": "",
-                  "Productos": `Total: ${total}`,
+                  "Productos": "",
+                }); // Fila vacía para separar
+                data.push({
+                  "Centro de Costo": "Totales por Producto",
+                  "N° Orden": "",
+                  "N° Factura": "",
+                  "N° Nota de Crédito": "",
+                  "Motivo": "",
+                  "Ingresado por": "",
+                  "Fecha": "",
+                  "Productos": "",
+                }); // Encabezado de totales
+                Object.entries(totals).forEach(([producto, total]) => {
+                  data.push({
+                    "Centro de Costo": producto,
+                    "N° Orden": "",
+                    "N° Factura": "",
+                    "N° Nota de Crédito": "",
+                    "Motivo": "",
+                    "Ingresado por": "",
+                    "Fecha": "",
+                    "Productos": `Total: ${total}`,
+                  });
                 });
-              });
 
-              // Crear hoja y libro
-              const ws = XLSX.utils.json_to_sheet(data);
-              const wb = XLSX.utils.book_new();
-              XLSX.utils.book_append_sheet(wb, ws, "Notas de Crédito");
+                // Crear hoja y libro
+                const ws = XLSX.utils.json_to_sheet(data);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "Notas de Crédito");
 
-              // Descargar
-              XLSX.writeFile(wb, "notas_credito_filtradas.xlsx");
+                // Descargar
+                XLSX.writeFile(wb, "notas_credito_filtradas.xlsx");
+              } catch (err) {
+                console.error("Error al cargar datos completos:", err);
+                alert("Error al cargar los datos completos para la exportación.");
+              }
             }}
           >
             <svg

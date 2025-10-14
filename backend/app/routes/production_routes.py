@@ -90,6 +90,7 @@ def get_productions():
         # Paginación
         page = int(request.args.get("page", 1))
         limit = int(request.args.get("limit", 10))
+        all_param = request.args.get("all")  #línea para soportar exportación de todos los datos
 
         query = Production.query
 
@@ -117,8 +118,11 @@ def get_productions():
 
         query = query.order_by(Production.fecha.asc())
 
-        # Aplicar paginación
-        productions = query.paginate(page=page, per_page=limit, error_out=False).items
+        # Aplicar paginación o fetching completo según parámetro 'all'
+        if all_param:
+            productions = query.all()
+        else:
+            productions = query.paginate(page=page, per_page=limit, error_out=False).items
 
         result = []
         for p in productions:

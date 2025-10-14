@@ -592,64 +592,74 @@ const Tracking = () => {
             className="flex items-center gap-2 px-3 py-2 rounded text-white bg-emerald-600 hover:bg-emerald-700"
             title="Descargar Excel de despachos filtrados"
             aria-label="Descargar Excel"
-            onClick={() => {
-              // Calcular totales por producto (agrupar por nombre, sumar cantidades)
-              const totals: Record<string, number> = {};
-              dispatches.forEach((d) => {
-                d.productos.forEach((p) => {
-                  totals[p.nombre] = (totals[p.nombre] || 0) + p.cantidad;
+            onClick={async () => {
+              try {
+                const res = await api.get<DispatchSummary[]>("/dispatches", {
+                  params: { ...debouncedSearch, all: 1 },
                 });
-              });
+                const fullDispatches = res.data;
 
-              // Datos de despachos con esquema consistente
-              const data = dispatches.map((d) => ({
-                "Orden de Compra": d.orden,
-                "Número de Factura": d.factura_numero || "",
-                "Centro de Costo": d.cliente,
-                "Usuario que Despachó": d.created_by,
-                "Fecha y Hora": new Date(d.fecha).toLocaleString(),
-                "Estado": humanStatus(d.status),
-                "Productos": d.productos.map((p) => `${p.nombre}: ${p.cantidad} ${p.unidad}`).join("; "),
-              }));
+                // Calcular totales por producto (agrupar por nombre, sumar cantidades)
+                const totals: Record<string, number> = {};
+                fullDispatches.forEach((d) => {
+                  d.productos.forEach((p) => {
+                    totals[p.nombre] = (totals[p.nombre] || 0) + p.cantidad;
+                  });
+                });
 
-              // Agregar fila vacía y luego totales con todas las columnas
-              data.push({
-                "Orden de Compra": "",
-                "Número de Factura": "",
-                "Centro de Costo": "",
-                "Usuario que Despachó": "",
-                "Fecha y Hora": "",
-                "Estado": "",
-                "Productos": "",
-              }); // Fila vacía para separar
-              data.push({
-                "Orden de Compra": "Totales por Producto",
-                "Número de Factura": "",
-                "Centro de Costo": "",
-                "Usuario que Despachó": "",
-                "Fecha y Hora": "",
-                "Estado": "",
-                "Productos": "",
-              }); // Encabezado de totales
-              Object.entries(totals).forEach(([producto, total]) => {
+                // Datos de despachos con esquema consistente
+                const data = fullDispatches.map((d) => ({
+                  "Orden de Compra": d.orden,
+                  "Número de Factura": d.factura_numero || "",
+                  "Centro de Costo": d.cliente,
+                  "Usuario que Despachó": d.created_by,
+                  "Fecha y Hora": new Date(d.fecha).toLocaleString(),
+                  "Estado": humanStatus(d.status),
+                  "Productos": d.productos.map((p) => `${p.nombre}: ${p.cantidad} ${p.unidad}`).join("; "),
+                }));
+
+                // Agregar fila vacía y luego totales con todas las columnas
                 data.push({
-                  "Orden de Compra": producto,
+                  "Orden de Compra": "",
                   "Número de Factura": "",
                   "Centro de Costo": "",
                   "Usuario que Despachó": "",
                   "Fecha y Hora": "",
                   "Estado": "",
-                  "Productos": `Total: ${total}`,
+                  "Productos": "",
+                }); // Fila vacía para separar
+                data.push({
+                  "Orden de Compra": "Totales por producto",
+                  "Número de Factura": "",
+                  "Centro de Costo": "",
+                  "Usuario que Despachó": "",
+                  "Fecha y Hora": "",
+                  "Estado": "",
+                  "Productos": "",
+                }); // Encabezado de totales
+                Object.entries(totals).forEach(([producto, total]) => {
+                  data.push({
+                    "Orden de Compra": producto,
+                    "Número de Factura": "",
+                    "Centro de Costo": "",
+                    "Usuario que Despachó": "",
+                    "Fecha y Hora": "",
+                    "Estado": "",
+                    "Productos": `Total: ${total}`,
+                  });
                 });
-              });
 
-              // Crear hoja y libro
-              const ws = XLSX.utils.json_to_sheet(data);
-              const wb = XLSX.utils.book_new();
-              XLSX.utils.book_append_sheet(wb, ws, "Despachos");
+                // Crear hoja y libro
+                const ws = XLSX.utils.json_to_sheet(data);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "Despachos");
 
-              // Descargar
-              XLSX.writeFile(wb, "despachos_filtrados.xlsx");
+                // Descargar
+                XLSX.writeFile(wb, "despachos_filtrados.xlsx");
+              } catch (err) {
+                console.error("Error al cargar datos completos:", err);
+                alert("Error al cargar los datos completos para la exportación.");
+              }
             }}
           >
             <svg

@@ -351,56 +351,66 @@ const ProductionTracking = () => {
       {/*Botón de descarga de docmuento excel con la infromación filtrada*/}
       {productions.length > 0 && (
         <div className="flex justify-end mb-4">
-          <button
+                    <button
             className="flex items-center gap-2 px-3 py-2 rounded text-white bg-emerald-600 hover:bg-emerald-700"
             title="Descargar Excel de producciones filtradas"
             aria-label="Descargar Excel"
-            onClick={() => {
-              // Calcular totales por producto (agrupar por nombre, sumar cantidades)
-              const totals: Record<string, number> = {};
-              productions.forEach((p) => {
-                p.productos.forEach((pr) => {
-                  totals[pr.nombre] = (totals[pr.nombre] || 0) + pr.cantidad;
+            onClick={async () => {
+              try {
+                const res = await api.get<ProductionSummary[]>("/productions", {
+                  params: { ...debouncedSearch, all: 1 },
                 });
-              });
+                const fullProductions = res.data;
 
-              // Datos de producciones con esquema consistente
-              const data = productions.map((p) => ({
-                "Operario": p.operator,
-                "Ingresado por": p.created_by,
-                "Fecha": new Date(p.fecha).toLocaleString(),
-                "Productos": p.productos.map((pr) => `${pr.nombre}: ${pr.cantidad} ${pr.unidad}`).join("; "),
-              }));
+                // Calcular totales por producto (agrupar por nombre, sumar cantidades)
+                const totals: Record<string, number> = {};
+                fullProductions.forEach((p) => {
+                  p.productos.forEach((pr) => {
+                    totals[pr.nombre] = (totals[pr.nombre] || 0) + pr.cantidad;
+                  });
+                });
 
-              // Agregar fila vacía y luego totales con todas las columnas
-              data.push({
-                "Operario": "",
-                "Ingresado por": "",
-                "Fecha": "",
-                "Productos": "",
-              }); // Fila vacía para separar
-              data.push({
-                "Operario": "Totales por Producto",
-                "Ingresado por": "",
-                "Fecha": "",
-                "Productos": "",
-              }); // Encabezado de totales
-              Object.entries(totals).forEach(([producto, total]) => {
+                // Datos de producciones con esquema consistente
+                const data = fullProductions.map((p) => ({
+                  "Operario": p.operator,
+                  "Ingresado por": p.created_by,
+                  "Fecha": new Date(p.fecha).toLocaleString(),
+                  "Productos": p.productos.map((pr) => `${pr.nombre}: ${pr.cantidad} ${pr.unidad}`).join("; "),
+                }));
+
+                // Agregar fila vacía y luego totales con todas las columnas
                 data.push({
-                  "Operario": producto,
+                  "Operario": "",
                   "Ingresado por": "",
                   "Fecha": "",
-                  "Productos": `Total: ${total}`,
+                  "Productos": "",
+                }); // Fila vacía para separar
+                data.push({
+                  "Operario": "Totales por Producto",
+                  "Ingresado por": "",
+                  "Fecha": "",
+                  "Productos": "",
+                }); // Encabezado de totales
+                Object.entries(totals).forEach(([producto, total]) => {
+                  data.push({
+                    "Operario": producto,
+                    "Ingresado por": "",
+                    "Fecha": "",
+                    "Productos": `Total: ${total}`,
+                  });
                 });
-              });
 
-              // Crear hoja y libro
-              const ws = XLSX.utils.json_to_sheet(data);
-              const wb = XLSX.utils.book_new();
-              XLSX.utils.book_append_sheet(wb, ws, "Producciones");
+                // Crear hoja y libro
+                const ws = XLSX.utils.json_to_sheet(data);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "Producciones");
 
-              // Descargar
-              XLSX.writeFile(wb, "producciones_filtradas.xlsx");
+                // Descargar
+                XLSX.writeFile(wb, "producciones_filtradas.xlsx");
+              } catch (err) {
+                console.error("Error al cargar datos completos:", err);
+                alert("Error al cargar los datos completos para la exportación.");
+              }
             }}
           >
             <svg

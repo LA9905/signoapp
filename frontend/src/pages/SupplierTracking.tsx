@@ -366,64 +366,74 @@ const SupplierTracking = () => {
       {/* Botón de descarga de archivo excel con la información buscada*/}
       {receipts.length > 0 && (
         <div className="flex justify-end mb-4">
-          <button
+                    <button
             className="flex items-center gap-2 px-3 py-2 rounded text-white bg-emerald-600 hover:bg-emerald-700"
             title="Descargar Excel de recepciones filtradas"
             aria-label="Descargar Excel"
-            onClick={() => {
-              // Calcular totales por producto (agrupar por nombre, sumar cantidades)
-              const totals: Record<string, number> = {};
-              receipts.forEach((r) => {
-                r.productos.forEach((p) => {
-                  totals[p.nombre] = (totals[p.nombre] || 0) + p.cantidad;
+            onClick={async () => {
+              try {
+                const res = await api.get<ReceiptSummary[]>("/receipts", {
+                  params: { ...debouncedSearch, all: 1 },
                 });
-              });
+                const fullReceipts = res.data;
 
-              // Datos de recepciones
-              const data = receipts.map((r) => ({
-                "Orden": r.orden,
-                "Proveedor": r.supplier,
-                "Ingresado por": r.created_by,
-                "Fecha": new Date(r.fecha).toLocaleString(),
-                "Estado": r.status,
-                "Productos": r.productos.map((p) => `${p.nombre}: ${p.cantidad} ${p.unidad}`).join("; "),
-              }));
+                // Calcular totales por producto (agrupar por nombre, sumar cantidades)
+                const totals: Record<string, number> = {};
+                fullReceipts.forEach((r) => {
+                  r.productos.forEach((p) => {
+                    totals[p.nombre] = (totals[p.nombre] || 0) + p.cantidad;
+                  });
+                });
 
-              // Agregar fila vacía y luego totales con todas las columnas
-              data.push({
-                "Orden": "",
-                "Proveedor": "",
-                "Ingresado por": "",
-                "Fecha": "",
-                "Estado": "",
-                "Productos": "",
-              }); // Fila vacía para separar
-              data.push({
-                "Orden": "Totales por Producto",
-                "Proveedor": "",
-                "Ingresado por": "",
-                "Fecha": "",
-                "Estado": "",
-                "Productos": "",
-              }); // Encabezado de totales
-              Object.entries(totals).forEach(([producto, total]) => {
+                // Datos de recepciones
+                const data = fullReceipts.map((r) => ({
+                  "Orden": r.orden,
+                  "Proveedor": r.supplier,
+                  "Ingresado por": r.created_by,
+                  "Fecha": new Date(r.fecha).toLocaleString(),
+                  "Estado": r.status,
+                  "Productos": r.productos.map((p) => `${p.nombre}: ${p.cantidad} ${p.unidad}`).join("; "),
+                }));
+
+                // Agregar fila vacía y luego totales con todas las columnas
                 data.push({
-                  "Orden": producto,
+                  "Orden": "",
                   "Proveedor": "",
                   "Ingresado por": "",
                   "Fecha": "",
                   "Estado": "",
-                  "Productos": `Total: ${total}`,
+                  "Productos": "",
+                }); // Fila vacía para separar
+                data.push({
+                  "Orden": "Totales por Producto",
+                  "Proveedor": "",
+                  "Ingresado por": "",
+                  "Fecha": "",
+                  "Estado": "",
+                  "Productos": "",
+                }); // Encabezado de totales
+                Object.entries(totals).forEach(([producto, total]) => {
+                  data.push({
+                    "Orden": producto,
+                    "Proveedor": "",
+                    "Ingresado por": "",
+                    "Fecha": "",
+                    "Estado": "",
+                    "Productos": `Total: ${total}`,
+                  });
                 });
-              });
 
-              // Crear hoja y libro
-              const ws = XLSX.utils.json_to_sheet(data);
-              const wb = XLSX.utils.book_new();
-              XLSX.utils.book_append_sheet(wb, ws, "Recepciones");
+                // Crear hoja y libro
+                const ws = XLSX.utils.json_to_sheet(data);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "Recepciones");
 
-              // Descargar
-              XLSX.writeFile(wb, "recepciones_filtradas.xlsx");
+                // Descargar
+                XLSX.writeFile(wb, "recepciones_filtradas.xlsx");
+              } catch (err) {
+                console.error("Error al cargar datos completos:", err);
+                alert("Error al cargar los datos completos para la exportación.");
+              }
             }}
           >
             <svg

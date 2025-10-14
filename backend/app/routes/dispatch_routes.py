@@ -140,6 +140,7 @@ def get_dispatches():
         # Paginación
         page = int(request.args.get("page", 1))
         limit = int(request.args.get("limit", 10))
+        all_param = request.args.get("all")  #línea para soportar exportación de todos los datos
         
         date_from_str = (request.args.get("date_from") or "").strip()
         date_to_str = (request.args.get("date_to") or "").strip()
@@ -236,8 +237,11 @@ def get_dispatches():
 
         query = query.order_by(Dispatch.fecha.asc())
 
-        # Aplicar paginación
-        dispatches = query.paginate(page=page, per_page=limit, error_out=False).items
+        # Aplicar paginación o fetching completo según parámetro 'all'
+        if all_param:
+            dispatches = query.all()
+        else:
+            dispatches = query.paginate(page=page, per_page=limit, error_out=False).items
 
         # Filtro de ventana local
         if apply_local_window_check:

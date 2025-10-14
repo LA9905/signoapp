@@ -102,6 +102,7 @@ def get_credit_notes():
         
         page = int(request.args.get("page", 1))
         limit = int(request.args.get("limit", 10))
+        all_param = request.args.get("all")  #línea para soportar exportación de todos los datos
 
         query = CreditNote.query
 
@@ -141,7 +142,11 @@ def get_credit_notes():
 
         query = query.order_by(CreditNote.fecha.asc())
 
-        credit_notes = query.paginate(page=page, per_page=limit, error_out=False).items
+        # Aplicar paginación o fetching completo según parámetro 'all'
+        if all_param:
+            credit_notes = query.all()
+        else:
+            credit_notes = query.paginate(page=page, per_page=limit, error_out=False).items
 
         result = []
         for cn in credit_notes:

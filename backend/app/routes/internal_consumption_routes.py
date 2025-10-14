@@ -84,6 +84,7 @@ def get_internal_consumptions():
 
         page = int(request.args.get("page", 1))
         limit = int(request.args.get("limit", 10))
+        all_param = request.args.get("all")  #línea para soportar exportación de todos los datos
 
         query = InternalConsumption.query
 
@@ -101,10 +102,6 @@ def get_internal_consumptions():
                 func.lower(User.name).like(f"%{search_user}%")
             )
 
-        # Filtro de fechas similar a despachos
-        # (reutilizar lógica robusta de fechas, adaptando las funciones si es necesario)
-        # Para brevidad, usar un filtro simple; si necesitas el robusto, copia de dispatch_routes.py
-
         if date_from_str:
             date_from = datetime.strptime(date_from_str, "%Y-%m-%d")
             query = query.filter(InternalConsumption.fecha >= to_utc_naive(date_from.replace(tzinfo=CL_TZ)))
@@ -115,7 +112,11 @@ def get_internal_consumptions():
 
         query = query.order_by(InternalConsumption.fecha.asc())
 
-        consumptions = query.paginate(page=page, per_page=limit, error_out=False).items
+        # Aplicar paginación o fetching completo según parámetro 'all'
+        if all_param:
+            consumptions = query.all()
+        else:
+            consumptions = query.paginate(page=page, per_page=limit, error_out=False).items
 
         result = []
         for c in consumptions:
