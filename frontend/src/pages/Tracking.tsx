@@ -599,7 +599,7 @@ const Tracking = () => {
                 });
                 const fullDispatches = res.data;
 
-                // Calcular totales por producto (agrupar por nombre, sumar cantidades)
+                // Calcular totales por producto (agrupado por nombre, sumando cantidades)
                 const totals: Record<string, number> = {};
                 fullDispatches.forEach((d) => {
                   d.productos.forEach((p) => {
@@ -607,22 +607,39 @@ const Tracking = () => {
                   });
                 });
 
+                // Calcular conteos por chofer
+                const driverCounts: Record<string, { total: number; entregados: number; pendientes: number }> = {};
+                fullDispatches.forEach((d) => {
+                  const chofer = d.chofer;
+                  if (!driverCounts[chofer]) {
+                    driverCounts[chofer] = { total: 0, entregados: 0, pendientes: 0 };
+                  }
+                  driverCounts[chofer].total++;
+                  if (d.delivered_client) {
+                    driverCounts[chofer].entregados++;
+                  } else {
+                    driverCounts[chofer].pendientes++;
+                  }
+                });
+
                 // Datos de despachos con esquema consistente
                 const data = fullDispatches.map((d) => ({
                   "Orden de Compra": d.orden,
                   "Número de Factura": d.factura_numero || "",
                   "Centro de Costo": d.cliente,
+                  "Chofer": d.chofer,
                   "Usuario que Despachó": d.created_by,
                   "Fecha y Hora": new Date(d.fecha).toLocaleString(),
                   "Estado": humanStatus(d.status),
                   "Productos": d.productos.map((p) => `${p.nombre}: ${p.cantidad} ${p.unidad}`).join("; "),
                 }));
 
-                // Agregar fila vacía y luego totales con todas las columnas
+                // Agregar fila vacía y luego totales por producto con todas las columnas
                 data.push({
                   "Orden de Compra": "",
                   "Número de Factura": "",
                   "Centro de Costo": "",
+                  "Chofer": "",
                   "Usuario que Despachó": "",
                   "Fecha y Hora": "",
                   "Estado": "",
@@ -632,6 +649,7 @@ const Tracking = () => {
                   "Orden de Compra": "Totales por producto",
                   "Número de Factura": "",
                   "Centro de Costo": "",
+                  "Chofer": "",
                   "Usuario que Despachó": "",
                   "Fecha y Hora": "",
                   "Estado": "",
@@ -642,10 +660,45 @@ const Tracking = () => {
                     "Orden de Compra": producto,
                     "Número de Factura": "",
                     "Centro de Costo": "",
+                    "Chofer": "",
                     "Usuario que Despachó": "",
                     "Fecha y Hora": "",
                     "Estado": "",
                     "Productos": `Total: ${total}`,
+                  });
+                });
+
+                // Agregar fila vacía y luego conteos por chofer
+                data.push({
+                  "Orden de Compra": "",
+                  "Número de Factura": "",
+                  "Centro de Costo": "",
+                  "Chofer": "",
+                  "Usuario que Despachó": "",
+                  "Fecha y Hora": "",
+                  "Estado": "",
+                  "Productos": "",
+                }); // Fila vacía para separar
+                data.push({
+                  "Orden de Compra": "Conteo por Chofer",
+                  "Número de Factura": "",
+                  "Centro de Costo": "",
+                  "Chofer": "",
+                  "Usuario que Despachó": "",
+                  "Fecha y Hora": "",
+                  "Estado": "",
+                  "Productos": "",
+                }); // Encabezado de conteos por chofer
+                Object.entries(driverCounts).forEach(([chofer, counts]) => {
+                  data.push({
+                    "Orden de Compra": chofer,
+                    "Número de Factura": "",
+                    "Centro de Costo": "",
+                    "Chofer": "",
+                    "Usuario que Despachó": "",
+                    "Fecha y Hora": "",
+                    "Estado": "",
+                    "Productos": `Total despachos: ${counts.total}, Pedido Entregado: ${counts.entregados}, Pendientes: ${counts.pendientes}`,
                   });
                 });
 

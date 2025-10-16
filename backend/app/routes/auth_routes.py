@@ -29,10 +29,11 @@ def register():
     if not data.get("email") or not data.get("password") or not data.get("name"):
         return jsonify({"msg": "Faltan campos"}), 400
 
-    if User.query.filter_by(email=data["email"]).first():
+    email_lower = data["email"].lower()
+    if User.query.filter_by(email=email_lower).first():
         return jsonify({"msg": "Ya existe un usuario con ese correo"}), 400
 
-    user = User(name=data["name"], email=data["email"])
+    user = User(name=data["name"], email=email_lower)
     user.set_password(data["password"])
     db.session.add(user)
     db.session.commit()
@@ -42,7 +43,8 @@ def register():
 @auth_bp.route("/login", methods=["POST"])
 def login():
     data = request.json or {}
-    user = User.query.filter_by(email=data.get("email")).first()
+    email_lower = data.get("email", "").lower()
+    user = User.query.filter_by(email=email_lower).first()
     if not user or not user.check_password(data.get("password", "")):
         return jsonify({"msg": "Credenciales inválidas"}), 401
 
@@ -52,7 +54,8 @@ def login():
 @auth_bp.route("/recover", methods=["POST"])
 def recover():
     data = request.json or {}
-    user = User.query.filter_by(email=data.get("email")).first()
+    email_lower = data.get("email", "").lower()
+    user = User.query.filter_by(email=email_lower).first()
     if not user:
         return jsonify({"msg": "Correo no registrado"}), 404
 
@@ -66,7 +69,8 @@ def recover():
 @auth_bp.route("/reset-password", methods=["POST"])
 def reset_password():
     data = request.json or {}
-    user = User.query.filter_by(email=data.get("email")).first()
+    email_lower = data.get("email", "").lower()
+    user = User.query.filter_by(email=email_lower).first()
     if not user or user.recovery_code != data.get("code"):
         return jsonify({"msg": "Código inválido"}), 400
 
@@ -102,9 +106,10 @@ def request_update_code():
 
     data = request.json or {}
     target_email = data.get("target_email") or user.email
+    target_email_lower = target_email.lower()
 
-    if target_email != user.email:
-        if User.query.filter_by(email=target_email).first():
+    if target_email_lower != user.email.lower():
+        if User.query.filter_by(email=target_email_lower).first():
             return jsonify({"msg": "Ese correo ya está registrado"}), 400
 
     code = str(random.randint(100000, 999999))
@@ -133,10 +138,11 @@ def update_profile():
     if name:
         user.name = name
 
-    if email and email != user.email:
-        if User.query.filter(User.email == email, User.id != user.id).first():
+    if email and email.lower() != user.email.lower():
+        email_lower = email.lower()
+        if User.query.filter(User.email == email_lower, User.id != user.id).first():
             return jsonify({"msg": "Ese correo ya está registrado"}), 400
-        user.email = email
+        user.email = email_lower
 
     if password:
         user.set_password(password)
