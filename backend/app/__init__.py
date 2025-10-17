@@ -7,6 +7,8 @@ from flask_jwt_extended import JWTManager, verify_jwt_in_request, get_jwt_identi
 from flask_mail import Mail
 from flask_migrate import Migrate
 from dotenv import load_dotenv
+from apscheduler.schedulers.background import BackgroundScheduler
+
 import cloudinary
 
 db = SQLAlchemy()
@@ -38,6 +40,15 @@ def create_app():
         MAIL_PASSWORD=(os.getenv("MAIL_PASSWORD") or "").strip(),
         MAIL_DEFAULT_SENDER=os.getenv("MAIL_DEFAULT_SENDER") or os.getenv("MAIL_USERNAME"),
         MAIL_SUPPRESS_SEND=_str_to_bool(os.getenv("MAIL_SUPPRESS_SEND", "false"), False),
+
+        # Configuración separada para notificaciones
+        NOTIF_MAIL_SERVER=os.getenv("NOTIF_MAIL_SERVER", "smtp.gmail.com"),
+        NOTIF_MAIL_PORT=int(os.getenv("NOTIF_MAIL_PORT", "587")),
+        NOTIF_MAIL_USE_TLS=_str_to_bool(os.getenv("NOTIF_MAIL_USE_TLS", "true"), True),
+        NOTIF_MAIL_USE_SSL=_str_to_bool(os.getenv("NOTIF_MAIL_USE_SSL", "false"), False),
+        NOTIF_MAIL_USERNAME=os.getenv("NOTIF_MAIL_USERNAME"),
+        NOTIF_MAIL_PASSWORD=(os.getenv("NOTIF_MAIL_PASSWORD") or "").strip(),
+        NOTIF_MAIL_DEFAULT_SENDER=os.getenv("NOTIF_MAIL_DEFAULT_SENDER") or os.getenv("NOTIF_MAIL_USERNAME"),
     )
 
     # Configuración de Cloudinary desde .env
@@ -185,5 +196,14 @@ def create_app():
             })
         except Exception as e:
             return jsonify({"ok": False, "error": str(e)}), 500
+        
+
+    from app.models.scheduler import init_scheduler
+    
+    scheduler = BackgroundScheduler()
+    scheduler.start()
+    init_scheduler(scheduler, app)
+
+
 
     return app

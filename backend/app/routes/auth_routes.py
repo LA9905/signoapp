@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 from .. import db
 from ..models import User
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
@@ -6,7 +6,7 @@ import random
 from ..utils.mailer import send_recovery_code, send_update_code
 from datetime import timedelta
 import os
-
+from jwt import decode
 import cloudinary
 import cloudinary.uploader
 
@@ -193,3 +193,26 @@ def delete_account():
     except Exception as e:
         db.session.rollback()
         return jsonify({"msg": "No se pudo eliminar la cuenta", "details": str(e)}), 500
+    
+
+@auth_bp.route("/unsubscribe", methods=["GET"])
+def unsubscribe():
+        token = request.args.get("token")
+        if not token:
+            return jsonify({"msg": "Token faltante"}), 400
+
+        try:
+            decoded = decode(token, current_app.config["JWT_SECRET_KEY"], algorithms=["HS256"])
+            uid = decoded.get("sub")
+            if not uid:
+                return jsonify({"msg": "Token inválido"}), 400
+
+            user = User.query.get(uid)
+            if not user:
+                return jsonify({"msg": "Usuario no encontrado"}), 404
+
+            user.receive_notifications = False
+            db.session.commit()
+            return jsonify({"msg": "Suscripción cancelada correctamente. Ya no recibirás notificaciones."}), 200
+        except Exception as e:
+            return jsonify({"msg": "Token inválido o expirado", "details": str(e)}), 400
