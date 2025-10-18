@@ -14,6 +14,8 @@ from zoneinfo import ZoneInfo
 import logging
 import smtplib
 from app import mail 
+from collections import defaultdict
+import os
 
 logging.basicConfig(level=logging.INFO)
 
@@ -57,10 +59,100 @@ def generate_unsubscribe_link(user_id, app):
     base_url = app.config.get('VITE_API_URL', 'http://127.0.0.1:5000')
     return f"{base_url}/api/auth/unsubscribe?token={token}"
 
+def is_low_stock(product):
+    stock = product.stock
+    if stock <= 0:
+        return True
+    
+    cat = product.category
+    name_lower = product.name.lower()
+    
+    # Categorías con umbrales simples
+    simple_thresholds = {
+        "Bolsas de Basura Negras": 400,
+        "Bolsas Transparente Recuperada": 400,
+        "Bolsas Camisetas": 10,
+        "Bolsas PEAD de Alta Densidad": 300,
+        "Bolsas Recuperada de Color": 200,
+        "Bolsas con Impresión": 500,
+        "Bolsas de Lavandería": 500,
+        "Bolsas de Cubierto": 30,
+        "Bolsas de Papel Kraft o Blancas": 5,
+        "Productos de limpieza, aseo, cocina y higiene": 20,
+        "Vasos plásticos": 2000,
+        "Vasos de Poli-papel": 5,
+        "Vasos Espumados": 3,
+        "Vasos PET": 3,
+        "Tapas": 3,
+        "Envases Bowl de Alimento": 4,
+        "Porta-colaciones o envases Plumavit": 4,
+        "Film": 8,
+        "Prepicados": 10,
+        "Brochetas": 60,
+        "Pocillos de Degustación": 4,
+        "Gorros y Cofias": 30,
+        "Productos de Protección y seguridad": 10,
+        "Envases contenedores de aluminio": 4,
+        "Blondas redondas, rectangulares y capsulas": 8,
+        "Servilletas": 5,
+        "Otros": 10,
+    }
+    
+    if cat in simple_thresholds:
+        return stock <= simple_thresholds[cat]
+    
+    # Bolsas Virgen Transparente
+    if cat == "Bolsas Virgen Transparente":
+        units_endings = ['und', 'un']
+        kilos_endings = ['kg', 'k']
+        if any(name_lower.endswith(end) for end in units_endings):
+            return stock <= 500
+        elif any(name_lower.endswith(end) for end in kilos_endings):
+            return stock <= 25
+        return False  # Si no termina en ninguno, no considerar bajo
+    
+    # Bolsas de Polipropileno
+    if cat == "Bolsas de Polipropileno":
+        units_endings = ['und', 'un']
+        kilos_endings = ['kg', 'k']
+        if any(name_lower.endswith(end) for end in units_endings):
+            return stock <= 1000
+        elif any(name_lower.endswith(end) for end in kilos_endings):
+            return stock <= 15
+        return False
+    
+    # Guantes
+    if cat == "Guantes":
+        guantes_10_keywords = ["nitrilo negro", "nitrilo azul", "vinilo", "latex", "jaspe rosado", "aloe vera"]
+        guantes_50_keywords = ["domésticos", "nitrilo verde industrial"]
+        guantes_1_keywords = ["guante anticorte"]
+        
+        if any(keyword in name_lower for keyword in guantes_10_keywords):
+            thresh = 10
+        elif any(keyword in name_lower for keyword in guantes_50_keywords):
+            thresh = 50
+        elif any(keyword in name_lower for keyword in guantes_1_keywords):
+            thresh = 1
+        else:
+            thresh = 10  # Default para otros guantes
+        
+        return stock <= thresh
+    
+    # Utensilios y platos
+    if cat == "Utensilios y platos":
+        special_20_names = ["cuchara plástica", "cuchara plástica/postre", "tenedor plástico", "cuchillo plástico"]
+        if name_lower in special_20_names:
+            thresh = 20
+        else:
+            thresh = 5
+        return stock <= thresh
+    
+    # Si categoría no reconocida, default a 10
+    return stock <= 10
+
 def get_low_stock_products():
-    return Product.query.filter(
-        (and_(Product.stock <= 10, Product.stock >= 0)) | (Product.stock < 0)
-    ).all()
+    all_products = Product.query.all()
+    return [p for p in all_products if is_low_stock(p)]
 
 def get_pending_dispatches():
     now_local = datetime.now(CL_TZ)
@@ -84,28 +176,67 @@ def notify_low_stock(app):
             app.logger.info("No hay usuarios suscritos a notificaciones")
             return
 
+        is_prod = os.getenv("FLASK_ENV", "development") == "production" or os.getenv("ENV", "development") == "production"
+
+        if is_prod:
+            no_notif_emails = set([
+                "claudiogarbarino1966@gmail.com".lower(),
+                "alfonsomachado64@gmail.com".lower(),
+                "jerrykalet@gmail.com".lower(),
+                "cocachaucono@gmail.com".lower()
+            ])
+            only_pending_emails = set([
+                "luceromendez13@hotmail.com".lower(),
+                "orozcop648@gmail.com".lower(),
+                "administracion@signoltda.com".lower()
+            ])
+            only_lowstock_emails = set([
+                "robinson67leon@gmail.com".lower()
+            ])
+            recipients = [u for u in users if u.email not in no_notif_emails and u.email not in only_pending_emails]
+        else:
+            recipients = users
+
+        if not recipients:
+            app.logger.info("No hay destinatarios para notificaciones de stock bajo")
+            return
+
+        # Agrupar por categoría
+        low_by_cat = defaultdict(list)
+        for p in products:
+            low_by_cat[p.category].append(p)
+        
         base_html = """
         <html>
         <body style="font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px;">
             <div style="max-width: 600px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1);">
                 <h2 style="color: #333; text-align: center;">¡Alerta de Stock Bajo! 📉</h2>
                 <p style="color: #555;">Hola equipo, hemos detectado productos con stock bajo o negativo. Por favor, revisen lo antes posible para evitar problemas en los despachos.</p>
-                <ul style="list-style-type: none; padding: 0;">
         """
-        for p in products:
-            status = "negativo" if p.stock < 0 else "bajo"
-            color = "red" if p.stock < 0 else "orange"
-            base_html += f"""
-                    <li style="margin-bottom: 10px; padding: 10px; background: #fff3e0; border-left: 5px solid {color}; border-radius: 4px;">
-                        <strong>{p.name}</strong>: Stock {p.stock} ({status})
-                    </li>
-            """
+        
+        # Ordenar categorías alfabéticamente, con "Otros" al final si existe
+        sorted_cats = sorted([c for c in low_by_cat if c != "Otros"]) + (["Otros"] if "Otros" in low_by_cat else [])
+        
+        for cat in sorted_cats:
+            base_html += f'<h3 style="color: #333; margin-top: 20px;">{cat}</h3>'
+            base_html += '<ul style="list-style-type: none; padding: 0;">'
+            # Ordenar productos por nombre dentro de la categoría
+            sorted_products = sorted(low_by_cat[cat], key=lambda p: p.name)
+            for p in sorted_products:
+                status = "negativo" if p.stock < 0 else "bajo"
+                color = "red" if p.stock < 0 else "orange"
+                base_html += f"""
+                        <li style="margin-bottom: 10px; padding: 10px; background: #fff3e0; border-left: 5px solid {color}; border-radius: 4px;">
+                            <strong>{p.name}</strong>: Stock {p.stock} ({status})
+                        </li>
+                """
+            base_html += '</ul>'
+        
         base_html += """
-                </ul>
                 <p style="color: #555; text-align: center;">¡Mantengamos el inventario al día! 😊</p>
         """
 
-        for u in users:
+        for u in recipients:
             unsubscribe_link = generate_unsubscribe_link(u.id, app)
             full_html = (
                 base_html
@@ -140,6 +271,31 @@ def notify_pending_dispatches(app):
             app.logger.info("No hay usuarios suscritos")
             return
 
+        is_prod = os.getenv("FLASK_ENV", "development") == "production" or os.getenv("ENV", "development") == "production"
+
+        if is_prod:
+            no_notif_emails = set([
+                "claudiogarbarino1966@gmail.com".lower(),
+                "alfonsomachado64@gmail.com".lower(),
+                "jerrykalet@gmail.com".lower(),
+                "cocachaucono@gmail.com".lower()
+            ])
+            only_pending_emails = set([
+                "luceromendez13@hotmail.com".lower(),
+                "orozcop648@gmail.com".lower(),
+                "administracion@signoltda.com".lower()
+            ])
+            only_lowstock_emails = set([
+                "robinson67leon@gmail.com".lower()
+            ])
+            recipients = [u for u in users if u.email not in no_notif_emails and u.email not in only_lowstock_emails]
+        else:
+            recipients = users
+
+        if not recipients:
+            app.logger.info("No hay destinatarios para notificaciones de despachos pendientes")
+            return
+
         base_html = """
         <html>
         <body style="font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px;">
@@ -168,7 +324,7 @@ def notify_pending_dispatches(app):
                 <p style="color: #555; text-align: center;">¡Asegurémonos de que todo llegue a tiempo! 🚚</p>
         """
 
-        for u in users:
+        for u in recipients:
             unsubscribe_link = generate_unsubscribe_link(u.id, app)
             full_html = (
                 base_html
@@ -187,4 +343,4 @@ def notify_pending_dispatches(app):
             except Exception as e:
                 app.logger.error(f"Error enviando pendientes a {u.email}: {str(e)}")
     except Exception as e:
-        app.logger.error(f"Error en notify_pending_dispatches: {str(e)}")
+        app.logger.error(f"Error en notify_pending_dispatches: {str(e)}") 
