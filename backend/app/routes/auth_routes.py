@@ -9,6 +9,8 @@ import os
 from jwt import decode
 import cloudinary
 import cloudinary.uploader
+from ..models.scheduler import daily_notifications
+
 
 cloud_name = os.getenv("CLOUDINARY_CLOUD_NAME")
 api_key = os.getenv("CLOUDINARY_API_KEY")
@@ -216,3 +218,27 @@ def unsubscribe():
             return jsonify({"msg": "Suscripción cancelada correctamente. Ya no recibirás notificaciones."}), 200
         except Exception as e:
             return jsonify({"msg": "Token inválido o expirado", "details": str(e)}), 400
+        
+
+@auth_bp.route("/profile/notifications", methods=["PATCH"])
+@jwt_required()
+def toggle_notifications():
+    uid = get_jwt_identity()
+    user = User.query.get(uid)
+    if not user:
+        return jsonify({"msg": "Usuario no encontrado"}), 404
+
+    data = request.json or {}
+    enable = data.get("enable", True)
+    user.receive_notifications = bool(enable)
+    db.session.commit()
+    return jsonify({"msg": f"Notificaciones {'activadas' if enable else 'desactivadas'}"}), 200
+
+
+@auth_bp.route('/test-notif', methods=['GET'])
+@jwt_required()
+def test_notif():
+    from app import create_app
+    app = create_app()
+    daily_notifications(app)
+    return jsonify({"msg": "Notificaciones testeadas"}), 200

@@ -1,25 +1,30 @@
 import os
+import logging
+logging.getLogger('apscheduler').setLevel(logging.DEBUG)
 from datetime import timedelta
-from flask import Flask, send_from_directory, request, jsonify
+from flask import Flask, send_from_directory, request, jsonify, current_app
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager, verify_jwt_in_request, get_jwt_identity
-from flask_mail import Mail
+from flask_mail import Mail, Message
 from flask_migrate import Migrate
 from dotenv import load_dotenv
 from apscheduler.schedulers.background import BackgroundScheduler
-
+from werkzeug.serving import is_running_from_reloader
 import cloudinary
+
 
 db = SQLAlchemy()
 jwt = JWTManager()
 mail = Mail()
 migrate = Migrate()
 
+
 def _str_to_bool(v: str, default: bool = False) -> bool:
     if v is None:
         return default
     return str(v).strip().lower() in ("1", "true", "t", "yes", "y")
+
 
 def create_app():
     # Carga .env desde el root del proyecto
@@ -31,6 +36,9 @@ def create_app():
     except Exception:
         pass
 
+    app.logger.setLevel(logging.INFO)
+
+    # Configuración general de correo + notificaciones
     app.config.update(
         MAIL_SERVER=os.getenv("MAIL_SERVER", "smtp.gmail.com"),
         MAIL_PORT=int(os.getenv("MAIL_PORT", "587")),
@@ -49,14 +57,15 @@ def create_app():
         NOTIF_MAIL_USERNAME=os.getenv("NOTIF_MAIL_USERNAME"),
         NOTIF_MAIL_PASSWORD=(os.getenv("NOTIF_MAIL_PASSWORD") or "").strip(),
         NOTIF_MAIL_DEFAULT_SENDER=os.getenv("NOTIF_MAIL_DEFAULT_SENDER") or os.getenv("NOTIF_MAIL_USERNAME"),
+        
     )
 
-    # Configuración de Cloudinary desde .env
+    # Configuración de Cloudinary
     cloudinary.config(
-        cloud_name=os.getenv('CLOUDINARY_CLOUD_NAME'),
-        api_key=os.getenv('CLOUDINARY_API_KEY'),
-        api_secret=os.getenv('CLOUDINARY_API_SECRET'),
-        secure=True  # Para usar HTTPS
+        cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
+        api_key=os.getenv("CLOUDINARY_API_KEY"),
+        api_secret=os.getenv("CLOUDINARY_API_SECRET"),
+        secure=True
     )
 
     # CORS
@@ -75,11 +84,13 @@ def create_app():
         supports_credentials=True,
     )
 
+    # Inicialización de extensiones
     db.init_app(app)
     jwt.init_app(app)
     mail.init_app(app)
     migrate.init_app(app, db)
 
+    # Modelos
     with app.app_context():
         from .models import (
             user_model,
@@ -171,13 +182,14 @@ def create_app():
                 "msg": "Debe pagar la suscripción para seguir usando la app."
             }), 402
 
+    # Ruta para servir archivos subidos
     @app.route('/uploads/<path:filename>')
     def uploads(filename):
         from pathlib import Path
         base = Path(app.root_path).parent / "uploads"
         return send_from_directory(str(base), filename, max_age=0)
 
-    #healthcheck de SMTP para debug rápido
+    # Healthcheck SMTP
     @app.get("/api/health/smtp")
     def smtp_health():
         try:
@@ -186,7 +198,6 @@ def create_app():
             p = app.config.get("MAIL_PORT")
             tls = app.config.get("MAIL_USE_TLS")
             ssl = app.config.get("MAIL_USE_SSL")
-            # No se intenta loguear aquí para no bloquear; solo confirmamos config visible
             return jsonify({
                 "ok": True,
                 "server": s, "port": p, "tls": tls, "ssl": ssl,
@@ -198,12 +209,47 @@ def create_app():
             return jsonify({"ok": False, "error": str(e)}), 500
         
 
+    @app.get("/api/health/smtp-notif")
+    def smtp_notif_health():
+        try:
+            import smtplib
+            server = app.config['NOTIF_MAIL_SERVER']
+            port = app.config['NOTIF_MAIL_PORT']
+            use_tls = app.config['NOTIF_MAIL_USE_TLS']
+            use_ssl = app.config['NOTIF_MAIL_USE_SSL']
+            username = app.config['NOTIF_MAIL_USERNAME']
+            password = app.config['NOTIF_MAIL_PASSWORD']
+            
+            if use_ssl:
+                smtp = smtplib.SMTP_SSL(server, port)
+            else:
+                smtp = smtplib.SMTP(server, port)
+            
+            if use_tls and not use_ssl:
+                smtp.starttls()
+            
+            smtp.login(username, password)
+            smtp.quit()
+            return jsonify({
+                "ok": True,
+                "server": server,
+                "port": port,
+                "tls": use_tls,
+                "ssl": use_ssl,
+                "username_present": bool(username),
+                "sender": app.config.get("NOTIF_MAIL_DEFAULT_SENDER"),
+            })
+        except Exception as e:
+            return jsonify({"ok": False, "error": str(e)}), 500
+
     from app.models.scheduler import init_scheduler
-    
-    scheduler = BackgroundScheduler()
-    scheduler.start()
-    init_scheduler(scheduler, app)
+    from zoneinfo import ZoneInfo
 
-
+    scheduler = BackgroundScheduler(timezone=ZoneInfo('UTC'))
+    with app.app_context():
+        if not scheduler.running:
+            init_scheduler(scheduler, app)
+            scheduler.start()
+            app.logger.info("Scheduler iniciado con timezone UTC")
 
     return app
