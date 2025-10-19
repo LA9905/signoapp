@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback, type ChangeEvent } from "react";
-import type { AxiosError } from "axios";
+import type { AxiosError, AxiosResponse } from "axios";
 import { FiEdit2, FiTrash2, FiSave, FiX, FiPlus, FiMinus } from "react-icons/fi";
 import ClientSelector from "../components/ClientSelector";
 import DriverSelector from "../components/DriverSelector";
@@ -7,7 +7,9 @@ import { useDrivers } from "../context/DriversContext";
 import ArrowBackButton from "../components/ArrowBackButton";
 import Webcam from "react-webcam";
 import { api } from "../services/http";
-import * as XLSX from "xlsx";  //para generar Excel
+import { me } from "../services/authService";
+import * as XLSX from "xlsx";
+import type { MeResp } from "../types";
 
 interface DispatchSummary {
   id: number;
@@ -52,6 +54,7 @@ const btnIcon = "rounded-full p-2 bg-white/10 text-white border border-white/50 
 const Tracking = () => {
   const [dispatches, setDispatches] = useState<DispatchSummary[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingUser, setIsLoadingUser] = useState(true);
   const [hasMore, setHasMore] = useState(true);
   const [page, setPage] = useState(1);
   const [mensaje, setMensaje] = useState<string>("");
@@ -64,6 +67,7 @@ const Tracking = () => {
     productos: ProductoRow[];
     factura_numero?: string;
   } | null>(null);
+  const [isLimited, setIsLimited] = useState(false);
 
   const [productNames, setProductNames] = useState<string[]>([]);
   const [suggestions, setSuggestions] = useState<Record<number, string[]>>({});
@@ -89,6 +93,18 @@ const Tracking = () => {
   useEffect(() => {
     searchStateRef.current = searchState;
   }, [searchState]);
+
+  useEffect(() => {
+    me()
+      .then((res: AxiosResponse<MeResp>) => {
+        setIsLimited(!!res.data.is_limited);
+        setIsLoadingUser(false); // Marcar carga completa
+      })
+      .catch(() => {
+        setIsLimited(false);
+        setIsLoadingUser(false); // Marcar carga completa incluso en caso de error
+      });
+  }, []);
 
   const fetchControllerRef = useRef<AbortController | null>(null);
 
@@ -347,7 +363,14 @@ const Tracking = () => {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       const updated = resp.data;
-      setDispatches((prev) => prev.map((d) => (d.id === id ? { ...d, ...updated } : d)));
+      const choferName = drivers.find((d) => d.id === parseInt(draft.chofer))?.name || updated.chofer;
+      setDispatches((prev) =>
+        prev.map((d) =>
+          d.id === id
+            ? { ...d, ...updated, chofer: choferName, cliente: draft.cliente }
+            : d
+        )
+      );
       setMensaje("Despacho actualizado.");
       cancelEditRow();
       setScrollToId(id);
@@ -508,6 +531,18 @@ const Tracking = () => {
     return s;
   };
 
+  // Mostrar spinner mientras se carga el estado del usuario
+  if (isLoadingUser) {
+    return (
+      <div className="min-h-screen bg-blue-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+          <p className="mt-2 text-neutral-900">Cargando...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-4xl mx-auto p-6">
       <div className="mb-12">
@@ -585,8 +620,8 @@ const Tracking = () => {
         </button>
       </form>
 
-      {/* Botón de descarga de busqueda filtrada*/}
-      {dispatches.length > 0 && (
+      {/* Botón de descarga de búsqueda filtrada */}
+      {!isLimited && dispatches.length > 0 && (
         <div className="flex justify-end mb-4">
           <button
             className="flex items-center gap-2 px-3 py-2 rounded text-white bg-emerald-600 hover:bg-emerald-700"
@@ -715,23 +750,11 @@ const Tracking = () => {
               }
             }}
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="w-5 h-5"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <path d="M12 3v12" />
-              <path d="M7 10l5 5 5-5" />
-              <path d="M5 21h14" />
-            </svg>
+            <DownloadIcon />
             <span className="text-xs font-medium">Descargar Excel</span>
           </button>
         </div>
       )}
-
 
       {isLoading && dispatches.length === 0 ? (
         <div className="text-center py-8">
@@ -903,8 +926,8 @@ const Tracking = () => {
                               <img 
                                 src={img.image_url} 
                                 alt="existing" 
-                                className="w-20 h-20 object-cover cursor-pointer"  // Agrega cursor-pointer para indicar click
-                                onClick={() => setSelectedImage(img.image_url)}  // Abre el modal con la imagen
+                                className="w-20 h-20 object-cover cursor-pointer"
+                                onClick={() => setSelectedImage(img.image_url)}
                               />
                               <button onClick={() => removeExistingImage(img.id)} className="text-red-500">Eliminar</button>
                             </div>
@@ -920,7 +943,7 @@ const Tracking = () => {
                               audio={false} 
                               screenshotFormat="image/jpeg" 
                               ref={webcamRef} 
-                              videoConstraints={{ facingMode: "environment" }}  // Fuerza cámara trasera
+                              videoConstraints={{ facingMode: "environment" }}
                             />
                             <button type="button" onClick={capturePhoto} className="bg-blue-500 text-white px-4 py-2 rounded">
                               Capturar
@@ -933,8 +956,8 @@ const Tracking = () => {
                               <img 
                                 src={URL.createObjectURL(img)} 
                                 alt="new" 
-                                className="w-20 h-20 object-cover cursor-pointer"  // Agrega cursor-pointer para indicar click
-                                onClick={() => setSelectedImage(URL.createObjectURL(img))}  // Abre el modal con la imagen
+                                className="w-20 h-20 object-cover cursor-pointer"
+                                onClick={() => setSelectedImage(URL.createObjectURL(img))}
                               />
                               <button onClick={() => removeNewImage(idx)} className="text-red-500">Eliminar</button>
                             </div>
@@ -944,74 +967,78 @@ const Tracking = () => {
                     </div>
                   )}
                   <div className="flex flex-wrap items-center gap-2">
-                    <button
-                      className="flex items-center gap-2 px-3 py-2 rounded text-white bg-blue-600 hover:bg-blue-700"
-                      title="Descargar PDF"
-                      aria-label="Descargar PDF"
-                      onClick={() => downloadPDF(d.id)}
-                    >
-                      <DownloadIcon />
-                      <span className="text-xs font-medium">PDF</span>
-                    </button>
-                    <button
-                      className="flex items-center gap-2 px-3 py-2 rounded text-white bg-indigo-600 hover:bg-indigo-700"
-                      title="Imprimir PDF"
-                      aria-label="Imprimir PDF"
-                      onClick={() => printPDF(d.id)}
-                    >
-                      <PrinterIcon />
-                      <span className="text-xs font-medium">Imprimir</span>
-                    </button>
-                    {!isEditingRow ? (
+                    {!isLimited && (
                       <>
                         <button
-                          className={`${btnIcon} hover:bg-blue-600`}
-                          title="Editar"
-                          aria-label="Editar"
-                          onClick={() => startEditRow(d)}
+                          className="flex items-center gap-2 px-3 py-2 rounded text-white bg-blue-600 hover:bg-blue-700"
+                          title="Descargar PDF"
+                          aria-label="Descargar PDF"
+                          onClick={() => downloadPDF(d.id)}
                         >
-                          <FiEdit2 size={18} />
+                          <DownloadIcon />
+                          <span className="text-xs font-medium">PDF</span>
                         </button>
                         <button
-                          className={`${btnIcon} hover:bg-red-600`}
-                          title="Eliminar"
-                          aria-label="Eliminar"
-                          onClick={() => deleteRow(d.id)}
+                          className="flex items-center gap-2 px-3 py-2 rounded text-white bg-indigo-600 hover:bg-indigo-700"
+                          title="Imprimir PDF"
+                          aria-label="Imprimir PDF"
+                          onClick={() => printPDF(d.id)}
                         >
-                          <FiTrash2 size={18} />
+                          <PrinterIcon />
+                          <span className="text-xs font-medium">Imprimir</span>
                         </button>
-                      </>
-                    ) : (
-                      <>
+                        {!isEditingRow ? (
+                          <>
+                            <button
+                              className={`${btnIcon} hover:bg-blue-600`}
+                              title="Editar"
+                              aria-label="Editar"
+                              onClick={() => startEditRow(d)}
+                            >
+                              <FiEdit2 size={18} />
+                            </button>
+                            <button
+                              className={`${btnIcon} hover:bg-red-600`}
+                              title="Eliminar"
+                              aria-label="Eliminar"
+                              onClick={() => deleteRow(d.id)}
+                            >
+                              <FiTrash2 size={18} />
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              className={`${btnIcon} hover:bg-emerald-600`}
+                              title="Guardar"
+                              aria-label="Guardar"
+                              onClick={() => saveRow(d.id)}
+                            >
+                              <FiSave size={18} />
+                            </button>
+                            <button
+                              className={`${btnIcon} hover:bg-gray-600`}
+                              title="Cancelar"
+                              aria-label="Cancelar"
+                              onClick={cancelEditRow}
+                            >
+                              <FiX size={18} />
+                            </button>
+                          </>
+                        )}
                         <button
-                          className={`${btnIcon} hover:bg-emerald-600`}
-                          title="Guardar"
-                          aria-label="Guardar"
-                          onClick={() => saveRow(d.id)}
+                          className={
+                            "px-3 py-2 rounded text-white " +
+                            (isDriverDone ? "bg-emerald-600 cursor-default" : "bg-green-600 hover:bg-green-700")
+                          }
+                          disabled={isDriverDone || isLoading}
+                          onClick={() => markToDriver(d.id)}
+                          title={isDriverDone ? "Entregado a Chofer (bloqueado)" : "Marcar como Entregado a Chofer"}
                         >
-                          <FiSave size={18} />
-                        </button>
-                        <button
-                          className={`${btnIcon} hover:bg-gray-600`}
-                          title="Cancelar"
-                          aria-label="Cancelar"
-                          onClick={cancelEditRow}
-                        >
-                          <FiX size={18} />
+                          {d.delivered_driver ? "Entregado a Chofer" : "Marcar como Entregado a Chofer"}
                         </button>
                       </>
                     )}
-                    <button
-                      className={
-                        "px-3 py-2 rounded text-white " +
-                        (isDriverDone ? "bg-emerald-600 cursor-default" : "bg-green-600 hover:bg-green-700")
-                      }
-                      disabled={isDriverDone || isLoading}
-                      onClick={() => markToDriver(d.id)}
-                      title={isDriverDone ? "Entregado a Chofer (bloqueado)" : "Marcar como Entregado a Chofer"}
-                    >
-                      {d.delivered_driver ? "Entregado a Chofer" : "Marcar como Entregado a Chofer"}
-                    </button>
                     <button
                       className={
                         "px-3 py-2 rounded text-white " +
@@ -1056,13 +1083,13 @@ const Tracking = () => {
       {selectedImage && (
         <div 
           className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50" 
-          onClick={() => setSelectedImage(null)}  // Cierra al click fuera
+          onClick={() => setSelectedImage(null)}
         >
           <div className="relative max-w-full max-h-full p-4">
             <img 
               src={selectedImage} 
               alt="Imagen en grande" 
-              className="max-w-screen-lg max-h-screen object-contain"  // Zoomed, ajustado a pantalla
+              className="max-w-screen-lg max-h-screen object-contain"
             />
             <button 
               className="absolute top-2 right-2 text-white bg-red-600 p-1 rounded-full" 
@@ -1073,7 +1100,6 @@ const Tracking = () => {
           </div>
         </div>
       )}
-
     </div>
   );
 };

@@ -88,12 +88,22 @@ def me():
     user = User.query.get(uid)
     if not user:
         return jsonify({"msg": "Usuario no encontrado"}), 404
+    
+    limited_emails = [
+        "claudiogarbarino1966@gmail.com",
+        "alfonsomachado64@gmail.com",
+        "jerrykalet@gmail.com",
+        "cocachaucono@gmail.com"
+    ]
+    is_limited = user.email.lower() in [email.lower() for email in limited_emails]
+
     return jsonify({
         "id": user.id,
         "name": user.name,
         "email": user.email,
         "avatar_url": user.avatar_url,
         "is_admin": user.is_admin,
+        "is_limited": is_limited,  # Nuevo campo para identificar usuarios limitados
         "subscription_paid_until": user.subscription_paid_until.isoformat() if user.subscription_paid_until else None,
         "due_day": user.due_day,
     }), 200

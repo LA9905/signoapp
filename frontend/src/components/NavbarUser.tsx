@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { api } from "../services/http";
 
-const NavbarUser: React.FC = () => {
+// Define props interface for NavbarUser
+interface NavbarUserProps {
+  avatarUrl: string | null;
+}
+
+const NavbarUser: React.FC<NavbarUserProps> = ({ avatarUrl }) => {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
-  const nameLS = localStorage.getItem("name");
-  const [name, setName] = useState<string | null>(nameLS);
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const name = localStorage.getItem("name") || "Usuario";
   const dropdownRef = useRef<HTMLDivElement | null>(null);
 
   const handleLogout = () => {
@@ -26,18 +28,6 @@ const NavbarUser: React.FC = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  useEffect(() => {
-    api
-      .get("/auth/me")
-      .then((res) => {
-        setName(res.data?.name || nameLS);
-        setAvatarUrl(res.data?.avatar_url || null);
-        if (res.data?.name) localStorage.setItem("name", res.data.name);
-      })
-      .catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   return (
     <div className="flex justify-between items-center bg-blue-100 px-10 py-3 shadow">
       {/* Logo + Texto */}
@@ -52,9 +42,9 @@ const NavbarUser: React.FC = () => {
         </span>
       </div>
 
-      {/* Perfil (REEMPLAZADO) */}
+      {/* Perfil */}
       <div className="relative" ref={dropdownRef}>
-        {/* CHIP claro: usa .user-chip para fondo claro + texto oscuro */}
+        
         <button
           onClick={() => setOpen(!open)}
           className="user-chip flex items-center gap-2 shadow-sm focus:outline-none"
@@ -63,6 +53,10 @@ const NavbarUser: React.FC = () => {
             <img
               src={avatarUrl || "/avatar3.png"}
               alt="Perfil"
+              className="w-10 h-10 rounded-full object-cover"
+              onError={(e) => {
+                e.currentTarget.src = "/avatar3.png";
+              }}
             />
           </div>
           <span className="font-medium truncate max-w-[22ch]">{name}</span>
@@ -78,7 +72,6 @@ const NavbarUser: React.FC = () => {
           </svg>
         </button>
 
-        {/* DROPDOWN claro: usa .user-menu para fondo blanco + texto oscuro */}
         {open && (
           <div className="user-menu absolute right-0 mt-2 w-56 z-20">
             <button

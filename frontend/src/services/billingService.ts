@@ -18,3 +18,12 @@ export const getBillingStatus = (email?: string) =>
 
 export const markPaid = (payload?: { email?: string; until?: string }) =>
   api.post("/billing/mark-paid", payload || {});
+
+export const getAllUsers = () =>
+  api.get<{ users: BillingUser[] }>("/billing/users");
+
+export const markPaidMultiple = (payload: { user_ids: number[]; until: string }) =>
+  api.post("/billing/mark-paid-multiple", payload);
+
+export const blockMultiple = (payload: { user_ids: number[] }) =>
+  api.post("/billing/block-multiple", payload);

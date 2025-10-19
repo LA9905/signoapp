@@ -1,15 +1,20 @@
 import { useEffect, useState } from "react";
+import type { AxiosResponse } from "axios";
 import NavbarUser from "../components/NavbarUser";
 import ChartMonthlyOrders from "../components/ChartMonthlyOrders";
 import { useNavigate } from "react-router-dom";
 import { api } from "../services/http";
 import { me } from "../services/authService";
+import type { MeResp } from "../types";
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const name = localStorage.getItem("name") || "Usuario";
   const [chartData, setChartData] = useState<number[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isLimited, setIsLimited] = useState(false);
+  const [isLoadingUser, setIsLoadingUser] = useState(true);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1); // 1-12
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -37,11 +42,21 @@ const Dashboard: React.FC = () => {
 
   useEffect(() => {
     me()
-      .then((res) => setIsAdmin(!!res.data.is_admin))
-      .catch(() => setIsAdmin(false));
+      .then((res: AxiosResponse<MeResp>) => {
+        setIsAdmin(!!res.data.is_admin);
+        setIsLimited(!!res.data.is_limited);
+        setAvatarUrl(res.data.avatar_url || null);
+        setIsLoadingUser(false);
+      })
+      .catch(() => {
+        setIsAdmin(false);
+        setIsLimited(false);
+        setAvatarUrl(null);
+        setIsLoadingUser(false);
+      });
   }, []);
 
-  const menuItems = [
+  let menuItems = [
     { title: "Crear despacho", route: "/CreateDispatch" },
     { title: "Agregar productos", route: "/add-product" },
     { title: "Listado de productos", route: "/products" },
@@ -58,8 +73,13 @@ const Dashboard: React.FC = () => {
     { title: "Seguimiento de Notas de Crédito", route: "/credit-note-tracking" },
     { title: "Consumo Interno", route: "/create-internal" },
     { title: "Registros de Consumos Internos", route: "/internal-tracking" },
-    ...(isAdmin ? [{ title: "Administración (pagos)", route: "/admin/billing" }] : []),
   ];
+
+  if (isLimited) {
+    menuItems = [{ title: "Seguimiento de despachos", route: "/tracking" }];
+  } else if (isAdmin) {
+    menuItems.push({ title: "Administración (pagos)", route: "/admin/billing" });
+  }
 
   const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
   const months = [
@@ -67,21 +87,32 @@ const Dashboard: React.FC = () => {
     "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
   ];
 
+  if (isLoadingUser) {
+    return (
+      <div className="min-h-screen bg-blue-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+          <p className="mt-2 text-neutral-900">Cargando...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-blue-50 text-neutral-900">
-      <NavbarUser />
-
+      <NavbarUser avatarUrl={avatarUrl} />
       <div className="max-w-5xl mx-auto p-6">
         <h2 className="text-2xl font-bold mb-4">Bienvenido, {name}</h2>
 
         <div className="flex flex-col sm:flex-row sm:justify-between gap-4 mt-4">
-          <button
-            onClick={handleStart}
-            className="bg-blue-600 text-white px-6 py-3 rounded shadow hover:bg-blue-700"
-          >
-            Iniciar jornada del día
-          </button>
-
+          {!isLimited && (
+            <button
+              onClick={handleStart}
+              className="bg-blue-600 text-white px-6 py-3 rounded shadow hover:bg-blue-700"
+            >
+              Iniciar jornada del día
+            </button>
+          )}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {menuItems.map((item) => (
               <button

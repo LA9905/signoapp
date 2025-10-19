@@ -17,7 +17,7 @@ from app.utils.timezone import (
 
 import cloudinary 
 import cloudinary.uploader
-import json  # Para parsear form data
+import json 
 
 # La configuración de Cloudinary se realiza en app/__init__.py (create_app).
 
@@ -37,6 +37,17 @@ CORS(
 @dispatch_bp.route("/dispatches", methods=["POST"])
 @jwt_required()
 def create_dispatch():
+    user_id = get_jwt_identity()
+    current_user = User.query.get(user_id)
+    limited_emails = [
+        "claudiogarbarino1966@gmail.com",
+        "alfonsomachado64@gmail.com",
+        "jerrykalet@gmail.com",
+        "cocachaucono@gmail.com"
+    ]
+    if current_user.email.lower() in [email.lower() for email in limited_emails]:
+        return jsonify({"error": "No autorizado para crear despachos"}), 403
+
     try:
         # Manejar multipart/form-data (datos en 'data', files en request.files)
         if not request.form.get('data'):
@@ -332,6 +343,17 @@ def get_dispatch_details(dispatch_id):
 @dispatch_bp.route("/dispatches/<int:dispatch_id>", methods=["PUT"])
 @jwt_required()
 def update_dispatch(dispatch_id):
+    user_id = get_jwt_identity()
+    current_user = User.query.get(user_id)
+    limited_emails = [
+        "claudiogarbarino1966@gmail.com",
+        "alfonsomachado64@gmail.com",
+        "jerrykalet@gmail.com",
+        "cocachaucono@gmail.com"
+    ]
+    if current_user.email.lower() in [email.lower() for email in limited_emails]:
+        return jsonify({"error": "No autorizado para editar despachos"}), 403
+
     try:
         d = Dispatch.query.get_or_404(dispatch_id)
 
@@ -527,6 +549,18 @@ def get_monthly_dispatches():
 def mark_driver_delivered(dispatch_id):
     if request.method == "OPTIONS":
         return ("", 204)
+
+    user_id = get_jwt_identity()
+    current_user = User.query.get(user_id) if user_id else None
+    limited_emails = [
+        "claudiogarbarino1966@gmail.com",
+        "alfonsomachado64@gmail.com",
+        "jerrykalet@gmail.com",
+        "cocachaucono@gmail.com"
+    ]
+    if current_user and current_user.email.lower() in [email.lower() for email in limited_emails]:
+        return jsonify({"error": "No autorizado para marcar entregado a chofer"}), 403
+
     try:
         d = Dispatch.query.get_or_404(dispatch_id)
         if d.delivered_client:
@@ -566,7 +600,7 @@ def mark_client_delivered(dispatch_id):
         return jsonify({"error": "Error al marcar entregado a cliente", "details": str(e)}), 500
 
 # ----------------------------
-# Eliminar despacho (con preflight)
+# Eliminar despacho
 # ----------------------------
 @dispatch_bp.route("/dispatches/<int:dispatch_id>", methods=["DELETE", "OPTIONS"])
 @cross_origin(supports_credentials=True)
@@ -578,6 +612,16 @@ def delete_dispatch(dispatch_id):
     user_id = get_jwt_identity()
     if not user_id:
         return jsonify({"error": "No autorizado"}), 401
+
+    current_user = User.query.get(user_id)
+    limited_emails = [
+        "claudiogarbarino1966@gmail.com",
+        "alfonsomachado64@gmail.com",
+        "jerrykalet@gmail.com",
+        "cocachaucono@gmail.com"
+    ]
+    if current_user.email.lower() in [email.lower() for email in limited_emails]:
+        return jsonify({"error": "No autorizado para eliminar despachos"}), 403
 
     try:
         d = Dispatch.query.get_or_404(dispatch_id)

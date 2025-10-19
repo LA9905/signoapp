@@ -14,38 +14,15 @@ def init_scheduler(scheduler, app):
     with app.app_context():
         app.logger.info("Inicializando scheduler")
         
-        # Job de debug: corre en 5 seg
-        def debug_job():
-            with app.app_context():
-                app.logger.info("Job de debug ejecutado")
-        scheduler.add_job(
-            func=debug_job,
-            trigger='date',
-            run_date=datetime.now(timezone.utc) + timedelta(seconds=5),
-            id='debug_job',
-            replace_existing=True
-        )
-        app.logger.info("Job de debug agregado (debug_job)")
-
-        # Prueba: corre en 10 seg - PASA LA APP COMO PARÁMETRO
-        scheduler.add_job(
-            func=lambda: daily_notifications(app),
-            trigger='date',
-            run_date=datetime.now(timezone.utc) + timedelta(seconds=10),
-            id='test_notification_unique',
-            replace_existing=True
-        )
-        app.logger.info("Job de prueba agregado (test_notification_unique)")
-
-        # Cron diaria - PASA LA APP COMO PARÁMETRO
+        # Cron diaria de lunes a viernes - PASA LA APP COMO PARÁMETRO
         scheduler.add_job(
             func=lambda: daily_notifications(app),
             trigger='cron',
-            day_of_week='mon-sun',
+            day_of_week='mon-fri',
             hour=10,
             minute=0,
             timezone='America/Santiago',
             id='daily_notifications',
             replace_existing=True
         )
-        app.logger.info("Job diario agregado (daily_notifications)")
+        app.logger.info("Job diario (lunes a viernes) agregado (daily_notifications)")

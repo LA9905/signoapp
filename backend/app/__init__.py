@@ -60,6 +60,8 @@ def create_app():
         
     )
 
+    app.config['VITE_API_URL'] = os.getenv('VITE_API_URL', 'http://localhost:5000')
+
     # Configuración de Cloudinary
     cloudinary.config(
         cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
