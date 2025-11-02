@@ -73,6 +73,7 @@ def create_app():
     # CORS
     allowed_origins = [
         "http://localhost:5173",
+        "http://192.168.100.6:5173",
         "https://www.signo-app.com",
         "https://signo-app.com",
     ]

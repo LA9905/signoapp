@@ -16,6 +16,8 @@ import smtplib
 from app import mail 
 from collections import defaultdict
 import os
+from flask import request
+import socket
 
 logging.basicConfig(level=logging.INFO)
 
@@ -56,8 +58,40 @@ def send_notification_email(subject, html_body, recipients, app):
 
 def generate_unsubscribe_link(user_id, app):
     token = create_access_token(identity=str(user_id), expires_delta=timedelta(days=30))
-    base_url = app.config.get('VITE_API_URL', 'http://127.0.0.1:5000')
-    return f"{base_url}/api/auth/unsubscribe?token={token}"
+    
+    api_url = os.getenv('VITE_API_URL')
+    if api_url:
+        app.logger.debug(f"Usando VITE_API_URL desde env: {api_url}")
+        return f"{api_url}/api/auth/unsubscribe?token={token}"
+    
+    api_url = app.config.get('VITE_API_URL')
+    if api_url and api_url != 'http://127.0.0.1:5000' and 'localhost' not in api_url:
+        app.logger.debug(f"Usando VITE_API_URL desde config: {api_url}")
+        return f"{api_url}/api/auth/unsubscribe?token={token}"
+    
+    is_dev = (
+        os.getenv("FLASK_ENV") == "development" or
+        os.getenv("ENV") == "development" or
+        app.config.get("DEBUG", False) or
+        '127.0.0.1' in request.host_url or
+        'localhost' in request.host_url
+    )
+    
+    if is_dev:
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            local_ip = s.getsockname()[0]
+            s.close()
+            api_url = f"http://{local_ip}:5000"
+            app.logger.info(f"Desarrollo local → IP detectada: {api_url}")
+            return f"{api_url}/api/auth/unsubscribe?token={token}"
+        except Exception as e:
+            app.logger.warning(f"Error detectando IP: {e}")
+    
+    api_url = 'https://api.signo-app.com'
+    app.logger.info(f"Usando producción: {api_url}")
+    return f"{api_url}/api/auth/unsubscribe?token={token}"
 
 def is_low_stock(product):
     stock = product.stock
@@ -224,11 +258,17 @@ def notify_low_stock(app):
             sorted_products = sorted(low_by_cat[cat], key=lambda p: p.name)
             for p in sorted_products:
                 status = "negativo" if p.stock < 0 else "bajo"
-                color = "red" if p.stock < 0 else "orange"
+                color = "#d32f2f" if p.stock < 0 else "#e67e22"  # rojo fuerte o naranja oscuro
                 base_html += f"""
-                        <li style="margin-bottom: 10px; padding: 10px; background: #fff3e0; border-left: 5px solid {color}; border-radius: 4px;">
-                            <strong>{p.name}</strong>: Stock {p.stock} ({status})
-                        </li>
+                    <li style="margin-bottom: 12px; padding: 12px; background: #fff3e0;
+                            border-left: 5px solid {color}; border-radius: 4px;">
+                        <div style="font-weight: bold; color: #333; margin-bottom: 6px;">
+                            {p.name}
+                        </div>
+                        <div style="color: {color}; font-weight: bold; margin-left: 5px;">
+                            Stock {p.stock} ({status})
+                        </div>
+                    </li>
                 """
             base_html += '</ul>'
         
