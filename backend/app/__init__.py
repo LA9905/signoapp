@@ -1,7 +1,7 @@
 import os
 import logging
 logging.getLogger('apscheduler').setLevel(logging.DEBUG)
-from datetime import timedelta
+from datetime import timedelta, datetime  # ← AMBOS JUNTOS
 from flask import Flask, send_from_directory, request, jsonify, current_app
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 from apscheduler.schedulers.background import BackgroundScheduler
 from werkzeug.serving import is_running_from_reloader
 import cloudinary
+import cloudinary.uploader
 
 
 db = SQLAlchemy()
@@ -245,14 +246,79 @@ def create_app():
         except Exception as e:
             return jsonify({"ok": False, "error": str(e)}), 500
 
+        # === SCHEDULER: LIMPIEZA DE IMÁGENES ANTIGUAS (CON CONTEXTO) ===
     from app.models.scheduler import init_scheduler
     from zoneinfo import ZoneInfo
 
     scheduler = BackgroundScheduler(timezone=ZoneInfo('UTC'))
+
     with app.app_context():
         if not scheduler.running:
             init_scheduler(scheduler, app)
             scheduler.start()
+
+            from app.routes.dispatch_routes import get_public_id
+            from app.models.dispatch_model import DispatchImage
+
+            RETENTION_DAYS = int(os.getenv("IMAGE_RETENTION_DAYS", "62"))
+
+            def delete_old_images():
+                # FORZAR CONTEXTO DE FLASK EN HILO SEPARADO
+                with app.app_context():
+                    threshold = datetime.utcnow() - timedelta(days=RETENTION_DAYS)
+                    old_images = DispatchImage.query.filter(DispatchImage.uploaded_at < threshold).all()
+
+                    if not old_images:
+                        current_app.logger.info("Limpieza: No hay imágenes antiguas.")
+                        return
+
+                    current_app.logger.info(f"Limpieza: {len(old_images)} imágenes > {RETENTION_DAYS} días.")
+                    deleted_count = 0
+
+                    for img in old_images:
+                        public_id = get_public_id(img.image_url)
+                        if public_id:
+                            try:
+                                result = cloudinary.uploader.destroy(public_id)
+                                if result.get('result') == 'ok':
+                                    deleted_count += 1
+                                else:
+                                    current_app.logger.warning(f"Cloudinary: {public_id} → {result}")
+                            except Exception as e:
+                                current_app.logger.error(f"Error Cloudinary {public_id}: {e}")
+                        else:
+                            current_app.logger.warning(f"public_id no encontrado: {img.image_url}")
+
+                    # Eliminar de DB
+                    ids_to_delete = [img.id for img in old_images]
+                    if ids_to_delete:
+                        db.session.execute(
+                            db.delete(DispatchImage).where(DispatchImage.id.in_(ids_to_delete))
+                        )
+                        db.session.commit()
+
+                    current_app.logger.info(f"LIMPIEZA OK → Cloudinary: {deleted_count}, DB: {len(ids_to_delete)}")
+
+            # PROGRAMAR A LAS 00:00 (Chile) = 03:00 UTC
+            scheduler.add_job(
+                delete_old_images,
+                'cron',
+                hour=3, minute=0,
+                id='cleanup_old_images',
+                replace_existing=True,
+                timezone=ZoneInfo('UTC')
+            )
+
+            #PRUEBAS LOCALES
+            # scheduler.add_job(
+            #     delete_old_images,
+            #     'interval',
+            #     minutes=5,
+            #     id='cleanup_old_images',
+            #     replace_existing=True
+            # )
+
+            current_app.logger.info("Scheduler OK → Limpieza diaria a las 00:00 (Chile)")
             app.logger.info("Scheduler iniciado con timezone UTC")
 
     return app

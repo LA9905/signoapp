@@ -19,6 +19,23 @@ import cloudinary
 import cloudinary.uploader
 import json 
 
+# === FUNCIÓN AUXILIAR PARA OBTENER public_id DE CLOUDINARY ===
+def get_public_id(url):
+    """
+    Extrae el public_id de una URL de Cloudinary.
+    Ejemplo: https://res.cloudinary.com/.../dispatches/abc123.jpg
+    → devuelve: dispatches/abc123
+    """
+    try:
+        parts = url.split('/')
+        if len(parts) > 7:
+            folder = parts[-2]  # 'dispatches'
+            filename = parts[-1].split('.')[0]  # 'abc123'
+            return f"{folder}/{filename}"
+    except Exception:
+        pass
+    return None
+
 # La configuración de Cloudinary se realiza en app/__init__.py (create_app).
 
 # CORS para este blueprint
@@ -331,7 +348,7 @@ def get_dispatch_details(dispatch_id):
                 "productos": [
                     {"nombre": p.nombre, "cantidad": p.cantidad, "unidad": p.unidad} for p in d.productos
                 ],
-                "images": [i.to_dict() for i in d.images],  # CORRECCIÓN: Incluir imágenes por consistencia
+                "images": [i.to_dict() for i in d.images],  #Incluir imágenes por consistencia
             }
         ), 200
     except Exception as e:
@@ -465,11 +482,16 @@ def update_dispatch(dispatch_id):
         #   Manejar imágenes en edición
         # - delete_image_ids: lista de IDs a eliminar
         # - Nuevas imágenes en request.files.getlist('new_images')
-        delete_image_ids = data.get("delete_image_ids", [])  # Lista de IDs a borrar
+        delete_image_ids = data.get("delete_image_ids", []) # Lista de IDs a borrar
         for img_id in delete_image_ids:
             img = DispatchImage.query.get(img_id)
             if img and img.dispatch_id == d.id:
-                # Destruir en Cloudinary (cloudinary.uploader.destroy(public_id))
+                public_id = get_public_id(img.image_url)
+                if public_id:
+                    try:
+                        cloudinary.uploader.destroy(public_id)
+                    except Exception as e:
+                        current_app.logger.error(f"Error al eliminar imagen de Cloudinary: {str(e)}")
                 db.session.delete(img)
 
         new_images = request.files.getlist('new_images')
@@ -625,7 +647,14 @@ def delete_dispatch(dispatch_id):
 
     try:
         d = Dispatch.query.get_or_404(dispatch_id)
-
+        # Eliminar imágenes de Cloudinary
+        for img in d.images:
+            public_id = get_public_id(img.image_url)
+            if public_id:
+                try:
+                    cloudinary.uploader.destroy(public_id)
+                except Exception as e:
+                    current_app.logger.error(f"Error al eliminar imagen de Cloudinary: {str(e)}")
         # Restaurar stock
         for item in d.productos:
             nombre = (item.nombre or "").strip()
@@ -635,7 +664,6 @@ def delete_dispatch(dispatch_id):
                     prod_row.stock = float(prod_row.stock or 0) + float(item.cantidad or 0)
                 except Exception:
                     pass
-
         DispatchProduct.query.filter_by(dispatch_id=d.id).delete()
         db.session.delete(d)
         db.session.commit()
