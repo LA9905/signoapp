@@ -143,7 +143,7 @@ def create_app():
     app.register_blueprint(production_bp, url_prefix="/api")
     app.register_blueprint(credit_note_bp, url_prefix="/api")
 
-    app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=8)
+    app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=10)
 
     # Guard de billing
     @app.before_request

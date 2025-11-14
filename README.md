@@ -72,7 +72,7 @@ MAIL_USERNAME=tu_correo@gmail.com
 MAIL_PASSWORD=app_password_gmail
 MAIL_DEFAULT_SENDER=tu_correo@gmail.com
 CLOUDINARY_URL=cloudinary://<api_key>:<api_secret>@<cloud_name>
-JWT_HOURS=8
+JWT_HOURS=10
 Frontend (.env)
 
 env
