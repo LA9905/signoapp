@@ -50,7 +50,7 @@ def login():
     if not user or not user.check_password(data.get("password", "")):
         return jsonify({"msg": "Credenciales inválidas"}), 401
 
-    token = create_access_token(identity=str(user.id), expires_delta=timedelta(hours=8))
+    token = create_access_token(identity=str(user.id), expires_delta=timedelta(hours=10))
     return jsonify({"token": token, "name": user.name}), 200
 
 @auth_bp.route("/recover", methods=["POST"])

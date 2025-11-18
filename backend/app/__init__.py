@@ -1,7 +1,7 @@
 import os
 import logging
 logging.getLogger('apscheduler').setLevel(logging.DEBUG)
-from datetime import timedelta, datetime  # ← AMBOS JUNTOS
+from datetime import timedelta, datetime
 from flask import Flask, send_from_directory, request, jsonify, current_app
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
