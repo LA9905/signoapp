@@ -127,6 +127,7 @@ def create_app():
     from .routes.operator_routes import operator_bp
     from .routes.production_routes import production_bp
     from .routes.credit_note_routes import credit_note_bp
+    from .routes.survey_routes import survey_api_bp, survey_public_bp
 
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
     app.register_blueprint(product_bp, url_prefix="/api")
@@ -142,6 +143,8 @@ def create_app():
     app.register_blueprint(operator_bp, url_prefix="/api")
     app.register_blueprint(production_bp, url_prefix="/api")
     app.register_blueprint(credit_note_bp, url_prefix="/api")
+    app.register_blueprint(survey_api_bp)        # → /api/survey/submit
+    app.register_blueprint(survey_public_bp)     # → /encuesta/abcd1234
 
     app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=10)
 
@@ -321,4 +324,48 @@ def create_app():
             current_app.logger.info("Scheduler OK → Limpieza diaria a las 00:00 (Chile)")
             app.logger.info("Scheduler iniciado con timezone UTC")
 
+
+
+    # === ENCUESTA PROGRAMADA ===
+    from app.utils.survey_mailer import send_survey_email
+    from app.models.user_model import User
+
+    def enviar_encuesta_masiva():
+        with app.app_context():
+            users = User.query.filter(
+                User.receive_notifications == True
+            ).all()
+
+            current_app.logger.info(f"[ENCUESTA] Enviando a {len(users)} usuarios...")
+            for user in users:
+                try:
+                    send_survey_email(user.email, user.name)
+                except Exception as e:
+                    current_app.logger.error(f"Error enviando encuesta a {user.email}: {e}")
+
+            current_app.logger.info("[ENCUESTA] Envío masivo completado")
+
+    # PROGRAMAR para el 10 de diciembre 2025, 12:00 Chile
+    survey_date_cl = datetime(2025, 12, 10, 12, 0, tzinfo=ZoneInfo("America/Santiago"))
+    survey_date_utc = survey_date_cl.astimezone(ZoneInfo("UTC"))
+
+    scheduler.add_job(
+        enviar_encuesta_masiva,
+        'date',
+        run_date=survey_date_utc,
+        id='survey_december_2025',
+        replace_existing=True
+    )
+
+    # FUNCIÓN DE PRUEBA LOCAL (solo a tu correo)
+    @app.route("/api/send-test-survey", methods=["GET"])
+    def send_test_survey_now():
+        """Envía la encuesta de prueba a alejandroarraga99@gmail.com AHORA MISMO"""
+        try:
+            from app.utils.survey_mailer import send_survey_email
+            send_survey_email("alejandroarraga99@gmail.com", "Alejandro")
+            return jsonify({"msg": "Encuesta de prueba enviada a alejandroarraga99@gmail.com"}), 200
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+        
     return app
