@@ -358,14 +358,14 @@ def create_app():
     )
 
     # FUNCIÓN DE PRUEBA LOCAL (solo a tu correo)
-    @app.route("/api/send-test-survey", methods=["GET"])
-    def send_test_survey_now():
-        """Envía la encuesta de prueba a alejandroarraga99@gmail.com AHORA MISMO"""
-        try:
-            from app.utils.survey_mailer import send_survey_email
-            send_survey_email("alejandroarraga99@gmail.com", "Alejandro")
-            return jsonify({"msg": "Encuesta de prueba enviada a alejandroarraga99@gmail.com"}), 200
-        except Exception as e:
-            return jsonify({"error": str(e)}), 500
+    # @app.route("/api/send-test-survey", methods=["GET"])
+    # def send_test_survey_now():
+    #     """Envía la encuesta de prueba a alejandroarraga99@gmail.com AHORA MISMO"""
+    #     try:
+    #         from app.utils.survey_mailer import send_survey_email
+    #         send_survey_email("alejandroarraga99@gmail.com", "Alejandro")
+    #         return jsonify({"msg": "Encuesta de prueba enviada a alejandroarraga99@gmail.com"}), 200
+    #     except Exception as e:
+    #         return jsonify({"error": str(e)}), 500
         
     return app
