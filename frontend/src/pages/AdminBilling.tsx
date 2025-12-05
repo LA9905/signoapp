@@ -205,7 +205,7 @@ const AdminBilling = () => {
             />
           </div>
           <button onClick={doUnblockNonSelected} className="bg-blue-600 text-white px-4 py-2 rounded h-10" disabled={users.length === 0}>
-            Desbloquear no seleccionados
+            Desbloquear los usuarios no seleccionados
           </button>
         </div>
       </div>
@@ -213,10 +213,17 @@ const AdminBilling = () => {
       <div className="mt-6 border rounded p-4 bg-white">
         <div className="grid sm:grid-cols-3 gap-3 items-end">
           <div className="sm:col-span-2">
-            <label className="block text-sm mb-1">Mantener bloqueados seleccionados</label>
+            <label className="block text-sm mb-1">Mantener bloqueados usuarios seleccionados</label>
           </div>
-          <button onClick={doBlockSelected} className="bg-red-600 text-white px-4 py-2 rounded h-10" disabled={selectedIds.length === 0}>
-            Mantener bloqueados seleccionados
+          <button
+              onClick={doBlockSelected}
+              className="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg font-semibold disabled:opacity-50"
+              disabled={selectedIds.length === 0}
+            >
+              {selectedIds.length === 0 
+                ? "Seleccionar usuarios para bloquear" 
+                : `Bloquear ${selectedIds.length} usuario${selectedIds.length > 1 ? 's' : ''} seleccionado${selectedIds.length > 1 ? 's' : ''}`
+              }
           </button>
         </div>
       </div>

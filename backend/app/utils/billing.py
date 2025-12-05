@@ -1,4 +1,3 @@
-# app/utils/billing.py
 from datetime import date
 from typing import Optional
 
@@ -12,24 +11,28 @@ def _cutoff_for_month(today: date, due_day: Optional[int]) -> date:
 
 def is_blocked(user, today: Optional[date] = None) -> bool:
     """
-    Regla:
-      - Se bloquea si HOY >= día de corte (8 por defecto)
-      - y NO hay pago cubriendo al menos hasta esa fecha de corte.
-    Requiere que 'user' tenga: due_day (int|None) y subscription_paid_until (date|None).
+    Reglas:
+    - Si el usuario NO tiene subscription_paid_until → bloqueado
+    - Si tiene, pero la fecha es anterior al día de corte del MES ACTUAL → bloqueado
+    - El día de corte es configurable por usuario (default 8)
+    - Funciona aunque hoy sea día 1, 5 o 20 del mes
     """
     if user is None:
         return True
 
     today = today or date.today()
-    cutoff = _cutoff_for_month(today, getattr(user, "due_day", 8))
+    due_day = int(getattr(user, "due_day", 8) or 8)
+    if due_day < 1 or due_day > 28:
+        due_day = 8
+
+    # Fecha de corte los 8 de cada MES
+    cutoff_this_month = date(today.year, today.month, due_day)
 
     paid_until = getattr(user, "subscription_paid_until", None)
-    # Si hoy aún NO llega a la fecha de corte, no bloquear.
-    if today < cutoff:
-        return False
 
-    # Si no hay pago registrado o pago es anterior a cutoff => bloquear.
+    # Si nunca ha pagado → bloqueado (usuarios recien creados bloqueados)
     if paid_until is None:
         return True
 
-    return paid_until < cutoff
+    # Si el pago cubre hasta un mes anterior al actual → bloqueado
+    return paid_until < cutoff_this_month
