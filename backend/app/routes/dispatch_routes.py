@@ -507,7 +507,36 @@ def update_dispatch(dispatch_id):
                 db.session.add(new_image)
 
         db.session.commit()
-        return jsonify(d.to_dict()), 200
+        # Construir respuesta con nombres, como en get_dispatch_details
+        client = Client.query.get(d.cliente_id)
+        driver = Driver.query.get(d.chofer_id)
+        creator = User.query.get(d.created_by)
+        derived_status = (
+            "entregado_cliente"
+            if d.delivered_client
+            else "entregado_chofer"
+            if d.delivered_driver
+            else (d.status or "pendiente")
+        )
+        response_data = {
+            "id": d.id,
+            "orden": d.orden,
+            "cliente": client.name if client else str(d.cliente_id),
+            "chofer": driver.name if driver else str(d.chofer_id),
+            "created_by": creator.name if creator else d.created_by,
+            "fecha": to_local(d.fecha).isoformat(timespec="seconds"),
+            "status": derived_status,
+            "delivered_driver": d.delivered_driver,
+            "delivered_client": d.delivered_client,
+            "paquete_numero": d.paquete_numero,
+            "factura_numero": d.factura_numero,
+            "productos": [
+                {"nombre": p.nombre, "cantidad": p.cantidad, "unidad": p.unidad} for p in d.productos
+            ],
+            "images": [i.to_dict() for i in d.images],
+        }
+        return jsonify(response_data), 200
+    
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": "No se pudo actualizar el despacho", "details": str(e)}), 500
