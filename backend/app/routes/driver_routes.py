@@ -59,20 +59,12 @@ def delete_driver(driver_id):
     try:
         driver = Driver.query.get_or_404(driver_id)
 
-        # ✅ Verificar si el chofer tiene despachos asociados
-        has_dispatch = db.session.query(Dispatch.id).filter(Dispatch.chofer_id == driver_id).first()
-        if has_dispatch:
-            return jsonify({
-                "error": "No se puede eliminar el chofer porque tiene despachos asociados."
-            }), 409  # Conflicto: está referenciado
-
         db.session.delete(driver)
         db.session.commit()
         return jsonify({"message": "Chofer eliminado correctamente"}), 200
 
     except IntegrityError as e:
         db.session.rollback()
-        # fallback si falló por integridad referencial
         return jsonify({
             "error": "No se puede eliminar el chofer porque está referenciado por otros registros."
         }), 409

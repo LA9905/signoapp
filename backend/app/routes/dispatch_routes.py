@@ -106,6 +106,7 @@ def create_dispatch():
             created_by=user_id,
             paquete_numero=paquete_numero,
             factura_numero=factura_numero,
+            chofer_name=chofer.name,
         )
         new_dispatch.fecha = to_utc_naive(datetime.now(CL_TZ))
 
@@ -190,7 +191,7 @@ def get_dispatches():
             )
 
         if search_driver:
-            query = query.join(Driver).filter(db.func.lower(Driver.name).like(f"%{search_driver}%"))
+            query = query.filter(db.func.lower(Dispatch.chofer_name).like(f"%{search_driver}%"))
 
         if search_invoice:
             query = query.filter(db.func.lower(Dispatch.factura_numero).like(f"%{search_invoice}%"))
@@ -283,7 +284,6 @@ def get_dispatches():
         result = []
         for d in dispatches:
             client = Client.query.get(d.cliente_id)
-            driver = Driver.query.get(d.chofer_id)
             creator = User.query.get(d.created_by)
             derived_status = (
                 "entregado_cliente"
@@ -297,7 +297,7 @@ def get_dispatches():
                     "id": d.id,
                     "orden": d.orden,
                     "cliente": client.name if client else str(d.cliente_id),
-                    "chofer": driver.name if driver else str(d.chofer_id),
+                    "chofer": d.chofer_name,
                     "created_by": creator.name if creator else d.created_by,
                     "fecha": to_local(d.fecha).isoformat(timespec="seconds"),
                     "status": derived_status,
@@ -325,7 +325,6 @@ def get_dispatch_details(dispatch_id):
     try:
         d = Dispatch.query.get_or_404(dispatch_id)
         client = Client.query.get(d.cliente_id)
-        driver = Driver.query.get(d.chofer_id)
         creator = User.query.get(d.created_by)
         derived_status = (
             "entregado_cliente"
@@ -339,7 +338,7 @@ def get_dispatch_details(dispatch_id):
                 "id": d.id,
                 "orden": d.orden,
                 "cliente": client.name if client else str(d.cliente_id),
-                "chofer": driver.name if driver else str(d.chofer_id),
+                "chofer": d.chofer_name,
                 "created_by": creator.name if creator else d.created_by,
                 "fecha": to_local(d.fecha).isoformat(timespec="seconds"),
                 "status": derived_status,
@@ -401,6 +400,7 @@ def update_dispatch(dispatch_id):
             if not chofer:
                 return jsonify({"error": f"Chofer con ID {chofer_id} no encontrado"}), 404
             d.chofer_id = chofer_id
+            d.chofer_name = chofer.name
 
         if "paquete_numero" in data:
             d.paquete_numero = data.get("paquete_numero") or None
@@ -509,7 +509,6 @@ def update_dispatch(dispatch_id):
         db.session.commit()
         # Construir respuesta con nombres, como en get_dispatch_details
         client = Client.query.get(d.cliente_id)
-        driver = Driver.query.get(d.chofer_id)
         creator = User.query.get(d.created_by)
         derived_status = (
             "entregado_cliente"
@@ -522,7 +521,7 @@ def update_dispatch(dispatch_id):
             "id": d.id,
             "orden": d.orden,
             "cliente": client.name if client else str(d.cliente_id),
-            "chofer": driver.name if driver else str(d.chofer_id),
+            "chofer": d.chofer_name,
             "created_by": creator.name if creator else d.created_by,
             "fecha": to_local(d.fecha).isoformat(timespec="seconds"),
             "status": derived_status,
