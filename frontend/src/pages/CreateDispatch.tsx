@@ -8,7 +8,6 @@ import ArrowBackButton from "../components/ArrowBackButton";
 import Webcam from "react-webcam";
 import { api } from "../services/http";
 import type { AxiosError } from "axios";
-
 interface Producto {
   id: string;
   name: string;
@@ -16,29 +15,27 @@ interface Producto {
   unidad: string;
   category?: string;
 }
-
 interface FormularioDespacho {
   orden: string;
   chofer: string;
   cliente: string;
   numero_paquete?: string;
+  numero_factura?: string;
   productos: Producto[];
 }
-
 interface DispatchPayload {
   orden: string;
   cliente: string;
   chofer: string;
   paquete_numero?: string;
+  factura_numero?: string;
   productos: { nombre: string; cantidad: number; unidad: string }[];
   force?: boolean;
 }
-
 interface ApiError {
   error?: string;
   msg?: string;
 }
-
 const CreateDispatch = () => {
   const navigate = useNavigate();
   const [productos, setProductos] = useState<Producto[]>([]);
@@ -46,7 +43,8 @@ const CreateDispatch = () => {
     orden: "",
     chofer: "",
     cliente: "",
-    numero_paquete: "",
+    numero_paquete: undefined,
+    numero_factura: undefined,
     productos: [],
   });
   const [mensaje, setMensaje] = useState<string>("");
@@ -54,7 +52,6 @@ const CreateDispatch = () => {
   const [showCamera, setShowCamera] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null); // Estado para la imagen seleccionada
   const webcamRef = useRef<Webcam>(null);
-
   useEffect(() => {
     api
       .get("/products")
@@ -67,7 +64,7 @@ const CreateDispatch = () => {
               cantidad: 0,
               unidad: "unidades",
               category: p.category,
-              usage: p.usage,  //incluir uso para ordenar en el selector
+              usage: p.usage, //incluir uso para ordenar en el selector
             }))
           );
         } else {
@@ -79,8 +76,8 @@ const CreateDispatch = () => {
 
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    if (name === "numero_paquete") {
-      setForm({ ...form, numero_paquete: value || undefined });
+    if (name === "numero_paquete" || name === "numero_factura") {
+      setForm({ ...form, [name]: value || undefined });
     } else {
       setForm({ ...form, [name]: value });
     }
@@ -124,6 +121,7 @@ const CreateDispatch = () => {
         cliente: form.cliente,
         chofer: form.chofer,
         paquete_numero: form.numero_paquete,
+        factura_numero: form.numero_factura,
         productos: form.productos.map((p) => ({
           nombre: p.name,
           cantidad: p.cantidad,
@@ -141,7 +139,6 @@ const CreateDispatch = () => {
       const formData = new FormData();
       formData.append('data', JSON.stringify(dispatchData));
       images.forEach((img) => formData.append('images', img));
-
       const newProducts = form.productos.filter((p) => !productos.some((ep) => ep.id === p.id));
       for (const product of newProducts) {
         try {
@@ -161,10 +158,9 @@ const CreateDispatch = () => {
       const createResp = await api.post("/dispatches", formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
+      
       const dispatchId: number = createResp.data?.id;
-
       setMensaje("Despacho creado correctamente");
-
       if (dispatchId) {
         const pdfResp = await api.get(`/print/${dispatchId}`, {
           params: { inline: "1", format: "pos80" },
@@ -174,7 +170,6 @@ const CreateDispatch = () => {
         const url = URL.createObjectURL(blob);
         window.open(url, "_blank");
       }
-
       setTimeout(() => navigate("/dashboard"), 2000);
     } catch (err: unknown) {
       const error = err as AxiosError<ApiError>;
@@ -185,7 +180,7 @@ const CreateDispatch = () => {
       }
     }
   };
-
+  
   return (
     <div className="max-w-4xl mx-auto p-6">
       <div className="mb-12">
@@ -193,7 +188,6 @@ const CreateDispatch = () => {
       </div>
       <h2 className="text-xl font-bold mb-4">Crear Despacho</h2>
       {mensaje && <p className="mb-4 text-green-600">{mensaje}</p>}
-
       <form onSubmit={handleSubmit} className="space-y-4">
         <input
           name="orden"
@@ -203,7 +197,7 @@ const CreateDispatch = () => {
           className="w-full border p-2 rounded"
           required
         />
-
+        
         <input
           type="text"
           name="numero_paquete"
@@ -212,23 +206,32 @@ const CreateDispatch = () => {
           className="w-full border p-2 rounded"
           placeholder="Número de paquete (ej. 1/4)"
         />
-
+        
+        <input
+          type="text"
+          name="numero_factura"
+          value={form.numero_factura ?? ""}
+          onChange={handleChange}
+          className="w-full border p-2 rounded"
+          placeholder="Número de factura (opcional)"
+        />
+        
         <ClientSelector
           value={form.cliente}
           onChange={(cliente: string) => setForm({ ...form, cliente })}
         />
-
+        
         <DriverSelector
           value={form.chofer}
           onChange={(id: string) => setForm({ ...form, chofer: id })}
         />
-
+        
         <ProductSelector
           productos={form.productos}
           setProductos={(prods: Producto[]) => setForm({ ...form, productos: prods })}
           existingProductos={productos}
         />
-
+        
         <div className="border p-4 rounded">
           <h3 className="font-bold mb-2">Imágenes (opcional, múltiples)</h3>
           <input type="file" multiple accept="image/*" onChange={handleFileChange} className="mb-2" />
@@ -237,23 +240,24 @@ const CreateDispatch = () => {
           </button>
           {showCamera && (
             <div>
-              <Webcam 
-                audio={false} 
-                screenshotFormat="image/jpeg" 
-                ref={webcamRef} 
-                videoConstraints={{ facingMode: "environment" }}  // Fuerza cámara trasera
+              <Webcam
+                audio={false}
+                screenshotFormat="image/jpeg"
+                ref={webcamRef}
+                videoConstraints={{ facingMode: "environment" }} // Fuerza cámara trasera
               />
               <button type="button" onClick={capturePhoto} className="bg-blue-500 text-white px-4 py-2 rounded">
                 Capturar
               </button>
             </div>
           )}
+          
           <div className="flex flex-wrap gap-2">
             {images.map((img, idx) => (
               <div key={idx}>
-                <img 
-                  src={URL.createObjectURL(img)} 
-                  alt="preview" 
+                <img
+                  src={URL.createObjectURL(img)}
+                  alt="preview"
                   className="w-20 h-20 object-cover cursor-pointer" // Agrega cursor-pointer para indicar click
                   onClick={() => setSelectedImage(URL.createObjectURL(img))} // Abre el modal con la imagen
                 />
@@ -262,25 +266,24 @@ const CreateDispatch = () => {
             ))}
           </div>
         </div>
-
         <button type="submit" className="bg-blue-500 text-white px-4 py-2 rounded">
           Guardar Despacho
         </button>
+      
       </form>
-
       {selectedImage && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50" 
+        <div
+          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50"
           onClick={() => setSelectedImage(null)} // Cierra al click fuera
         >
           <div className="relative max-w-full max-h-full p-4">
-            <img 
-              src={selectedImage} 
-              alt="Imagen en grande" 
+            <img
+              src={selectedImage}
+              alt="Imagen en grande"
               className="max-w-screen-lg max-h-screen object-contain" // Zoomed, ajustado a pantalla
             />
-            <button 
-              className="absolute top-2 right-2 text-white bg-red-600 p-1 rounded-full" 
+            <button
+              className="absolute top-2 right-2 text-white bg-red-600 p-1 rounded-full"
               onClick={() => setSelectedImage(null)}
             >
               <FiX size={15} />
@@ -291,5 +294,4 @@ const CreateDispatch = () => {
     </div>
   );
 };
-
 export default CreateDispatch;

@@ -79,7 +79,8 @@ def create_dispatch():
         cliente_name = data["cliente"]
         chofer_id = int(data["chofer"])
         productos = data.get("productos", [])
-        paquete_numero = data.get("paquete_numero")  # opcional
+        paquete_numero = (data.get("paquete_numero") or "").strip() or None  # opcional
+        factura_numero = (data.get("factura_numero") or "").strip() or None  # opcional
         force = data.get("force", False)  # Para duplicados
 
         cliente_norm = " ".join((cliente_name or "").strip().split())
@@ -104,6 +105,7 @@ def create_dispatch():
             cliente_id=cliente.id,
             created_by=user_id,
             paquete_numero=paquete_numero,
+            factura_numero=factura_numero,
         )
         new_dispatch.fecha = to_utc_naive(datetime.now(CL_TZ))
 
