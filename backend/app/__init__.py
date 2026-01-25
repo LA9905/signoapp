@@ -189,11 +189,21 @@ def create_app():
             return
 
         from app.utils.billing import is_blocked
-        if is_blocked(user):
-            return jsonify({
-                "error": "payment_required",
-                "msg": "Debe pagar la suscripción para seguir usando la app."
-            }), 402
+        # if is_blocked(user):
+        #     return jsonify({
+        #         "error": "payment_required",
+        #         "msg": "Debe pagar la suscripción para seguir usando la app."
+        #     }), 402
+
+        try:
+            if is_blocked(user):
+                current_app.logger.warning(
+                    f"[BILLING] Usuario bloqueado: {user.id} – permitiendo acceso para debug"
+                )
+                return
+        except Exception as e:
+            current_app.logger.error(f"[BILLING ERROR] {e}")
+            return
 
     # Ruta para servir archivos subidos
     @app.route('/uploads/<path:filename>')
