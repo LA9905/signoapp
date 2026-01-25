@@ -32,6 +32,9 @@ def create_app():
     load_dotenv()
 
     app = Flask(__name__)
+    logging.basicConfig(level=logging.DEBUG)
+    app.config["PROPAGATE_EXCEPTIONS"] = True
+
     try:
         app.config.from_object("config.Config")
     except Exception:
