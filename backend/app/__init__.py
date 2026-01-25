@@ -33,7 +33,10 @@ def create_app():
 
     app = Flask(__name__)
     logging.basicConfig(level=logging.DEBUG)
+
+    # 🔥 FORZAR TRACEBACK EN PRODUCCIÓN
     app.config["PROPAGATE_EXCEPTIONS"] = True
+    app.config["TRAP_HTTP_EXCEPTIONS"] = True
 
     try:
         app.config.from_object("config.Config")
