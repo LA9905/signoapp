@@ -28,7 +28,6 @@ def _str_to_bool(v: str, default: bool = False) -> bool:
 
 
 def create_app():
-    # Carga .env desde el root del proyecto
     load_dotenv()
 
     app = Flask(__name__)
@@ -37,6 +36,16 @@ def create_app():
     # 🔥 FORZAR TRACEBACK EN PRODUCCIÓN
     app.config["PROPAGATE_EXCEPTIONS"] = True
     app.config["TRAP_HTTP_EXCEPTIONS"] = True
+
+    # 🔥🔥🔥 HANDLER GLOBAL DE EXCEPCIONES (DEBUG PRODUCCIÓN)
+    import sys
+    import traceback
+
+    @app.errorhandler(Exception)
+    def global_exception_handler(e):
+        print("\n🔥🔥🔥 EXCEPCIÓN GLOBAL CAPTURADA 🔥🔥🔥", file=sys.stderr)
+        traceback.print_exc()
+        raise
 
     try:
         app.config.from_object("config.Config")
