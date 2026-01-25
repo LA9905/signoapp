@@ -187,7 +187,7 @@ def get_dispatches():
             query = query.filter(db.func.lower(Dispatch.orden).like(f"%{search_order}%"))
 
         if search_user:
-            query = query.join(User, cast(User.id, String) == Dispatch.created_by).filter(
+            query = query.outerjoin(User, cast(User.id, String) == Dispatch.created_by).filter(
                 db.func.lower(User.name).like(f"%{search_user}%")
             )
 
@@ -284,7 +284,11 @@ def get_dispatches():
 
         result = []
         for d in dispatches:
-            creator = User.query.get(d.created_by)
+            creator = (
+                User.query.get(int(d.created_by))
+                if d.created_by and str(d.created_by).isdigit()
+                else None
+            )
             derived_status = (
                 "entregado_cliente"
                 if d.delivered_client
@@ -324,7 +328,11 @@ def get_dispatches():
 def get_dispatch_details(dispatch_id):
     try:
         d = Dispatch.query.get_or_404(dispatch_id)
-        creator = User.query.get(d.created_by)
+        creator = (
+            User.query.get(int(d.created_by))
+            if d.created_by and str(d.created_by).isdigit()
+            else None
+        )
         derived_status = (
             "entregado_cliente"
             if d.delivered_client
@@ -508,7 +516,11 @@ def update_dispatch(dispatch_id):
 
         db.session.commit()
         # Construir respuesta con nombres, como en get_dispatch_details
-        creator = User.query.get(d.created_by)
+        creator = (
+            User.query.get(int(d.created_by))
+            if d.created_by and str(d.created_by).isdigit()
+            else None
+        )
         derived_status = (
             "entregado_cliente"
             if d.delivered_client
@@ -576,7 +588,7 @@ def get_monthly_dispatches():
         current_user_id = str(get_jwt_identity())
 
         dispatches = Dispatch.query.filter(
-            Dispatch.created_by == current_user_id,
+            Dispatch.created_by == cast(current_user_id, String),
             Dispatch.fecha >= start_utc_naive,
             Dispatch.fecha <= end_utc_naive
         ).all()
