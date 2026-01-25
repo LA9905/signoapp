@@ -439,13 +439,7 @@ const CreditNoteTracking = () => {
           placeholder="Buscar por motivo"
           className="w-full border p-2 rounded"
         />
-        <input
-          name="user"
-          value={searchState.user}
-          onChange={handleSearchChange}
-          placeholder="Buscar por usuario que creó"
-          className="w-full border p-2 rounded"
-        />
+      
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="block text-sm text-gray-300 mb-1">Desde</label>

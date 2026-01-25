@@ -107,6 +107,7 @@ def create_dispatch():
             paquete_numero=paquete_numero,
             factura_numero=factura_numero,
             chofer_name=chofer.name,
+            cliente_name=cliente.name,
         )
         new_dispatch.fecha = to_utc_naive(datetime.now(CL_TZ))
 
@@ -180,7 +181,7 @@ def get_dispatches():
         query = Dispatch.query
 
         if search_client:
-            query = query.join(Client).filter(db.func.lower(Client.name).like(f"%{search_client}%"))
+            query = query.filter(db.func.lower(Dispatch.cliente_name).like(f"%{search_client}%"))
 
         if search_order:
             query = query.filter(db.func.lower(Dispatch.orden).like(f"%{search_order}%"))
@@ -283,7 +284,6 @@ def get_dispatches():
 
         result = []
         for d in dispatches:
-            client = Client.query.get(d.cliente_id)
             creator = User.query.get(d.created_by)
             derived_status = (
                 "entregado_cliente"
@@ -296,7 +296,7 @@ def get_dispatches():
                 {
                     "id": d.id,
                     "orden": d.orden,
-                    "cliente": client.name if client else str(d.cliente_id),
+                    "cliente": d.cliente_name,
                     "chofer": d.chofer_name,
                     "created_by": creator.name if creator else d.created_by,
                     "fecha": to_local(d.fecha).isoformat(timespec="seconds"),
@@ -324,7 +324,6 @@ def get_dispatches():
 def get_dispatch_details(dispatch_id):
     try:
         d = Dispatch.query.get_or_404(dispatch_id)
-        client = Client.query.get(d.cliente_id)
         creator = User.query.get(d.created_by)
         derived_status = (
             "entregado_cliente"
@@ -337,7 +336,7 @@ def get_dispatch_details(dispatch_id):
             {
                 "id": d.id,
                 "orden": d.orden,
-                "cliente": client.name if client else str(d.cliente_id),
+                "cliente": d.cliente_name,
                 "chofer": d.chofer_name,
                 "created_by": creator.name if creator else d.created_by,
                 "fecha": to_local(d.fecha).isoformat(timespec="seconds"),
@@ -393,6 +392,7 @@ def update_dispatch(dispatch_id):
                 db.session.add(cliente)
                 db.session.flush()
             d.cliente_id = cliente.id
+            d.cliente_name = cliente.name
 
         if "chofer" in data and data["chofer"]:
             chofer_id = int(data["chofer"])
@@ -508,7 +508,6 @@ def update_dispatch(dispatch_id):
 
         db.session.commit()
         # Construir respuesta con nombres, como en get_dispatch_details
-        client = Client.query.get(d.cliente_id)
         creator = User.query.get(d.created_by)
         derived_status = (
             "entregado_cliente"
@@ -520,7 +519,7 @@ def update_dispatch(dispatch_id):
         response_data = {
             "id": d.id,
             "orden": d.orden,
-            "cliente": client.name if client else str(d.cliente_id),
+            "cliente": d.cliente_name,
             "chofer": d.chofer_name,
             "created_by": creator.name if creator else d.created_by,
             "fecha": to_local(d.fecha).isoformat(timespec="seconds"),

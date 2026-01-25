@@ -75,10 +75,6 @@ def delete_client(client_id):
         db.session.delete(client)
         db.session.commit()
         return jsonify({"message": "Cliente eliminado"}), 200
-    except IntegrityError:
-        db.session.rollback()
-        # FK (despachos) referencian a este cliente
-        return jsonify({"error": "No se puede eliminar el cliente porque está referenciado por otros registros"}), 409
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": "No se pudo eliminar el cliente", "details": str(e)}), 500

@@ -6,7 +6,8 @@ class CreditNote(db.Model):
     __tablename__ = 'credit_note'
 
     id = db.Column(db.Integer, primary_key=True)
-    client_id = db.Column(db.Integer, db.ForeignKey('client.id'), nullable=False)
+    client_id = db.Column(db.Integer, db.ForeignKey('client.id', ondelete="SET NULL"), nullable=True)
+    client_name = db.Column(db.String(100), nullable=False)
     order_number = db.Column(db.String(50), nullable=False)
     invoice_number = db.Column(db.String(50), nullable=False)
     credit_note_number = db.Column(db.String(50), nullable=False)
