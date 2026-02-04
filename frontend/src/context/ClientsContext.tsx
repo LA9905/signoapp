@@ -1,4 +1,3 @@
-// src/context/ClientsContext.tsx
 import React, { createContext, useContext, useCallback, useState } from "react";
 import { api } from "../services/http";
 

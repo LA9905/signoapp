@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getBillingStatus, markPaid, getAllUsers, markPaidMultiple, blockMultiple, type BillingUser } from "../services/billingService";
+import { getBillingStatus, markPaid, getAllUsers, markPaidMultiple, blockMultiple, deleteUsers, type BillingUser } from "../services/billingService";
 import { me } from "../services/authService";
 import ArrowBackButton from "../components/ArrowBackButton";
 
@@ -78,6 +78,29 @@ const AdminBilling = () => {
       setMsg("Error al bloquear usuarios");
     }
   };
+
+  const doDeleteSelected = async () => {
+  if (selectedIds.length === 0) {
+    setMsg("Selecciona al menos un usuario para eliminar");
+    return;
+  }
+
+  const confirmDelete = window.confirm(
+    `¡ATENCIÓN! Estás a punto de eliminar permanentemente a ${selectedIds.length} usuario(s). Esta acción no se puede deshacer. ¿Deseas continuar?`
+  );
+
+  if (!confirmDelete) return;
+
+  try {
+    await deleteUsers({ user_ids: selectedIds });
+    setMsg(`Éxito: ${selectedIds.length} usuario(s) eliminado(s) por completo.`);
+    setSelectedIds([]); 
+    await loadAllUsers(); 
+    if (info) setInfo(null);
+  } catch (error) {
+    setMsg("Error al intentar eliminar los usuarios.");
+  }
+};
 
   const doUnblockNonSelected = async () => {
     const allIds = users.map(u => u.id);
@@ -164,8 +187,23 @@ const AdminBilling = () => {
           <h3 className="text-xl font-bold mb-2">Usuarios registrados (selecciona para mantener bloqueados)</h3>
           <table className="w-full border-collapse border">
             <thead>
-              <tr className="bg-blue-500">
-                <th className="border p-2">Mantener bloqueado</th>
+              <tr className="bg-blue-500 text-white">
+                <th className="border p-2">
+                  <div className="flex flex-col items-center gap-1">
+                    <span className="text-[10px] uppercase">Todos</span>
+                    <input
+                      type="checkbox"
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedIds(users.map(u => u.id));
+                        } else {
+                          setSelectedIds([]);
+                        }
+                      }}
+                      checked={selectedIds.length === users.length && users.length > 0}
+                    />
+                  </div>
+                </th>
                 <th className="border p-2">Nombre</th>
                 <th className="border p-2">Email</th>
                 <th className="border p-2">Cubierto hasta</th>
@@ -241,6 +279,26 @@ const AdminBilling = () => {
           </div>
           <button onClick={doMarkPaidGlobal} className="bg-emerald-600 text-white px-4 py-2 rounded h-10">
             Desbloquear global
+          </button>
+        </div>
+      </div>
+
+      {/* Sección para Eliminar Usuarios */}
+      <div className="mt-6 border-2 border-red-200 rounded p-4 bg-red-50">
+        <div className="grid sm:grid-cols-3 gap-3 items-center">
+          <div className="sm:col-span-2">
+            <label className="block text-sm font-bold text-red-700 mb-1">Zona de Peligro</label>
+            <p className="text-xs text-red-600">Eliminar los usuarios seleccionados de la base de datos de forma permanente.</p>
+          </div>
+          <button
+            onClick={doDeleteSelected}
+            className="bg-red-700 hover:bg-red-800 text-white px-4 py-2 rounded h-12 font-bold transition-colors disabled:opacity-50"
+            disabled={selectedIds.length === 0}
+          >
+            {selectedIds.length === 0 
+              ? "Seleccionar para eliminar" 
+              : `Eliminar ${selectedIds.length} usuario${selectedIds.length > 1 ? 's' : ''}`
+            }
           </button>
         </div>
       </div>

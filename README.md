@@ -125,7 +125,7 @@ python start.py
 # O con Flask CLI
 export FLASK_APP=app
 flask run
-Frontend
+Frontend.
 Bashcd frontend
 npm install
 npm run dev
