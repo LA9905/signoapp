@@ -1,4 +1,3 @@
-// src/services/clientService.ts
 import { api } from "./http";
 
 export type Client = { id: number; name: string; created_by: number };

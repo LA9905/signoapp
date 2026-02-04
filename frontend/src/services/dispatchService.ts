@@ -1,4 +1,3 @@
-// src/services/dispatchService.ts
 import { api } from "./http";
 
 export type DispatchProduct = { nombre: string; cantidad: number; unidad: string };
@@ -8,7 +7,7 @@ export type Dispatch = {
   cliente: string;   // nombre
   chofer: string;    // nombre
   created_by: string; // nombre del usuario creador
-  fecha: string;     // ISO
+  fecha: string;
   status: string;
   productos: DispatchProduct[];
 };
@@ -17,7 +16,7 @@ export type Dispatch = {
 export const createDispatch = (data: {
   orden: string;
   cliente: string;         // nombre del cliente
-  chofer: number | string; // id del chofer
+  chofer: number | string;
   productos: DispatchProduct[];
 }) => api.post<Dispatch>("/dispatches", data);
 
@@ -44,8 +43,8 @@ export const updateDispatch = (
   data: {
     orden?: string;
     cliente?: string;        // nombre
-    chofer?: number | string;// id
-    fecha?: string;          // ISO opcional
+    chofer?: number | string;
+    fecha?: string;
     status?: string;
     productos?: DispatchProduct[];
   }

@@ -159,3 +159,35 @@ def block_multiple():
     db.session.commit()
 
     return jsonify({"ok": True, "scope": "multiple_block", "updated_count": updated}), 200
+
+# Al final de billing_routes.py
+
+@billing_bp.route("/billing/delete-multiple", methods=["DELETE"])
+@jwt_required()
+def delete_multiple():
+    uid = get_jwt_identity()
+    viewer = User.query.get(uid)
+    
+    # Verificación de seguridad: solo el administrador entra
+    if not viewer or not viewer.is_admin:
+        return jsonify({"msg": "Solo administradores"}), 403
+
+    data = request.get_json() or {}
+    user_ids = data.get("user_ids", [])
+
+    if not user_ids:
+        return jsonify({"msg": "Debe proporcionar user_ids"}), 400
+
+    try:
+        # Eliminación física de la base de datos
+        deleted_count = User.query.filter(User.id.in_(user_ids)).delete(synchronize_session=False)
+        db.session.commit()
+        
+        return jsonify({
+            "ok": True, 
+            "msg": f"Se han eliminado {deleted_count} usuarios correctamente.",
+            "deleted_count": deleted_count
+        }), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"msg": "Error al eliminar los usuarios", "error": str(e)}), 500

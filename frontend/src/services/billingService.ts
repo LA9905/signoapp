@@ -27,3 +27,6 @@ export const markPaidMultiple = (payload: { user_ids: number[]; until: string })
 
 export const blockMultiple = (payload: { user_ids: number[] }) =>
   api.post("/billing/block-multiple", payload);
+
+export const deleteUsers = (payload: { user_ids: number[] }) =>
+  api.delete("/billing/delete-multiple", { data: payload });
