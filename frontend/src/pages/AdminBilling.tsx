@@ -7,12 +7,7 @@ function nextCutDate(dueDay = 8): string {
   const now = new Date();
   const y = now.getFullYear();
   const m = now.getMonth();
-  const todayDay = now.getDate();
-  const target = new Date(y, m, dueDay);
-  if (todayDay > dueDay) {
-    return new Date(y, m + 1, dueDay).toISOString().slice(0, 10);
-  }
-  return target.toISOString().slice(0, 10);
+  return new Date(y, m, dueDay).toISOString().slice(0, 10);
 }
 
 const AdminBilling = () => {
