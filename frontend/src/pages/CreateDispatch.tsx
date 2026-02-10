@@ -173,6 +173,7 @@ const CreateDispatch = () => {
       setTimeout(() => navigate("/dashboard"), 2000);
     } catch (err: unknown) {
       const error = err as AxiosError<ApiError>;
+      console.log("Error response:", error.response?.data);
       if (error.response?.status === 409 && error.response?.data?.error === "duplicate_order") {
         setMensaje(error.response.data?.msg || "Ya existe un despacho");
       } else {

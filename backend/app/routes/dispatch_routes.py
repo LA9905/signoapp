@@ -7,7 +7,8 @@ from app.models.user_model import User
 from app.models.product_model import Product
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from datetime import datetime, timedelta
-from sqlalchemy import cast, String, func
+from sqlalchemy import cast, String, func, exists
+import traceback
 from app.utils.timezone import (
     to_local,
     month_start_local_now,
@@ -107,6 +108,7 @@ def create_dispatch():
             paquete_numero=paquete_numero,
             factura_numero=factura_numero,
             chofer_name=chofer.name,
+            cliente_name=cliente.name,
         )
         new_dispatch.fecha = to_utc_naive(datetime.now(CL_TZ))
 
@@ -153,6 +155,7 @@ def create_dispatch():
 
     except Exception as e:
         db.session.rollback()
+        print(traceback.format_exc())
         return jsonify({"error": "Error interno del servidor", "details": str(e)}), 500
 
 # ----------------------------
@@ -167,6 +170,7 @@ def get_dispatches():
         search_user = (request.args.get("user") or "").lower()
         search_driver = (request.args.get("driver") or "").lower()
         search_invoice = (request.args.get("invoice") or "").lower()
+        search_product = (request.args.get("product") or "").lower()
         
         # Paginación
         page = int(request.args.get("page", 1))
@@ -196,7 +200,14 @@ def get_dispatches():
         if search_invoice:
             query = query.filter(db.func.lower(Dispatch.factura_numero).like(f"%{search_invoice}%"))
 
-        # Filtro de fecha robusto (sin cambios)
+        if search_product:
+            subq = exists().where(
+                DispatchProduct.dispatch_id == Dispatch.id,
+                db.func.lower(DispatchProduct.nombre).like(f"%{search_product}%")
+            )
+            query = query.filter(subq)
+
+        # Filtro de fecha robusto
         apply_local_window_check = False
         win_start_local = None
         win_end_local = None
@@ -308,7 +319,7 @@ def get_dispatches():
                     "productos": [
                         {"nombre": p.nombre, "cantidad": p.cantidad, "unidad": p.unidad} for p in d.productos
                     ],
-                    "images": [i.to_dict() for i in d.images],  # CORRECCIÓN: Incluir imágenes
+                    "images": [i.to_dict() for i in d.images],
                 }
             )
         return jsonify(result), 200

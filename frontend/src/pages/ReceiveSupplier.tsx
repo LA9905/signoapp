@@ -19,7 +19,6 @@ interface FormularioRecepcion {
   productos: Producto[];
 }
 
-// Nuevo tipo para el payload que incluye force como opcional y ajusta productos
 interface Payload {
   orden: string;
   supplier: string;

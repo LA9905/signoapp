@@ -27,6 +27,7 @@ export const getDispatches = (filters?: {
   user?: string;
   driver?: string;
   date?: string; // YYYY-MM-DD
+  product?: string;
 }) => api.get<Dispatch[]>("/dispatches", { params: filters });
 
 // Detalle

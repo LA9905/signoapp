@@ -47,6 +47,7 @@ type SearchState = {
   invoice: string;
   date_from: string;
   date_to: string;
+  product: string;
 };
 
 const btnIcon = "rounded-full p-2 bg-white/10 text-white border border-white/50 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-neutral-900";
@@ -85,6 +86,7 @@ const Tracking = () => {
     invoice: "",
     date_from: "",
     date_to: "",
+    product: "",
   });
 
   const [debouncedSearch, setDebouncedSearch] = useState<SearchState>(searchState);
@@ -585,6 +587,14 @@ const Tracking = () => {
           value={searchState.driver}
           onChange={handleSearchChange}
           placeholder="Buscar por nombre del chofer"
+          className="w-full border p-2 rounded"
+        />
+
+        <input 
+          name="product"
+          value={searchState.product || ""}
+          onChange={handleSearchChange}
+          placeholder="Buscar por nombre del producto"
           className="w-full border p-2 rounded"
         />
 
