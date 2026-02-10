@@ -108,7 +108,7 @@ def create_dispatch():
             paquete_numero=paquete_numero,
             factura_numero=factura_numero,
             chofer_name=chofer.name,
-            cliente_name=cliente.name,
+            # cliente_name=cliente.name,
         )
         new_dispatch.fecha = to_utc_naive(datetime.now(CL_TZ))
 
