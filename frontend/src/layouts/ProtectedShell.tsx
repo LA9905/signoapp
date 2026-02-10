@@ -56,11 +56,7 @@ const Paywall: React.FC<{
 
 function nextCutDate(dueDay = 8): string {
   const now = new Date();
-  const base = new Date(now.getFullYear(), now.getMonth(), dueDay);
-  if (now.getDate() > dueDay) {
-    return new Date(now.getFullYear(), now.getMonth() + 1, dueDay).toISOString().slice(0, 10);
-  }
-  return base.toISOString().slice(0, 10);
+  return new Date(now.getFullYear(), now.getMonth(), dueDay).toISOString().slice(0, 10);
 }
 
 const ProtectedShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -107,7 +103,7 @@ const ProtectedShell: React.FC<{ children: React.ReactNode }> = ({ children }) =
     try {
       setBusy(true);
       const until = nextCutDate(myDueDay);
-      // 👇 GLOBAL: sin email => habilita a toda la empresa
+      // GLOBAL: sin email => habilita a toda la empresa
       await markPaid({ until });
       await refreshStatus();
     } catch {

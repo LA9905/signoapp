@@ -12,10 +12,11 @@ def _cutoff_for_month(today: date, due_day: Optional[int]) -> date:
 def is_blocked(user, today: Optional[date] = None) -> bool:
     """
     Reglas:
-    - Si el usuario NO tiene subscription_paid_until → bloqueado
-    - Si tiene, pero la fecha es anterior al día de corte del MES ACTUAL → bloqueado
-    - El día de corte es configurable por usuario (default 8)
-    - Funciona aunque hoy sea día 1, 5 o 20 del mes
+    - Si el usuario NO tiene subscription_paid_until → bloqueado inmediatamente (usuarios nuevos).
+    - Bloqueado solo si la fecha actual >= día de corte del mes actual Y subscription_paid_until < corte del mes actual.
+    - Esto permite un período de gracia del 1 al 7 (o hasta due_day-1), y bloquea a partir del due_day si no se marcó el pago.
+    - El día de corte es configurable por usuario (default 8).
+    - Funciona aunque hoy sea día 1, 5 o 20 del mes.
     """
     if user is None:
         return True
@@ -34,5 +35,5 @@ def is_blocked(user, today: Optional[date] = None) -> bool:
     if paid_until is None:
         return True
 
-    # Si el pago cubre hasta un mes anterior al actual → bloqueado
-    return paid_until < cutoff_this_month
+    # Bloqueado solo a partir del día de corte si el pago no cubre el mes actual
+    return today >= cutoff_this_month and paid_until < cutoff_this_month

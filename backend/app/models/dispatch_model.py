@@ -9,8 +9,8 @@ class Dispatch(db.Model):
     orden = db.Column(db.String(50), nullable=False)
     chofer_id = db.Column(db.Integer, db.ForeignKey('driver.id', ondelete="SET NULL"), nullable=True)
     chofer_name = db.Column(db.String(100), nullable=False)
-    cliente_id = db.Column(db.Integer, db.ForeignKey('client.id', ondelete="SET NULL"), nullable=True)
-    cliente_name = db.Column(db.String(100), nullable=False)
+    cliente_id = db.Column(db.Integer, db.ForeignKey('client.id'), nullable=False)
+    # cliente_name = db.Column(db.String(100), nullable=False)
     # Guardamos UTC naive en DB
     fecha = db.Column(db.DateTime, default=utcnow)
     created_by = db.Column(db.String(50), nullable=False)
