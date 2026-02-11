@@ -9,26 +9,25 @@ class Dispatch(db.Model):
     orden = db.Column(db.String(50), nullable=False)
     chofer_id = db.Column(db.Integer, db.ForeignKey('driver.id', ondelete="SET NULL"), nullable=True)
     chofer_name = db.Column(db.String(100), nullable=False)
-    cliente_id = db.Column(db.Integer, db.ForeignKey('client.id'), nullable=False)
-    # cliente_name = db.Column(db.String(100), nullable=False)
-    # Guardamos UTC naive en DB
-    fecha = db.Column(db.DateTime, default=utcnow)
+    cliente_id = db.Column(db.Integer, db.ForeignKey('client.id', ondelete="SET NULL"), nullable=True)
+    client_name = db.Column(db.String(100), nullable=False) 
+    fecha = db.Column(db.DateTime, nullable=False, default=utcnow)
+    
     created_by = db.Column(db.String(50), nullable=False)
+    paquete_numero = db.Column(db.String(50), nullable=True)
+    factura_numero = db.Column(db.String(50), nullable=True)
 
-    paquete_numero = db.Column(db.String(50), nullable=True)          # p.ej. 1, 2, 3...
-    factura_numero = db.Column(db.String(50), nullable=True)       # editable luego del despacho
-
-    # Estado base (compatibilidad)
     status = db.Column(db.String(30), default='pendiente')
 
     # Hitos irreversibles
     delivered_driver = db.Column(db.Boolean, nullable=False, default=False)
     delivered_client = db.Column(db.Boolean, nullable=False, default=False)
-    delivered_driver_at = db.Column(db.DateTime, nullable=True)  # UTC naive
-    delivered_client_at = db.Column(db.DateTime, nullable=True)  # UTC naive
+    delivered_driver_at = db.Column(db.DateTime, nullable=True)
+    delivered_client_at = db.Column(db.DateTime, nullable=True)
 
-    productos = db.relationship('DispatchProduct', backref='dispatch', lazy=True)
-    images = db.relationship('DispatchImage', backref='dispatch', lazy=True, cascade="all, delete-orphan")  #Relación con imágenes
+    # Relaciones
+    productos = db.relationship('DispatchProduct', backref='dispatch', lazy=True, cascade="all, delete-orphan")
+    images = db.relationship('DispatchImage', backref='dispatch', lazy=True, cascade="all, delete-orphan")
 
     def to_dict(self):
         derived_status = (
@@ -40,7 +39,9 @@ class Dispatch(db.Model):
             'id': self.id,
             'orden': self.orden,
             'chofer_id': self.chofer_id,
+            'chofer_name': self.chofer_name,
             'cliente_id': self.cliente_id,
+            'cliente': self.client_name, # El frontend recibe "cliente"
             'fecha': to_local(self.fecha).isoformat(timespec="seconds"),
             'created_by': self.created_by,
             'status': derived_status,
@@ -49,9 +50,8 @@ class Dispatch(db.Model):
             'paquete_numero': self.paquete_numero,
             'factura_numero': self.factura_numero,
             'productos': [p.to_dict() for p in self.productos],
-            'images': [i.to_dict() for i in self.images]  #Incluir imágenes
+            'images': [i.to_dict() for i in self.images]
         }
-
 
 class DispatchProduct(db.Model):
     __tablename__ = 'dispatch_product'
@@ -70,13 +70,12 @@ class DispatchProduct(db.Model):
             'unidad': self.unidad
         } 
 
-# Modelo para imágenes de despachos
 class DispatchImage(db.Model):
     __tablename__ = 'dispatch_image'
 
     id = db.Column(db.Integer, primary_key=True)
     dispatch_id = db.Column(db.Integer, db.ForeignKey('dispatch.id'), nullable=False)
-    image_url = db.Column(db.String(255), nullable=False)  # URL de Cloudinary
+    image_url = db.Column(db.String(255), nullable=False)
     uploaded_at = db.Column(db.DateTime, default=utcnow)
 
     def to_dict(self):

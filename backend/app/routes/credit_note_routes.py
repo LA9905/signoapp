@@ -45,6 +45,7 @@ def create_credit_note():
 
         new_credit_note = CreditNote(
             client_id=client.id,
+            client_name=client.name,
             order_number=order_number,
             invoice_number=invoice_number,
             credit_note_number=credit_note_number,
@@ -155,7 +156,7 @@ def get_credit_notes():
             result.append(
                 {
                     "id": cn.id,
-                    "client": client.name if client else str(cn.client_id),
+                    "client": client.name if client else cn.client_name,
                     "order_number": cn.order_number,
                     "invoice_number": cn.invoice_number,
                     "credit_note_number": cn.credit_note_number,
@@ -224,6 +225,7 @@ def update_credit_note(credit_note_id):
             db.session.add(client)
             db.session.flush()
         credit_note.client_id = client.id
+        credit_note.client_name = client.name
 
         # Actualizar otros campos
         credit_note.order_number = data["order_number"]

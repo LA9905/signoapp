@@ -1,4 +1,3 @@
-// src/pages/Clients.tsx
 import { useEffect, useState, type FormEvent, type ChangeEvent } from "react";
 import { FaRegEdit, FaTrashAlt, FaSave, FaTimes } from "react-icons/fa";
 import ArrowBackButton from "../components/ArrowBackButton";
@@ -14,7 +13,7 @@ const Clients = () => {
   const [editName, setEditName] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
 
-  // 🔎 NUEVO: estado de búsqueda
+  // estado de búsqueda
   const [search, setSearch] = useState("");
 
   useEffect(() => {
@@ -31,8 +30,6 @@ const Clients = () => {
       setSubmitting(true);
       await createClient(trimmed);
       setName("");
-      // si tu provider no auto-actualiza, descomenta:
-      // await refresh();
     } catch (err: any) {
       console.error("Error adding client:", err);
       alert(err?.response?.data?.error || "No se pudo crear el cliente");
@@ -62,8 +59,6 @@ const Clients = () => {
       setSavingEdit(true);
       await updateClient(id, trimmed);
       cancelEdit();
-      // si tu provider no auto-actualiza, descomenta:
-      // await refresh();
     } catch (err: any) {
       console.error("Error updating client:", err);
       alert(err?.response?.data?.error || "No se pudo actualizar el cliente");
@@ -76,15 +71,13 @@ const Clients = () => {
     if (!window.confirm("¿Eliminar este cliente?")) return;
     try {
       await deleteClient(id);
-      // si tu provider no auto-actualiza, descomenta:
-      // await refresh();
     } catch (err: any) {
       console.error("Error deleting client:", err);
       alert(err?.response?.data?.error || "No se pudo eliminar el cliente");
     }
   };
 
-  // 🔎 NUEVO: filtrado por nombre (case-insensitive, ignora espacios extra)
+  // filtrado por nombre
   const normalizedQuery = search.trim().toLowerCase();
   const filteredClients = normalizedQuery
     ? clients.filter((c) => (c.name || "").toLowerCase().includes(normalizedQuery))
@@ -97,7 +90,6 @@ const Clients = () => {
       </div>
       <h2 className="text-2xl font-semibold mb-4">Lista de Centro de Costos</h2>
 
-      {/* 🔎 NUEVO: barra de búsqueda */}
       <input
         type="text"
         placeholder="Buscar centro de costo por nombre..."
