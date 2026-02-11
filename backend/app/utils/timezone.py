@@ -12,8 +12,7 @@ def utcnow():
 def to_local(dt: datetime) -> datetime:
     """
     Convierte a hora local de Chile.
-    Si dt es naive, detecta heurísticamente si está en local o en UTC
-    (útil mientras conviven datos históricos grabados de ambas formas).
+    Si dt es naive, se asume que está en UTC (ya que los datos nuevos se almacenan como UTC naive).
     """
     if dt is None:
         return dt
@@ -22,22 +21,8 @@ def to_local(dt: datetime) -> datetime:
     if dt.tzinfo is not None:
         return dt.astimezone(CL_TZ)
 
-    # Heurística para naive:
-    # Comparamos qué interpretación (UTC vs Local) queda más “cerca” del ahora.
-    now_local = datetime.now(CL_TZ).replace(tzinfo=None)
-    now_utc   = datetime.utcnow().replace(tzinfo=None)
-
-    # Distancias absolutas en segundos
-    diff_as_local = abs((dt - now_local).total_seconds())
-    diff_as_utc   = abs((dt - now_utc).total_seconds())
-
-    # Margen de 30 minutos para evitar falsos positivos
-    if diff_as_local + 1800 < diff_as_utc:
-        # Parece ya en hora local → solo “poner” la zona
-        return dt.replace(tzinfo=CL_TZ)
-    else:
-        # Parece UTC → convertir a local
-        return dt.replace(tzinfo=UTC).astimezone(CL_TZ)
+    # Para naive: asumir UTC y convertir a local
+    return dt.replace(tzinfo=UTC).astimezone(CL_TZ)
 
 def month_start_local_now() -> datetime:
     now_local = datetime.now(CL_TZ)
