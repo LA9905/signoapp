@@ -106,11 +106,8 @@ def generar_hoja_despacho(d: dict) -> BytesIO:
 
     # Folio claro y separado
     c.setFont("Helvetica", 10)
-    c.setFillColor(colors.grey)
     y_folio = y_top - 12 * mm
     c.drawRightString(W - M, y_folio, f"Folio: {d.get('folio','')}")
-    c.setFillColor(colors.black)
-
     # Altura mínima para header
     header_used_h = max(header_used_h, 16 * mm)
 
@@ -249,10 +246,8 @@ def generar_etiqueta_despacho(d: dict, size: str = "4x6") -> BytesIO:
 
     # Folio
     c.setFont("Helvetica", 9.5)
-    c.setFillColor(colors.grey)
     y_folio = y_top - 10 * mm
     c.drawRightString(PAGE_W - Mx, y_folio, f"Folio: {d.get('folio','')}")
-    c.setFillColor(colors.black)
 
     # Reservar altura mínima para header
     header_used_h = max(header_used_h, 14 * mm)
@@ -504,9 +499,7 @@ def generar_ticket_pos80(d: dict) -> BytesIO:
 
     # Folio (gris)
     c.setFont("Helvetica", 9.5)
-    c.setFillColor(colors.grey)
     c.drawRightString(W - Mx, y - 10 * mm, f"Folio: {d.get('folio','')}")
-    c.setFillColor(colors.black)
 
     y -= used_h + 3 * mm
 
