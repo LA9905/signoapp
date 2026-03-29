@@ -8,6 +8,7 @@ export type BillingUser = {
   due_day: number;
   subscription_paid_until: string | null;
   blocked: boolean;
+  can_edit_stock: boolean;
 };
 
 export const getBillingStatus = (email?: string) =>
@@ -30,3 +31,6 @@ export const blockMultiple = (payload: { user_ids: number[] }) =>
 
 export const deleteUsers = (payload: { user_ids: number[] }) =>
   api.delete("/billing/delete-multiple", { data: payload });
+
+export const setStockPermission = (payload: { user_ids: number[]; can_edit_stock: boolean }) =>
+  api.post("/billing/set-stock-permission", payload);

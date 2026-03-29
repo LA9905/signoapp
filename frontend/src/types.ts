@@ -7,4 +7,5 @@ export interface MeResp {
   is_limited: boolean;
   subscription_paid_until: string | null;
   due_day: number | null;
+  can_edit_stock: boolean;
 }

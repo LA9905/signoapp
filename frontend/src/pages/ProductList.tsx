@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { FaRegEdit, FaTrashAlt, FaSave, FaTimes } from "react-icons/fa";
 import ArrowBackButton from "../components/ArrowBackButton";
 import { api } from "../services/http";
+import { me } from "../services/authService";
 import * as XLSX from "xlsx";  //para generar Excel
 
 interface Product {
@@ -58,6 +59,7 @@ const ProductList = () => {
   const [editName, setEditName] = useState("");
   const [editCategory, setEditCategory] = useState("");
   const [loading, setLoading] = useState(false);
+  const [canEditStock, setCanEditStock] = useState(false);
 
   // NUEVO: filtro por categoría ("" = todas)
   const [categoryFilter, setCategoryFilter] = useState<string>("");
@@ -86,6 +88,10 @@ const ProductList = () => {
     return () => window.removeEventListener("focus", onFocus);
   }, []);
 
+  useEffect(() => {
+    me().then(res => setCanEditStock(!!res.data.can_edit_stock)).catch(() => setCanEditStock(false));
+  }, []);
+  
   // FILTRADO: por nombre + (opcional) por categoría
   const filtered = products.filter((p) => {
     const matchName = p.name.toLowerCase().includes(search.toLowerCase());
@@ -371,6 +377,7 @@ const ProductList = () => {
                     <div className="flex items-center gap-2 mr-3">
                       {/* Botón "-" o input para restar */}
                       {!adj || adj.mode !== "sub" ? (
+                        canEditStock ? (
                         <button
                           className="px-2 py-1 rounded border border-gray-600 text-white hover:text-red-300"
                           title="Restar"
@@ -378,6 +385,7 @@ const ProductList = () => {
                         >
                           -
                         </button>
+                        ) : null
                       ) : (
                         <input
                           autoFocus
@@ -409,6 +417,7 @@ const ProductList = () => {
 
                       {/* Botón "+" o input para sumar */}
                       {!adj || adj.mode !== "add" ? (
+                        canEditStock ? (
                         <button
                           className="px-2 py-1 rounded border border-gray-600 text-white hover:text-emerald-300"
                           title="Sumar"
@@ -416,6 +425,7 @@ const ProductList = () => {
                         >
                           +
                         </button>
+                        ) : null
                       ) : (
                         <input
                           autoFocus
@@ -446,26 +456,26 @@ const ProductList = () => {
                       )}
 
                       {/* Set directo del stock total (controlado) */}
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        className="w-24 border p-1 rounded bg-white/5 border-white/10 text-right"
-                        value={stockValue}
-                        onFocus={() => setStockDraft(product.id, String(product.stock ?? 0))}
-                        onChange={(e) => setStockDraft(product.id, e.target.value)}
-                        onBlur={() => commitSetStock(product)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            commitSetStock(product);
-                          } else if (e.key === "Escape") {
-                            e.preventDefault();
-                            // cancelar y volver a seguir el store
-                            setStockDraft(product.id, undefined);
-                          }
-                        }}
-                        title="Escribe un valor total y presiona Enter o sal del campo para fijar stock"
-                      />
+                      {canEditStock ? (
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          className="w-24 border p-1 rounded bg-white/5 border-white/10 text-right"
+                          value={stockValue}
+                          onFocus={() => setStockDraft(product.id, String(product.stock ?? 0))}
+                          onChange={(e) => setStockDraft(product.id, e.target.value)}
+                          onBlur={() => commitSetStock(product)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") { e.preventDefault(); commitSetStock(product); }
+                            else if (e.key === "Escape") { e.preventDefault(); setStockDraft(product.id, undefined); }
+                          }}
+                          title="Escribe un valor total y presiona Enter o sal del campo para fijar stock"
+                        />
+                      ) : (
+                        <span className="w-24 border p-1 rounded bg-white/5 border-white/10 text-right inline-block text-sm">
+                          {stockValue}
+                        </span>
+                      )}
                     </div>
 
                     <div className="flex items-center gap-2">

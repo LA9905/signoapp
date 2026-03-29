@@ -103,8 +103,9 @@ def me():
         "email": user.email,
         "avatar_url": user.avatar_url,
         "is_admin": user.is_admin,
-        "is_limited": is_limited,  # Nuevo campo para identificar usuarios limitados
+        "is_limited": is_limited,  # para identificar usuarios limitados
         "subscription_paid_until": user.subscription_paid_until.isoformat() if user.subscription_paid_until else None,
+        "can_edit_stock": user.can_edit_stock, # campo de permiso para editar stock
         "due_day": user.due_day,
     }), 200
 
