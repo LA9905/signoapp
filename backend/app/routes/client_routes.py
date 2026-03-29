@@ -75,6 +75,7 @@ def delete_client(client_id):
         db.session.delete(client)
         db.session.commit()
         return jsonify({"message": "Cliente eliminado"}), 200
+    
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": "No se pudo eliminar el cliente", "details": str(e)}), 500

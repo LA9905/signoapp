@@ -109,7 +109,7 @@ def get_credit_notes():
         query = CreditNote.query
 
         if search_client:
-            query = query.join(Client).filter(db.func.lower(Client.name).like(f"%{search_client}%"))
+            query = query.filter(db.func.lower(CreditNote.client_name).like(f"%{search_client}%"))
 
         if search_order:
             query = query.filter(db.func.lower(CreditNote.order_number).like(f"%{search_order}%"))
@@ -128,7 +128,8 @@ def get_credit_notes():
                 db.func.lower(User.name).like(f"%{search_user}%")
             )
 
-        if date_from_str and date_to_str:
+        if date_from_str:
+            date_to_str = date_to_str or date_from_str  # Si no hay "hasta", asumir igual a "desde"
             try:
                 d_from = datetime.strptime(date_from_str, "%Y-%m-%d")
                 d_to = datetime.strptime(date_to_str, "%Y-%m-%d")
@@ -157,7 +158,7 @@ def get_credit_notes():
             result.append(
                 {
                     "id": cn.id,
-                    "client": cn.client_name,
+                    "client": client.name if client else cn.client_name,
                     "order_number": cn.order_number,
                     "invoice_number": cn.invoice_number,
                     "credit_note_number": cn.credit_note_number,

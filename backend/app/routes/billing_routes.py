@@ -107,6 +107,7 @@ def get_all_users():
                 "email": u.email,
                 "subscription_paid_until": u.subscription_paid_until.isoformat() if u.subscription_paid_until else None,
                 "blocked": is_blocked(u),
+                "can_edit_stock": u.can_edit_stock,
             }
             for u in users
         ]
@@ -191,3 +192,25 @@ def delete_multiple():
     except Exception as e:
         db.session.rollback()
         return jsonify({"msg": "Error al eliminar los usuarios", "error": str(e)}), 500
+
+
+@billing_bp.route("/billing/set-stock-permission", methods=["POST"])
+@jwt_required()
+def set_stock_permission():
+    uid = get_jwt_identity()
+    viewer = User.query.get(uid)
+    if not viewer or not viewer.is_admin:
+        return jsonify({"msg": "Solo administradores"}), 403
+
+    data = request.get_json() or {}
+    user_ids = data.get("user_ids", [])
+    can_edit = bool(data.get("can_edit_stock", False))
+
+    if not user_ids:
+        return jsonify({"msg": "Debe proporcionar user_ids"}), 400
+
+    updated = User.query.filter(User.id.in_(user_ids)).update(
+        {User.can_edit_stock: can_edit}, synchronize_session=False
+    )
+    db.session.commit()
+    return jsonify({"ok": True, "updated_count": updated, "can_edit_stock": can_edit}), 200        

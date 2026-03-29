@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getBillingStatus, markPaid, getAllUsers, markPaidMultiple, blockMultiple, deleteUsers, type BillingUser } from "../services/billingService";
+import { getBillingStatus, markPaid, getAllUsers, markPaidMultiple, blockMultiple, deleteUsers, setStockPermission ,type BillingUser } from "../services/billingService";
 import { me } from "../services/authService";
 import ArrowBackButton from "../components/ArrowBackButton";
 
@@ -203,6 +203,7 @@ const AdminBilling = () => {
                 <th className="border p-2">Email</th>
                 <th className="border p-2">Cubierto hasta</th>
                 <th className="border p-2">Bloqueado</th>
+                <th className="border p-2">Editar stock</th>
               </tr>
             </thead>
             <tbody>
@@ -219,6 +220,28 @@ const AdminBilling = () => {
                   <td className="border p-2">{u.email}</td>
                   <td className="border p-2">{u.subscription_paid_until || "—"}</td>
                   <td className="border p-2">{u.blocked ? "Sí" : "No"}</td>
+                  <td className="border p-2 text-center">
+                    <button
+                      onClick={async () => {
+                        const newVal = !u.can_edit_stock;
+                        try {
+                          await setStockPermission({ user_ids: [u.id], can_edit_stock: newVal });
+                          setUsers(prev => prev.map(x => x.id === u.id ? { ...x, can_edit_stock: newVal } : x));
+                          setMsg(`Permiso de stock ${newVal ? "habilitado" : "deshabilitado"} para ${u.name}.`);
+                        } catch {
+                          setMsg("Error al actualizar permiso de stock");
+                        }
+                      }}
+                      className={`px-2 py-1 rounded text-xs font-semibold transition-colors ${
+                        u.can_edit_stock
+                          ? "bg-emerald-600 hover:bg-red-600 text-white"
+                          : "bg-gray-500 hover:bg-emerald-600 text-white"
+                      }`}
+                      title={u.can_edit_stock ? "Clic para quitar permiso" : "Clic para dar permiso"}
+                    >
+                      {u.can_edit_stock ? "Habilitado" : "Deshabilitado"}
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
