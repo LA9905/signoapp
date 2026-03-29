@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { FaRegEdit, FaTrashAlt, FaSave, FaTimes } from "react-icons/fa";
 import ArrowBackButton from "../components/ArrowBackButton";
 import { api } from "../services/http";
+import { me } from "../services/authService";
+import * as XLSX from "xlsx";  //para generar Excel
 
 interface Product {
   id: number;
@@ -9,37 +11,41 @@ interface Product {
   category: string;
   created_by: string;
   stock: number;
+  usage?: number;  //uso calculado (suma de cantidades despachadas)
 }
 
 const categories = [
   "Bolsas de Basura Negras",
-  "Bolsas Transparente Recuperada",
-  "Bolsas Camisetas",
-  "Bolsas Virgen Transparente",
-  "Bolsas PEAD de Alta Densidad",
-  "Bolsas Recuperada de Color",
-  "Bolsas con Impresión",
-  "Bolsas de Lavandería",
-  "Bolsas de Polipropileno",
-  "Bolsas de Cubierto",
-  "Bolsas de Papel Kraft o Blancas",
-  "Productos de limpieza, aseo, cocina y higiene",
-  "Vasos plásticos",
-  "Vasos de Poli-papel",
-  "Vasos Espumados",
-  "Vasos PET",
-  "Tapas",
-  "Envases Bowl de Alimento",
-  "Porta-colaciones o envases Plumavit",
-  "Film",
-  "Prepicados",
-  "Guantes",
-  "Utensilios y platos",
-  "Brochetas",
-  "Pocillos de Degustación",
-  "Gorros y Cofias",
-  "Productos de Protección y seguridad",
-  "Otros",
+    "Bolsas Transparente Recuperada",
+    "Bolsas Camisetas",
+    "Bolsas Virgen Transparente",
+    "Bolsas PEAD de Alta Densidad",
+    "Bolsas Recuperada de Color",
+    "Bolsas con Impresión",
+    "Bolsas de Lavandería",
+    "Bolsas de Polipropileno",
+    "Bolsas de Cubierto",
+    "Bolsas de Papel Kraft o Blancas",
+    "Productos de limpieza, aseo, cocina y higiene",
+    "Vasos plásticos",
+    "Vasos de Poli-papel",
+    "Vasos Espumados",
+    "Vasos PET",
+    "Tapas",
+    "Envases Bowl de Alimento",
+    "Porta-colaciones o envases Plumavit",
+    "Film",
+    "Prepicados",
+    "Guantes",
+    "Utensilios y platos",
+    "Brochetas",
+    "Pocillos de Degustación",
+    "Gorros y Cofias",
+    "Productos de Protección y seguridad",
+    "Envases contenedores de aluminio",
+    "Blondas redondas, rectangulares y capsulas",
+    "Servilletas",
+    "Otros",
 ];
 
 type AdjustMode = "add" | "sub";
@@ -53,6 +59,7 @@ const ProductList = () => {
   const [editName, setEditName] = useState("");
   const [editCategory, setEditCategory] = useState("");
   const [loading, setLoading] = useState(false);
+  const [canEditStock, setCanEditStock] = useState(false);
 
   // NUEVO: filtro por categoría ("" = todas)
   const [categoryFilter, setCategoryFilter] = useState<string>("");
@@ -81,6 +88,10 @@ const ProductList = () => {
     return () => window.removeEventListener("focus", onFocus);
   }, []);
 
+  useEffect(() => {
+    me().then(res => setCanEditStock(!!res.data.can_edit_stock)).catch(() => setCanEditStock(false));
+  }, []);
+  
   // FILTRADO: por nombre + (opcional) por categoría
   const filtered = products.filter((p) => {
     const matchName = p.name.toLowerCase().includes(search.toLowerCase());
@@ -234,7 +245,7 @@ const ProductList = () => {
         onChange={(e) => setSearch(e.target.value)}
       />
 
-      {/* NUEVO: selector de categoría (opcional) */}
+      {/* selector de categoría (opcional) */}
       <select
         className="border p-2 rounded w-full mb-6"
         value={categoryFilter}
@@ -248,6 +259,61 @@ const ProductList = () => {
           </option>
         ))}
       </select>
+
+      {/* Botón de descarga de documento Excel con la información de los productos y su stock */}
+      <div className="flex justify-end mb-4">
+        <button
+          className="flex items-center gap-2 px-3 py-2 rounded text-white bg-emerald-600 hover:bg-emerald-700"
+          title="Descargar Excel de productos"
+          aria-label="Descargar Excel"
+          onClick={() => {
+            // Datos filtrados según categoryFilter
+            const dataToExport = filtered.map((p) => ({
+              "Nombre": p.name,
+              "Categoría": p.category,
+              "Stock": p.stock,
+            }));
+
+            // Agregar fecha y hora de generación en la primera fila como comentario o dato especial
+            const now = new Date().toLocaleString("es-CL", {
+              timeZone: "America/Santiago",
+              year: "numeric",
+              month: "2-digit",
+              day: "2-digit",
+              hour: "2-digit",
+              minute: "2-digit",
+              hour12: false,
+            });
+            dataToExport.unshift({
+              "Nombre": "Generado el",
+              "Categoría": now,
+              "Stock": 0, // Usar 0 como valor numérico por defecto
+            });
+
+            // Crear hoja y libro
+            const ws = XLSX.utils.json_to_sheet(dataToExport);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Productos");
+
+            // Descargar
+            XLSX.writeFile(wb, "listado_productos.xlsx");
+          }}
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="w-5 h-5"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <path d="M12 3v12" />
+            <path d="M7 10l5 5 5-5" />
+            <path d="M5 21h14" />
+          </svg>
+          <span className="text-xs font-medium">Descargar Excel</span>
+        </button>
+      </div>
 
       {loading && <p className="text-sm text-gray-500 mb-2">Cargando...</p>}
 
@@ -311,6 +377,7 @@ const ProductList = () => {
                     <div className="flex items-center gap-2 mr-3">
                       {/* Botón "-" o input para restar */}
                       {!adj || adj.mode !== "sub" ? (
+                        canEditStock ? (
                         <button
                           className="px-2 py-1 rounded border border-gray-600 text-white hover:text-red-300"
                           title="Restar"
@@ -318,6 +385,7 @@ const ProductList = () => {
                         >
                           -
                         </button>
+                        ) : null
                       ) : (
                         <input
                           autoFocus
@@ -349,6 +417,7 @@ const ProductList = () => {
 
                       {/* Botón "+" o input para sumar */}
                       {!adj || adj.mode !== "add" ? (
+                        canEditStock ? (
                         <button
                           className="px-2 py-1 rounded border border-gray-600 text-white hover:text-emerald-300"
                           title="Sumar"
@@ -356,6 +425,7 @@ const ProductList = () => {
                         >
                           +
                         </button>
+                        ) : null
                       ) : (
                         <input
                           autoFocus
@@ -386,26 +456,26 @@ const ProductList = () => {
                       )}
 
                       {/* Set directo del stock total (controlado) */}
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        className="w-24 border p-1 rounded bg-white/5 border-white/10 text-right"
-                        value={stockValue}
-                        onFocus={() => setStockDraft(product.id, String(product.stock ?? 0))}
-                        onChange={(e) => setStockDraft(product.id, e.target.value)}
-                        onBlur={() => commitSetStock(product)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            commitSetStock(product);
-                          } else if (e.key === "Escape") {
-                            e.preventDefault();
-                            // cancelar y volver a seguir el store
-                            setStockDraft(product.id, undefined);
-                          }
-                        }}
-                        title="Escribe un valor total y presiona Enter o sal del campo para fijar stock"
-                      />
+                      {canEditStock ? (
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          className="w-24 border p-1 rounded bg-white/5 border-white/10 text-right"
+                          value={stockValue}
+                          onFocus={() => setStockDraft(product.id, String(product.stock ?? 0))}
+                          onChange={(e) => setStockDraft(product.id, e.target.value)}
+                          onBlur={() => commitSetStock(product)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") { e.preventDefault(); commitSetStock(product); }
+                            else if (e.key === "Escape") { e.preventDefault(); setStockDraft(product.id, undefined); }
+                          }}
+                          title="Escribe un valor total y presiona Enter o sal del campo para fijar stock"
+                        />
+                      ) : (
+                        <span className="w-24 border p-1 rounded bg-white/5 border-white/10 text-right inline-block text-sm">
+                          {stockValue}
+                        </span>
+                      )}
                     </div>
 
                     <div className="flex items-center gap-2">

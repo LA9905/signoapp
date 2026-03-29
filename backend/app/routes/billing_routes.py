@@ -1,11 +1,10 @@
-# app/routes/billing_routes.py
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app import db
 from app.models.user_model import User
 from datetime import date, datetime
 from app.utils.billing import is_blocked
-import sqlalchemy as sa  # 👈 IMPORTANTE
+import sqlalchemy as sa
 
 billing_bp = Blueprint("billing", __name__)
 
@@ -26,16 +25,20 @@ def my_billing_status():
         return jsonify({"msg": "No encontrado"}), 404
 
     target = me
-    email = (request.args.get("email") or "").strip()
+    email = (request.args.get("email") or "").strip().lower()  # Asegurar minúsculas
     user_id = request.args.get("user_id")
 
     if me.is_admin and (email or user_id):
         q = User.query
         if email:
-            q = q.filter_by(email=email)
+            q = q.filter(sa.func.lower(User.email) == email)  # Búsqueda insensible
         elif user_id and str(user_id).isdigit():
             q = q.filter_by(id=int(user_id))
-        target = q.first() or target
+        else:
+            return jsonify({"msg": "Parámetros inválidos"}), 400
+        target = q.first()
+        if not target:
+            return jsonify({"msg": "Usuario no encontrado"}), 404
 
     return jsonify({
         "today": date.today().isoformat(),
@@ -85,3 +88,129 @@ def mark_paid():
     u.subscription_paid_until = until
     db.session.commit()
     return jsonify({"ok": True, "scope": "one", "email": u.email, "until": until.isoformat()}), 200
+
+
+@billing_bp.route("/billing/users", methods=["GET"])
+@jwt_required()
+def get_all_users():
+    uid = get_jwt_identity()
+    viewer = User.query.get(uid)
+    if not viewer or not viewer.is_admin:
+        return jsonify({"msg": "Solo administradores"}), 403
+
+    users = User.query.all()
+    return jsonify({
+        "users": [
+            {
+                "id": u.id,
+                "name": u.name,
+                "email": u.email,
+                "subscription_paid_until": u.subscription_paid_until.isoformat() if u.subscription_paid_until else None,
+                "blocked": is_blocked(u),
+                "can_edit_stock": u.can_edit_stock,
+            }
+            for u in users
+        ]
+    }), 200
+
+@billing_bp.route("/billing/mark-paid-multiple", methods=["POST"])
+@jwt_required()
+def mark_paid_multiple():
+    uid = get_jwt_identity()
+    viewer = User.query.get(uid)
+    if not viewer or not viewer.is_admin:
+        return jsonify({"msg": "Solo administradores"}), 403
+
+    data = request.get_json() or {}
+    user_ids = data.get("user_ids", [])  # Lista de IDs de usuarios a desbloquear
+    until_str = (data.get("until") or "").strip()
+
+    try:
+        until = datetime.strptime(until_str, "%Y-%m-%d").date() if until_str else date.today()
+    except Exception:
+        return jsonify({"msg": "Fecha 'until' inválida"}), 400
+
+    if not user_ids:
+        return jsonify({"msg": "Debe proporcionar user_ids"}), 400
+
+    updated = User.query.filter(User.id.in_(user_ids)).update(
+        {User.subscription_paid_until: until}, synchronize_session=False
+    )
+    db.session.commit()
+
+    return jsonify({"ok": True, "scope": "multiple", "updated_count": updated, "until": until.isoformat()}), 200
+
+@billing_bp.route("/billing/block-multiple", methods=["POST"])
+@jwt_required()
+def block_multiple():
+    uid = get_jwt_identity()
+    viewer = User.query.get(uid)
+    if not viewer or not viewer.is_admin:
+        return jsonify({"msg": "Solo administradores"}), 403
+
+    data = request.get_json() or {}
+    user_ids = data.get("user_ids", [])  # Lista de IDs de usuarios a bloquear
+
+    if not user_ids:
+        return jsonify({"msg": "Debe proporcionar user_ids"}), 400
+
+    updated = User.query.filter(User.id.in_(user_ids)).update(
+        {User.subscription_paid_until: None}, synchronize_session=False
+    )
+    db.session.commit()
+
+    return jsonify({"ok": True, "scope": "multiple_block", "updated_count": updated}), 200
+
+# Al final de billing_routes.py
+
+@billing_bp.route("/billing/delete-multiple", methods=["DELETE"])
+@jwt_required()
+def delete_multiple():
+    uid = get_jwt_identity()
+    viewer = User.query.get(uid)
+    
+    # Verificación de seguridad: solo el administrador entra
+    if not viewer or not viewer.is_admin:
+        return jsonify({"msg": "Solo administradores"}), 403
+
+    data = request.get_json() or {}
+    user_ids = data.get("user_ids", [])
+
+    if not user_ids:
+        return jsonify({"msg": "Debe proporcionar user_ids"}), 400
+
+    try:
+        # Eliminación física de la base de datos
+        deleted_count = User.query.filter(User.id.in_(user_ids)).delete(synchronize_session=False)
+        db.session.commit()
+        
+        return jsonify({
+            "ok": True, 
+            "msg": f"Se han eliminado {deleted_count} usuarios correctamente.",
+            "deleted_count": deleted_count
+        }), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"msg": "Error al eliminar los usuarios", "error": str(e)}), 500
+
+
+@billing_bp.route("/billing/set-stock-permission", methods=["POST"])
+@jwt_required()
+def set_stock_permission():
+    uid = get_jwt_identity()
+    viewer = User.query.get(uid)
+    if not viewer or not viewer.is_admin:
+        return jsonify({"msg": "Solo administradores"}), 403
+
+    data = request.get_json() or {}
+    user_ids = data.get("user_ids", [])
+    can_edit = bool(data.get("can_edit_stock", False))
+
+    if not user_ids:
+        return jsonify({"msg": "Debe proporcionar user_ids"}), 400
+
+    updated = User.query.filter(User.id.in_(user_ids)).update(
+        {User.can_edit_stock: can_edit}, synchronize_session=False
+    )
+    db.session.commit()
+    return jsonify({"ok": True, "updated_count": updated, "can_edit_stock": can_edit}), 200        

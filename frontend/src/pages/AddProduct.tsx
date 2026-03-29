@@ -42,6 +42,9 @@ const categories = [
     "Pocillos de Degustación",
     "Gorros y Cofias",
     "Productos de Protección y seguridad",
+    "Envases contenedores de aluminio",
+    "Blondas redondas, rectangulares y capsulas",
+    "Servilletas",
     "Otros",
 ];
 

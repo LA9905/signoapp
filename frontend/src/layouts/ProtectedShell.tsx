@@ -4,6 +4,8 @@ import { jwtDecode } from "jwt-decode";
 import { ClientsProvider } from "../context/ClientsContext";
 import { DriversProvider } from "../context/DriversContext";
 import { getBillingStatus, markPaid } from "../services/billingService";
+import { SuppliersProvider } from "../context/SuppliersContext";
+import { OperatorsProvider } from "../context/OperatorsContext";
 
 type JWTPayload = { exp?: number };
 
@@ -54,11 +56,7 @@ const Paywall: React.FC<{
 
 function nextCutDate(dueDay = 8): string {
   const now = new Date();
-  const base = new Date(now.getFullYear(), now.getMonth(), dueDay);
-  if (now.getDate() > dueDay) {
-    return new Date(now.getFullYear(), now.getMonth() + 1, dueDay).toISOString().slice(0, 10);
-  }
-  return base.toISOString().slice(0, 10);
+  return new Date(now.getFullYear(), now.getMonth(), dueDay).toISOString().slice(0, 10);
 }
 
 const ProtectedShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -105,7 +103,7 @@ const ProtectedShell: React.FC<{ children: React.ReactNode }> = ({ children }) =
     try {
       setBusy(true);
       const until = nextCutDate(myDueDay);
-      // 👇 GLOBAL: sin email => habilita a toda la empresa
+      // GLOBAL: sin email => habilita a toda la empresa
       await markPaid({ until });
       await refreshStatus();
     } catch {
@@ -129,10 +127,16 @@ const ProtectedShell: React.FC<{ children: React.ReactNode }> = ({ children }) =
   }
 
   return (
-    <ClientsProvider>
-      <DriversProvider>{children}</DriversProvider>
-    </ClientsProvider>
-  );
+  <ClientsProvider>
+    <DriversProvider>
+      <SuppliersProvider>
+        <OperatorsProvider>
+          {children}
+        </OperatorsProvider>
+      </SuppliersProvider>
+    </DriversProvider>
+  </ClientsProvider>
+);
 };
 
 export default ProtectedShell;

@@ -3,6 +3,7 @@ from app.models.product_model import Product
 from app import db
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from jwt import decode
+from sqlalchemy import func
 
 product_bp = Blueprint('products', __name__)
 
@@ -10,37 +11,58 @@ product_bp = Blueprint('products', __name__)
 @jwt_required()
 def create_product():
     try:
-        token = request.headers.get('Authorization').replace('Bearer ', '')
-        decode(token, key=current_app.config['JWT_SECRET_KEY'], algorithms=['HS256'])
         data = request.get_json()
         if not data:
             return jsonify({"error": "No se recibió un cuerpo JSON válido"}), 400
-        name = data.get("name")
-        category = data.get("category")
-        stock = float(data.get("stock") or 0)  # NUEVO (opcional)
+
+        name_raw = (data.get("name") or "").strip()
+        category = (data.get("category") or "").strip() or "Otros"
         user = get_jwt_identity()
+        stock = float(data.get("stock") or 0)
 
-        if not name or not category:
-            return jsonify({"error": "Los campos 'name' y 'category' son requeridos"}), 400
+        if not name_raw:
+            return jsonify({"error": "El campo 'name' es requerido"}), 400
 
-        existing = Product.query.filter_by(name=name, category=category).first()
-        if existing:
-            return jsonify({"error": "Ya existe un producto con ese nombre en esta categoría"}), 400
+        # Normalizamos nombre para comparar case-insensitive
+        name_norm = " ".join(name_raw.split())
+        exists = Product.query.filter(func.lower(Product.name) == name_norm.lower()).first()
+        if exists:
+            return jsonify({"error": "Ya existe un producto con ese nombre"}), 409
 
-        new_product = Product(name=name, category=category, created_by=user, stock=stock)
+        new_product = Product(name=name_norm, category=category, created_by=user, stock=stock)
         db.session.add(new_product)
         db.session.commit()
-
         return jsonify(new_product.to_dict()), 201
     except Exception as e:
+        db.session.rollback()
         return jsonify({"error": "Error interno del servidor", "details": str(e)}), 500
 
 
 @product_bp.route('/products', methods=['GET'])
 @jwt_required()
 def list_products():
+    search = request.args.get('search', '').lower()
     products = Product.query.all()
-    return jsonify([p.to_dict() for p in products]), 200
+
+    # Calcular usage (suma de cantidades despachadas) por nombre lower
+    from app.models.dispatch_model import DispatchProduct
+    usages = db.session.query(
+        func.lower(DispatchProduct.nombre),
+        func.sum(DispatchProduct.cantidad)
+    ).group_by(func.lower(DispatchProduct.nombre)).all()
+
+    usage_dict = {lower_name: float(usage or 0) for lower_name, usage in usages}
+
+    result = []
+    for p in products:
+        dict_p = p.to_dict()
+        dict_p['usage'] = usage_dict.get(p.name.lower(), 0.0)
+        result.append(dict_p)
+
+    if search:
+        result = [p for p in result if search in p['name'].lower()]
+
+    return jsonify(result), 200
 
 
 @product_bp.route('/products/<int:product_id>', methods=['PUT', 'PATCH'])
@@ -61,11 +83,10 @@ def update_product(product_id):
 
         dup = Product.query.filter(
             Product.id != product_id,
-            Product.name == name,
-            Product.category == category
+            func.lower(Product.name) == (name or "").strip().lower()
         ).first()
         if dup:
-            return jsonify({"error": "Ya existe un producto con ese nombre en esta categoría"}), 400
+            return jsonify({"error": "Ya existe un producto con ese nombre"}), 409
 
         product.name = name
         product.category = category

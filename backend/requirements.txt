@@ -25,3 +25,4 @@ pdfgen==1.0.5
 python-barcode==0.14.0
 setuptools>=68
 tzdata==2025.2
+apscheduler>=3.11.0

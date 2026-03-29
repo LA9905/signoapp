@@ -5,12 +5,15 @@ from app.models.dispatch_model import Dispatch
 from app.models.client_model import Client
 from app.models.driver_model import Driver
 from app.models.user_model import User
+from app.models.internal_consumption_model import InternalConsumption, InternalConsumptionProduct
 from app.utils.print_utils import (
     generar_hoja_despacho,
     generar_etiqueta_despacho,
+    generar_ticket_pos80,
     _sanitize_barcode_text,
 )
 from app.utils.timezone import to_local
+from app.models.credit_note_model import CreditNote, CreditNoteProduct
 
 print_bp = Blueprint("print", __name__)
 
@@ -69,7 +72,9 @@ def print_despacho(despacho_id):
     fmt = (request.args.get("format") or "").lower().strip()
     size = request.args.get("size") or "4x6"
 
-    if fmt == "label":
+    if fmt == "pos80":
+        pdf_buffer = generar_ticket_pos80(data)
+    elif fmt == "label":
         pdf_buffer = generar_etiqueta_despacho(data, size=size)
     else:
         pdf_buffer = generar_hoja_despacho(data)
@@ -79,6 +84,79 @@ def print_despacho(despacho_id):
         pdf_buffer,
         as_attachment=not inline,
         download_name=f"despacho_{dispatch.id}.pdf",
+        mimetype="application/pdf",
+        max_age=0,
+    )
+
+
+@print_bp.route("/print-internal/<int:id>", methods=["GET"])
+@jwt_required()
+def print_internal(id):
+    consumption = InternalConsumption.query.get(id)
+    if not consumption:
+        return jsonify({"error": "Consumo interno no encontrado"}), 404
+
+    creator = User.query.get(consumption.created_by)
+
+    productos = [f"{p.nombre} — {p.cantidad} {p.unidad}" for p in consumption.productos]
+
+    data = {
+        "empresa": "Signo Representaciones Ltda.",
+        "fecha": to_local(consumption.fecha).strftime("%Y-%m-%d %H:%M"),
+        "auxiliar": creator.name if creator else str(consumption.created_by),
+        "nombre_retira": consumption.nombre_retira,
+        "area": consumption.area,
+        "motivo": consumption.motivo,
+        "productos": productos,
+        "folio": consumption.id,
+        # No incluir 'codigo_barras' para evitar intento de generación
+    }
+
+    # Usa formato POS80 adaptado
+    pdf_buffer = generar_ticket_pos80(data)
+
+    inline = request.args.get("inline", "0") == "1"
+    return send_file(
+        pdf_buffer,
+        as_attachment=not inline,
+        download_name=f"consumo_interno_{consumption.id}.pdf",
+        mimetype="application/pdf",
+        max_age=0,
+    )
+
+
+@print_bp.route("/print-credit-note/<int:credit_note_id>", methods=["GET"])
+@jwt_required()
+def print_credit_note(credit_note_id):
+    credit_note = CreditNote.query.get(credit_note_id)
+    if not credit_note:
+        return jsonify({"error": "Nota de crédito no encontrada"}), 404
+
+    client = Client.query.get(credit_note.client_id)
+    creator = User.query.get(credit_note.created_by)
+
+    productos = [f"{p.nombre} — {p.cantidad} {p.unidad}" for p in credit_note.productos]
+
+    data = {
+        "empresa": "Signo Representaciones Ltda.",
+        "fecha": to_local(credit_note.fecha).strftime("%Y-%m-%d %H:%M"),
+        "auxiliar": creator.name if creator else credit_note.created_by,
+        "cliente": client.name if client else str(credit_note.client_id),
+        "orden": credit_note.order_number,
+        "factura_numero": credit_note.invoice_number,
+        "credit_note_number": credit_note.credit_note_number,
+        "motivo": credit_note.reason,
+        "productos": productos,
+        "folio": credit_note.id,
+    }
+
+    pdf_buffer = generar_ticket_pos80(data)
+
+    inline = request.args.get("inline", "0") == "1"
+    return send_file(
+        pdf_buffer,
+        as_attachment=not inline,
+        download_name=f"nota_credito_{credit_note_id}.pdf",
         mimetype="application/pdf",
         max_age=0,
     )

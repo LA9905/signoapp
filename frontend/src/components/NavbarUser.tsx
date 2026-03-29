@@ -1,15 +1,15 @@
-// src/components/NavbarUser.tsx
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { api } from "../services/http";
 
-const NavbarUser: React.FC = () => {
+interface NavbarUserProps {
+  avatarUrl: string | null;
+}
+
+const NavbarUser: React.FC<NavbarUserProps> = ({ avatarUrl }) => {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
-  const nameLS = localStorage.getItem("name");
-  const [name, setName] = useState<string | null>(nameLS);
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-  const dropdownRef = useRef<HTMLDivElement | null>(null);
+  const name = localStorage.getItem("name") || "Usuario";
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -27,50 +27,66 @@ const NavbarUser: React.FC = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  useEffect(() => {
-    // usa el cliente `api` que ya tiene baseURL y token
-    api
-      .get("/auth/me")
-      .then((res) => {
-        setName(res.data?.name || nameLS);
-        setAvatarUrl(res.data?.avatar_url || null);
-        if (res.data?.name) localStorage.setItem("name", res.data.name);
-      })
-      .catch(() => {
-        // si falla, no forzamos logout aquí; el interceptor global ya maneja 401/403
-      });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   return (
-    <div className="flex justify-between items-center bg-blue-100 px-4 py-3 shadow">
-      <img src="/logo.jpg" alt="Logo empresa" className="h-6 w-auto object-contain" />
+    <div className="flex items-center justify-between bg-blue-100 px-4 sm:px-8 lg:px-10 py-3 shadow w-full">
+      
+      {/* Logo + SignoApp - responsive */}
+      <div className="flex items-center gap-3 flex-shrink-0">
+        <img
+          src="/SignoApp.svg"
+          alt="Logo SignoApp"
+          className="h-10 w-auto sm:h-12"
+        />
+        <span className="text-lg sm:text-2xl font-bold text-gray-900 whitespace-nowrap">
+          SignoApp
+        </span>
+      </div>
 
+      {/* Botón de perfil */}
       <div className="relative" ref={dropdownRef}>
         <button
           onClick={() => setOpen(!open)}
-          className="flex items-center gap-2 focus:outline-none"
+          className="user-chip flex items-center gap-2.5 bg-white rounded-full pl-1 pr-4 py-1.5 shadow-sm hover:shadow-md transition-all focus:outline-none"
         >
-          <div className="avatar">
-            <img src={avatarUrl || "/avatar3.png"} alt="Perfil" />
-          </div>
-          <span className="font-semibold text-sm text-gray-800">{name}</span>
+          <img
+            src={avatarUrl || "/avatar3.png"}
+            alt="Perfil"
+            className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover border-2 border-gray-300 flex-shrink-0"
+            onError={(e) => {
+              e.currentTarget.src = "/avatar3.png";
+            }}
+          />
+          <span className="font-medium text-sm sm:text-base truncate sm:truncate-none max-w-[140px] sm:max-w-none">
+            {name}
+          </span>
+          <svg
+            className={`w-4 h-4 flex-shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
+            viewBox="0 0 20 20"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <path d="M6 9l4 4 4-4" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
         </button>
 
+        {/* MENÚ */}
         {open && (
-          <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded shadow-lg z-20">
+          <div className="user-menu absolute right-0 mt-2 w-56 z-50">
             <button
-              className="block w-full text-left px-4 py-2 hover:bg-gray-100 text-sm"
+              type="button"
               onClick={() => {
                 setOpen(false);
                 navigate("/edit-profile");
               }}
+              className="block w-full text-left px-5 py-3 hover:bg-gray-100 border-b border-gray-200 font-medium"
             >
               Editar perfil
             </button>
             <button
-              className="block w-full text-left px-4 py-2 hover:bg-gray-100 text-sm"
+              type="button"
               onClick={handleLogout}
+              className="block w-full text-left px-5 py-3 hover:bg-red-50 text-red-600 font-medium"
             >
               Cerrar sesión
             </button>

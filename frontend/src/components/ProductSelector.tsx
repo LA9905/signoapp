@@ -6,7 +6,8 @@ interface Producto {
   name: string;
   cantidad: number;
   unidad: string;
-  category?: string; // opcional (si vino de la BD)
+  category?: string; //opcional (si vino de la BD)
+  usage?: number;  //uso calculado (suma de cantidades despachadas)
 }
 
 interface ProductSelectorProps {
@@ -64,6 +65,9 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
     "Pocillos de Degustación",
     "Gorros y Cofias",
     "Productos de Protección y seguridad",
+    "Envases contenedores de aluminio",
+    "Blondas redondas, rectangulares y capsulas",
+    "Servilletas",
     "Otros",
   ];
 
@@ -100,9 +104,9 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
     }));
   };
 
-  const filteredProducts = existingProductos.filter((p) =>
-    p.name.toLowerCase().includes(searchProduct.toLowerCase())
-  );
+  const filteredProducts = existingProductos
+  .filter((p) => p.name.toLowerCase().includes(searchProduct.toLowerCase()))
+  .sort((a, b) => (b.usage || 0) - (a.usage || 0));  // Ordenar por uso descendente (más usados primero)
 
   // acciones sobre productos ya añadidos al formulario
   const startEdit = (p: Producto) => {
@@ -188,7 +192,7 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
                   >
                     <option value="unidades">Unidades</option>
                     <option value="kg">Kilogramos</option>
-                    <option value="l">Litros</option>
+                    <option value="lt">Litros</option>
                     <option value="cajas">Cajas</option>
                     <option value="PQT">Paquetes</option>
                   </select>
@@ -276,7 +280,7 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
         >
           <option value="unidades">Unidades</option>
           <option value="kg">Kilogramos</option>
-          <option value="l">Litros</option>
+          <option value="lt">Litros</option>
           <option value="cajas">Cajas</option>
           <option value="PQT">Paquetes</option>
         </select>
@@ -339,7 +343,7 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
           >
             <option value="unidades">Unidades</option>
             <option value="kg">Kilogramos</option>
-            <option value="l">Litros</option>
+            <option value="lt">Litros</option>
             <option value="cajas">Cajas</option>
             <option value="PQT">Paquetes</option>
           </select>

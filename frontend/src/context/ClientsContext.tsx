@@ -1,11 +1,10 @@
-// src/context/ClientsContext.tsx
 import React, { createContext, useContext, useCallback, useState } from "react";
 import { api } from "../services/http";
 
 export interface Client {
   id: number;
   name: string;
-  created_by: number | string; // tolerante: backend podría enviar id o nombre
+  created_by: number | string;
 }
 
 interface ClientsContextShape {

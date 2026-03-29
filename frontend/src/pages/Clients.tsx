@@ -1,4 +1,3 @@
-// src/pages/Clients.tsx
 import { useEffect, useState, type FormEvent, type ChangeEvent } from "react";
 import { FaRegEdit, FaTrashAlt, FaSave, FaTimes } from "react-icons/fa";
 import ArrowBackButton from "../components/ArrowBackButton";
@@ -14,6 +13,9 @@ const Clients = () => {
   const [editName, setEditName] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
 
+  // estado de búsqueda
+  const [search, setSearch] = useState("");
+
   useEffect(() => {
     // Carga inicial
     refresh().catch((e) => console.error("Error loading clients:", e));
@@ -28,11 +30,9 @@ const Clients = () => {
       setSubmitting(true);
       await createClient(trimmed);
       setName("");
-      // si tu provider no auto-actualiza, descomenta:
-      // await refresh();
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error adding client:", err);
-      alert("No se pudo crear el cliente");
+      alert(err?.response?.data?.error || "No se pudo crear el cliente");
     } finally {
       setSubmitting(false);
     }
@@ -59,8 +59,6 @@ const Clients = () => {
       setSavingEdit(true);
       await updateClient(id, trimmed);
       cancelEdit();
-      // si tu provider no auto-actualiza, descomenta:
-      // await refresh();
     } catch (err: any) {
       console.error("Error updating client:", err);
       alert(err?.response?.data?.error || "No se pudo actualizar el cliente");
@@ -73,13 +71,17 @@ const Clients = () => {
     if (!window.confirm("¿Eliminar este cliente?")) return;
     try {
       await deleteClient(id);
-      // si tu provider no auto-actualiza, descomenta:
-      // await refresh();
     } catch (err: any) {
       console.error("Error deleting client:", err);
       alert(err?.response?.data?.error || "No se pudo eliminar el cliente");
     }
   };
+
+  // filtrado por nombre
+  const normalizedQuery = search.trim().toLowerCase();
+  const filteredClients = normalizedQuery
+    ? clients.filter((c) => (c.name || "").toLowerCase().includes(normalizedQuery))
+    : clients;
 
   return (
     <div className="p-4 max-w-xl mx-auto">
@@ -87,6 +89,15 @@ const Clients = () => {
         <ArrowBackButton />
       </div>
       <h2 className="text-2xl font-semibold mb-4">Lista de Centro de Costos</h2>
+
+      <input
+        type="text"
+        placeholder="Buscar centro de costo por nombre..."
+        value={search}
+        onChange={(e: ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
+        className="border p-2 rounded w-full mb-4"
+        aria-label="Buscar centro de costo por nombre"
+      />
 
       <form onSubmit={handleSubmit} className="flex gap-2 mb-6">
         <input
@@ -107,7 +118,7 @@ const Clients = () => {
       </form>
 
       <ul className="space-y-2">
-        {clients.map((client) => {
+        {filteredClients.map((client) => {
           const isEditing = editingId === client.id;
           return (
             <li

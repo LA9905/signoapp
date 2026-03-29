@@ -16,8 +16,18 @@ import Clients from "./pages/Clients";
 import Drivers from "./pages/Drivers";
 import Tracking from "./pages/Tracking";
 import EditProfile from "./pages/EditProfile";
-import ProtectedShell from "./layouts/ProtectedShell";
 import AdminBilling from "./pages/AdminBilling";
+import SupplierList from "./pages/SupplierList";
+import ReceiveSupplier from "./pages/ReceiveSupplier"; 
+import SupplierTracking from "./pages/SupplierTracking"; 
+import CreateInternalConsumption from "./pages/CreateInternalConsumption";
+import InternalTracking from "./pages/InternalTracking";
+import OperatorList from "./pages/OperatorList";
+import CreateProduction from "./pages/CreateProduction";
+import ProductionTracking from "./pages/ProductionTracking";
+import CreateCreditNote from "./pages/CreateCreditNote";
+import CreditNoteTracking from "./pages/CreditNoteTracking";
+import ProtectedShell from "./layouts/ProtectedShell";
 
 // Hace un ping silencioso al backend para "despertarlo" en Render
 const WarmBoot: React.FC = () => {
@@ -81,7 +91,7 @@ const App: React.FC = () => {
           }
         />
         <Route
-          path="/Clients"
+          path="/clients"
           element={
             <ProtectedShell>
               <Clients />
@@ -89,7 +99,7 @@ const App: React.FC = () => {
           }
         />
         <Route
-          path="/Drivers"
+          path="/drivers"
           element={
             <ProtectedShell>
               <Drivers />
@@ -117,6 +127,88 @@ const App: React.FC = () => {
           element={
             <ProtectedShell>
               <AdminBilling />
+            </ProtectedShell>
+          }
+        />
+        <Route
+          path="/suppliers"
+          element={
+            <ProtectedShell>
+              <SupplierList />
+            </ProtectedShell>
+          }
+        />
+        <Route
+          path="/receive-supplier"
+          element={
+            <ProtectedShell>
+              <ReceiveSupplier />
+            </ProtectedShell>
+          }
+        />
+        <Route
+          path="/supplier-tracking"
+          element={
+            <ProtectedShell>
+              <SupplierTracking />
+            </ProtectedShell>
+          }
+        />
+        <Route
+          path="/create-internal"
+          element={
+            <ProtectedShell>
+              <CreateInternalConsumption />
+            </ProtectedShell>
+          }
+        />
+        <Route
+          path="/internal-tracking"
+          element={
+            <ProtectedShell>
+              <InternalTracking />
+            </ProtectedShell>
+          }
+        />
+
+        <Route
+        path="/operators"
+        element={
+          <ProtectedShell>
+            <OperatorList />
+          </ProtectedShell>
+        }
+        />
+        <Route
+          path="/create-production"
+          element={
+            <ProtectedShell>
+              <CreateProduction />
+            </ProtectedShell>
+          }
+        />
+        <Route
+          path="/production-tracking"
+          element={
+            <ProtectedShell>
+              <ProductionTracking />
+            </ProtectedShell>
+          }
+        />
+
+        <Route
+          path="/create-credit-note"
+          element={
+            <ProtectedShell>
+              <CreateCreditNote />
+            </ProtectedShell>
+          }
+        />
+        <Route
+          path="/credit-note-tracking"
+          element={
+            <ProtectedShell>
+              <CreditNoteTracking />
             </ProtectedShell>
           }
         />

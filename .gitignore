@@ -12,7 +12,8 @@ pnpm-debug.log*
 lerna-debug.log*
 
 # Dependencias y builds
-node_modules
+node_modules/
+node_modules/.package-lock.json
 dist
 dist-ssr
 *.local

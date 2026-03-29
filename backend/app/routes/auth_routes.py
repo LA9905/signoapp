@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 from .. import db
 from ..models import User
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
@@ -6,9 +6,11 @@ import random
 from ..utils.mailer import send_recovery_code, send_update_code
 from datetime import timedelta
 import os
-
+from jwt import decode
 import cloudinary
 import cloudinary.uploader
+from ..models.scheduler import daily_notifications
+
 
 cloud_name = os.getenv("CLOUDINARY_CLOUD_NAME")
 api_key = os.getenv("CLOUDINARY_API_KEY")
@@ -29,10 +31,11 @@ def register():
     if not data.get("email") or not data.get("password") or not data.get("name"):
         return jsonify({"msg": "Faltan campos"}), 400
 
-    if User.query.filter_by(email=data["email"]).first():
+    email_lower = data["email"].lower()
+    if User.query.filter_by(email=email_lower).first():
         return jsonify({"msg": "Ya existe un usuario con ese correo"}), 400
 
-    user = User(name=data["name"], email=data["email"])
+    user = User(name=data["name"], email=email_lower)
     user.set_password(data["password"])
     db.session.add(user)
     db.session.commit()
@@ -42,17 +45,19 @@ def register():
 @auth_bp.route("/login", methods=["POST"])
 def login():
     data = request.json or {}
-    user = User.query.filter_by(email=data.get("email")).first()
+    email_lower = data.get("email", "").lower()
+    user = User.query.filter_by(email=email_lower).first()
     if not user or not user.check_password(data.get("password", "")):
         return jsonify({"msg": "Credenciales inválidas"}), 401
 
-    token = create_access_token(identity=str(user.id), expires_delta=timedelta(hours=8))
+    token = create_access_token(identity=str(user.id), expires_delta=timedelta(hours=10))
     return jsonify({"token": token, "name": user.name}), 200
 
 @auth_bp.route("/recover", methods=["POST"])
 def recover():
     data = request.json or {}
-    user = User.query.filter_by(email=data.get("email")).first()
+    email_lower = data.get("email", "").lower()
+    user = User.query.filter_by(email=email_lower).first()
     if not user:
         return jsonify({"msg": "Correo no registrado"}), 404
 
@@ -66,7 +71,8 @@ def recover():
 @auth_bp.route("/reset-password", methods=["POST"])
 def reset_password():
     data = request.json or {}
-    user = User.query.filter_by(email=data.get("email")).first()
+    email_lower = data.get("email", "").lower()
+    user = User.query.filter_by(email=email_lower).first()
     if not user or user.recovery_code != data.get("code"):
         return jsonify({"msg": "Código inválido"}), 400
 
@@ -82,13 +88,24 @@ def me():
     user = User.query.get(uid)
     if not user:
         return jsonify({"msg": "Usuario no encontrado"}), 404
+    
+    limited_emails = [
+        "claudiogarbarino1966@gmail.com",
+        "alfonsomachado64@gmail.com",
+        "jerrykalet@gmail.com",
+        "cocachaucono@gmail.com"
+    ]
+    is_limited = user.email.lower() in [email.lower() for email in limited_emails]
+
     return jsonify({
         "id": user.id,
         "name": user.name,
         "email": user.email,
         "avatar_url": user.avatar_url,
         "is_admin": user.is_admin,
+        "is_limited": is_limited,  # para identificar usuarios limitados
         "subscription_paid_until": user.subscription_paid_until.isoformat() if user.subscription_paid_until else None,
+        "can_edit_stock": user.can_edit_stock, # campo de permiso para editar stock
         "due_day": user.due_day,
     }), 200
 
@@ -102,9 +119,10 @@ def request_update_code():
 
     data = request.json or {}
     target_email = data.get("target_email") or user.email
+    target_email_lower = target_email.lower()
 
-    if target_email != user.email:
-        if User.query.filter_by(email=target_email).first():
+    if target_email_lower != user.email.lower():
+        if User.query.filter_by(email=target_email_lower).first():
             return jsonify({"msg": "Ese correo ya está registrado"}), 400
 
     code = str(random.randint(100000, 999999))
@@ -133,10 +151,11 @@ def update_profile():
     if name:
         user.name = name
 
-    if email and email != user.email:
-        if User.query.filter(User.email == email, User.id != user.id).first():
+    if email and email.lower() != user.email.lower():
+        email_lower = email.lower()
+        if User.query.filter(User.email == email_lower, User.id != user.id).first():
             return jsonify({"msg": "Ese correo ya está registrado"}), 400
-        user.email = email
+        user.email = email_lower
 
     if password:
         user.set_password(password)
@@ -187,3 +206,50 @@ def delete_account():
     except Exception as e:
         db.session.rollback()
         return jsonify({"msg": "No se pudo eliminar la cuenta", "details": str(e)}), 500
+    
+
+@auth_bp.route("/unsubscribe", methods=["GET"])
+def unsubscribe():
+        token = request.args.get("token")
+        if not token:
+            return jsonify({"msg": "Token faltante"}), 400
+
+        try:
+            decoded = decode(token, current_app.config["JWT_SECRET_KEY"], algorithms=["HS256"])
+            uid = decoded.get("sub")
+            if not uid:
+                return jsonify({"msg": "Token inválido"}), 400
+
+            user = User.query.get(uid)
+            if not user:
+                return jsonify({"msg": "Usuario no encontrado"}), 404
+
+            user.receive_notifications = False
+            db.session.commit()
+            return jsonify({"msg": "Suscripción cancelada correctamente. Ya no recibirás notificaciones."}), 200
+        except Exception as e:
+            return jsonify({"msg": "Token inválido o expirado", "details": str(e)}), 400
+        
+
+@auth_bp.route("/profile/notifications", methods=["PATCH"])
+@jwt_required()
+def toggle_notifications():
+    uid = get_jwt_identity()
+    user = User.query.get(uid)
+    if not user:
+        return jsonify({"msg": "Usuario no encontrado"}), 404
+
+    data = request.json or {}
+    enable = data.get("enable", True)
+    user.receive_notifications = bool(enable)
+    db.session.commit()
+    return jsonify({"msg": f"Notificaciones {'activadas' if enable else 'desactivadas'}"}), 200
+
+
+@auth_bp.route('/test-notif', methods=['GET'])
+@jwt_required()
+def test_notif():
+    from app import create_app
+    app = create_app()
+    daily_notifications(app)
+    return jsonify({"msg": "Notificaciones testeadas"}), 200

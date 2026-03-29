@@ -1,11 +1,37 @@
+/* --- Tailwind primero para que nuestras reglas personalizadas tengan prioridad --- */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* -------------------------------------------
+   Tema base: UI oscura consistente (forzado)
+   ------------------------------------------- */
+:root {
+  /* Forzamos esquema oscuro para que inputs nativos, scrollbars, etc. no cambien con el SO */
+  color-scheme: dark;
+
+  /* Tokens mínimos */
+  --bg-body: #0f0f0f;
+  --bg-elev-1: #1a1a1a;
+  --bg-elev-2: #171717;
+  --text: #e8e8e8;
+  --text-muted: #9aa0a6;
+  --border: #2f2f2f;
+  --primary: #6a5fff;
+  --primary-600: #524ac6;
+}
+
+html, body, #root {
+  min-height: 100%;
+  background-color: var(--bg-body);
+  color: var(--text);
+}
+
+/* Tipografía base */
 :root {
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -13,105 +39,164 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
-}
-
 body {
   margin: 0;
   min-width: 320px;
-  min-height: 100vh;
-  background-color: #0f0f0f;
 }
 
-
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
+/* Enlaces legibles sobre fondo oscuro */
+a {
+  font-weight: 500;
+  color: var(--primary);
+  text-decoration: none;
 }
+a:hover { color: var(--primary-600); }
 
+/* Títulos */
+h1 { font-size: 3.2em; line-height: 1.1; }
+
+/* Botón base (no rompe los que ya tienen clases de Tailwind) */
 button {
   border-radius: 8px;
   border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
+  padding: 0.6rem 1.2rem;
+  font-size: 1rem;
   font-weight: 500;
   font-family: inherit;
-  background-color: #1a1a1a;
+  background-color: var(--bg-elev-1);
+  color: #fff;
   cursor: pointer;
-  transition: border-color 0.25s;
+  transition: border-color 0.25s, background-color .2s;
 }
-button:hover {
-  border-color: #646cff;
-}
+button:hover { border-color: var(--primary); }
 button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+button:focus-visible { outline: 4px auto -webkit-focus-ring-color; }
+
+/* Inputs/Selects/Textareas: contraste alto en oscuro */
+input, select, textarea {
+  background-color: var(--bg-elev-1);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 0.375rem; /* rounded */
+  padding: 0.5rem 0.75rem; /* p-2 aprox */
+}
+input::placeholder,
+textarea::placeholder { color: var(--text-muted); }
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(106, 95, 255, 0.25);
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
-}
+/* Placeholders de <input type="date"> legibles */
+input[type="date"]::-webkit-datetime-edit,
+input[type="date"]::-webkit-calendar-picker-indicator { color: var(--text); }
 
-/* Agrega esto al final de index.css si es necesario */
-.container {
-  max-width: 1280px;
-  margin: 0 auto;
-  width: 100%;
-}
+/* Bordes por defecto (utilitarios Tailwind con color de borde siguen ganando) */
+* { border-color: var(--border); }
 
-/* Agrega al final de index.css */
-img {
-  max-width: 100%; /* Limita el ancho al contenedor padre */
-  height: auto; /* Mantiene proporciones */
-}
+/* Cajas claras puntuales (ej. tarjetas con bg-white en AdminBilling): texto oscuro para contraste */
+.bg-white { color: #0f172a; }     /* slate-900 aprox */
+.bg-white * { color: inherit; }
 
-/* --- Avatar utilities (evita que reglas globales de img rompan el tamaño) --- */
+/* Contenedor genérico */
+.container { max-width: 1280px; margin: 0 auto; width: 100%; }
+
+/* Imágenes */
+img { max-width: 100%; height: auto; }
+
+/* --- Avatares --- */
 .avatar {
-  width: 32px;      /* 32px para navbar */
-  height: 32px;
-  border-radius: 9999px; /* círculo */
+  width: 32px; height: 32px;
+  border-radius: 9999px;
   overflow: hidden;
   border: 1px solid rgba(0,0,0,.2);
 }
-.avatar > img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover; /* recorte centrado */
-  display: block;
-}
+.avatar > img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
 .avatar-lg {
-  width: 128px;      /* preview en EditProfile */
-  height: 128px;
+  width: 128px; height: 128px;
   border-radius: 9999px;
   overflow: hidden;
   border: 1px solid rgba(0,0,0,.2);
 }
 @media (min-width: 768px) {
-  .avatar-lg { width: 160px; height: 160px; } /* un poco mayor en pantallas grandes */
+  .avatar-lg { width: 160px; height: 160px; }
 }
-.avatar-lg > img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+.avatar-lg > img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* ============================================================================
+   FIX EXPLÍCITO: chip de usuario + dropdown como en tus capturas "anteriores"
+   ----------------------------------------------------------------------------
+   Añade className="user-chip" al botón (o div) que muestra avatar + nombre.
+   Añade className="user-menu" al contenedor del dropdown.
+   ============================================================================ */
+
+/* Chip claro con texto oscuro (por encima de reglas globales) */
+.user-chip {
+  background: #e6efff !important;       /* pill claro */
+  color: #0f172a !important;            /* texto oscuro legible */
+  border: 1px solid rgba(2,6,23,.06) !important;
+  padding: .375rem .5rem;
+  border-radius: .75rem;
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+}
+.user-chip * { color: inherit !important; }
+.user-chip:hover { background: #dbeafe !important; }
+
+/* Dropdown blanco con texto oscuro (siempre legible) */
+.user-menu {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border: 1px solid #e5e7eb !important; /* gray-200 */
+  border-radius: .5rem;
+  box-shadow: 0 10px 20px rgba(0,0,0,.15);
+  overflow: hidden;
+}
+.user-menu a,
+.user-menu button {
   display: block;
+  width: 100%;
+  text-align: left;
+  padding: .5rem .75rem;
+  color: inherit !important;
+  background: transparent;
+  border: 0;
+}
+.user-menu a:hover,
+.user-menu button:hover { background: #f3f4f6; } /* gray-100 */
+
+/* -----------------------------------------------------------------------------
+   OPCIONAL: tema claro real activable (sin tocar componentes)
+   - Si algún día quieres un tema claro, añade `data-theme="light"` al <body>
+   - Ej: <body data-theme="light"> ... </body>
+   ----------------------------------------------------------------------------- */
+body[data-theme="light"] {
+  color-scheme: light;
+  --bg-body: #ffffff;
+  --bg-elev-1: #f9fafb;   /* gray-50 */
+  --bg-elev-2: #ffffff;
+  --text: #0f172a;        /* slate-900 */
+  --text-muted: #64748b;  /* slate-500 */
+  --border: #e5e7eb;      /* gray-200 */
 }
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+body[data-theme="light"],
+body[data-theme="light"] #root {
+  background-color: var(--bg-body);
+  color: var(--text);
+}
+
+body[data-theme="light"] input,
+body[data-theme="light"] select,
+body[data-theme="light"] textarea {
+  background-color: #ffffff;
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+/* Mantener contraste dentro de superficies claras en tema claro */
+body[data-theme="light"] .bg-white,
+body[data-theme="light"] .bg-white * { color: var(--text); }

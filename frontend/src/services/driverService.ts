@@ -1,4 +1,3 @@
-// src/services/driverService.ts
 import { api } from "./http";
 
 export type Driver = { id: number; name: string; created_by: number };
