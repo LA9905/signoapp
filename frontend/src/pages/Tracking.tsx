@@ -590,9 +590,10 @@ const Tracking = () => {
           className="w-full border p-2 rounded"
         />
 
-        <input 
+        <input
+          key="product-search"
           name="product"
-          value={searchState.product || ""}
+          value={searchState.product ?? ""}
           onChange={handleSearchChange}
           placeholder="Buscar por nombre del producto"
           className="w-full border p-2 rounded"

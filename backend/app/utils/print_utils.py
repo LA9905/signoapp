@@ -9,9 +9,6 @@ from io import BytesIO
 from pathlib import Path
 import re
 
-# -------------------------------------------------------------------
-# Logo: coloca una copia en backend/app/static/logo.jpg
-# -------------------------------------------------------------------
 LOGO_PATH = Path(__file__).resolve().parent.parent / "static" / "logo.jpg"
 
 # ---------- Helpers de código de barras ----------
