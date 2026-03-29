@@ -27,6 +27,7 @@ import CreateProduction from "./pages/CreateProduction";
 import ProductionTracking from "./pages/ProductionTracking";
 import CreateCreditNote from "./pages/CreateCreditNote";
 import CreditNoteTracking from "./pages/CreditNoteTracking";
+import StockMovements from "./pages/StockMovements";
 import ProtectedShell from "./layouts/ProtectedShell";
 
 // Hace un ping silencioso al backend para "despertarlo" en Render
@@ -212,6 +213,15 @@ const App: React.FC = () => {
             </ProtectedShell>
           }
         />
+        <Route
+          path="/stock-movements"
+          element={
+            <ProtectedShell>
+              <StockMovements />
+            </ProtectedShell>
+          }
+        />
+
 
         <Route path="*" element={<NotFound />} />
       </Routes>

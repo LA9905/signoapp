@@ -472,7 +472,7 @@ const SupplierTracking = () => {
                 <div className="flex items-start justify-between gap-4">
                   {!isEditingRow ? (
                     <div>
-                      <p><strong>Orden:</strong> {r.orden}</p>
+                      <p><strong>Factura:</strong> {r.orden}</p>
                       <p><strong>Proveedor:</strong> {r.supplier}</p>
                       <p><strong>Ingresado por:</strong> {r.created_by}</p>
                       <p><strong>Fecha:</strong> {new Date(r.fecha).toLocaleString()}</p>
