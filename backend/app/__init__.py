@@ -127,6 +127,7 @@ def create_app():
     from .routes.operator_routes import operator_bp
     from .routes.production_routes import production_bp
     from .routes.credit_note_routes import credit_note_bp
+    from .routes.stock_movement_routes import stock_movement_bp
     from .routes.survey_routes import survey_api_bp, survey_public_bp
 
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
@@ -143,6 +144,7 @@ def create_app():
     app.register_blueprint(operator_bp, url_prefix="/api")
     app.register_blueprint(production_bp, url_prefix="/api")
     app.register_blueprint(credit_note_bp, url_prefix="/api")
+    app.register_blueprint(stock_movement_bp, url_prefix="/api")
     app.register_blueprint(survey_api_bp)        # → /api/survey/submit
     app.register_blueprint(survey_public_bp)     # → /encuesta/abcd1234
 

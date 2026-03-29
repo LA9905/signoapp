@@ -595,7 +595,7 @@ const CreditNoteTracking = () => {
                   {!isEditingRow ? (
                     <div>
                       <p><strong>Centro de Costo:</strong> {cn.client}</p>
-                      <p><strong>N° Orden:</strong> {cn.order_number}</p>
+                      <p><strong>N° Orden de Compra:</strong> {cn.order_number}</p>
                       <p><strong>N° Factura:</strong> {cn.invoice_number}</p>
                       <p><strong>N° Nota de Crédito:</strong> {cn.credit_note_number}</p>
                       <p><strong>Motivo:</strong> {cn.reason}</p>

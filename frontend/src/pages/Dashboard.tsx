@@ -73,6 +73,7 @@ const Dashboard: React.FC = () => {
     { title: "Seguimiento de Notas de Crédito", route: "/credit-note-tracking" },
     { title: "Consumo Interno", route: "/create-internal" },
     { title: "Registros de Consumos Internos", route: "/internal-tracking" },
+    { title: "Búsqueda de Movimientos de Stock por Producto", route: "/stock-movements" },
   ];
 
   if (isLimited) {
