@@ -53,6 +53,7 @@ const SupplierTracking = () => {
   } | null>(null);
   const [productNames, setProductNames] = useState<string[]>([]);
   const [suggestions, setSuggestions] = useState<Record<number, string[]>>({});
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   const [searchState, setSearchState] = useState<SearchState>({
     supplier: "",
@@ -236,6 +237,23 @@ const SupplierTracking = () => {
 
   const saveEditRow = async () => {
     if (!draft || !editingId) return;
+
+    // Validaciones antes de guardar
+    for (const p of draft.productos) {
+      if (!p.nombre || !p.nombre.trim()) {
+        setValidationError("Hay un producto sin nombre. Por favor selecciona un producto de la lista o elimina la fila vacía.");
+        return;
+      }
+      if (!productNames.map(n => n.toLowerCase()).includes(p.nombre.trim().toLowerCase())) {
+        setValidationError(`El producto "${p.nombre}" no existe en el listado. Por favor selecciónalo desde las sugerencias o elimina esa fila.`);
+        return;
+      }
+      if (!p.cantidad || p.cantidad <= 0) {
+        setValidationError(`El producto "${p.nombre}" tiene cantidad 0 o vacía. Por favor ingresa una cantidad válida.`);
+        return;
+      }
+    }
+
     setIsLoading(true);
     try {
       const payload = {
@@ -648,6 +666,21 @@ const SupplierTracking = () => {
           >
             Cargar más
           </button>
+        </div>
+      )}
+
+    {validationError && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
+          <div className="bg-white text-gray-900 rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-bold mb-3 text-red-600">Error al guardar</h3>
+            <p className="mb-5 text-sm">{validationError}</p>
+            <button
+              className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 font-medium"
+              onClick={() => setValidationError(null)}
+            >
+              Entendido, voy a corregirlo
+            </button>
+          </div>
         </div>
       )}
     </div>
