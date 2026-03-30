@@ -102,7 +102,8 @@ def get_productions():
                 db.func.lower(User.name).like(f"%{search_user}%")
             )
 
-        if date_from_str and date_to_str:
+        if date_from_str:
+            date_to_str = date_to_str or date_from_str
             try:
                 d_from = datetime.strptime(date_from_str, "%Y-%m-%d")
                 d_to = datetime.strptime(date_to_str, "%Y-%m-%d")
