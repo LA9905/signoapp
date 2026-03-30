@@ -69,6 +69,12 @@ def list_products():
 @jwt_required()
 def update_product(product_id):
     try:
+        from app.models.dispatch_model import DispatchProduct
+        from app.models.receipt_model import ReceiptProduct
+        from app.models.production_model import ProductionProduct
+        from app.models.credit_note_model import CreditNoteProduct
+        from app.models.internal_consumption_model import InternalConsumptionProduct
+
         data = request.get_json() or {}
         name = data.get("name")
         category = data.get("category")
@@ -88,13 +94,38 @@ def update_product(product_id):
         if dup:
             return jsonify({"error": "Ya existe un producto con ese nombre"}), 409
 
-        product.name = name
+        old_name = product.name
+        new_name = (name or "").strip()
+
+        product.name = new_name
         product.category = category
         if stock is not None:
             try:
                 product.stock = float(stock)
             except Exception:
                 pass
+
+        # Propagar el nuevo nombre a todas las tablas relacionadas
+        if old_name.lower() != new_name.lower():
+            db.session.query(DispatchProduct).filter(
+                func.lower(DispatchProduct.nombre) == old_name.lower()
+            ).update({"nombre": new_name}, synchronize_session=False)
+
+            db.session.query(ReceiptProduct).filter(
+                func.lower(ReceiptProduct.nombre) == old_name.lower()
+            ).update({"nombre": new_name}, synchronize_session=False)
+
+            db.session.query(ProductionProduct).filter(
+                func.lower(ProductionProduct.nombre) == old_name.lower()
+            ).update({"nombre": new_name}, synchronize_session=False)
+
+            db.session.query(CreditNoteProduct).filter(
+                func.lower(CreditNoteProduct.nombre) == old_name.lower()
+            ).update({"nombre": new_name}, synchronize_session=False)
+
+            db.session.query(InternalConsumptionProduct).filter(
+                func.lower(InternalConsumptionProduct.nombre) == old_name.lower()
+            ).update({"nombre": new_name}, synchronize_session=False)
 
         db.session.commit()
         return jsonify(product.to_dict()), 200
