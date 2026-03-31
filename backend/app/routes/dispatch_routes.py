@@ -19,6 +19,7 @@ from app.utils.timezone import (
 import cloudinary 
 import cloudinary.uploader
 import json 
+from app.routes.product_routes import normalize_product_name
 
 # === FUNCIÓN AUXILIAR PARA OBTENER public_id DE CLOUDINARY ===
 def get_public_id(url):
@@ -111,11 +112,12 @@ def create_dispatch():
                 return jsonify({"error": "Faltan campos en productos"}), 400
 
             nombre = (p["nombre"] or "").strip()
-            prod_row = Product.query.filter(func.lower(Product.name) == nombre.lower()).first()
+            nombre_key = normalize_product_name(nombre)
+            prod_row = next((p for p in Product.query.all() if normalize_product_name(p.name) == nombre_key), None)
             if not prod_row:
                 db.session.add(Product(name=nombre, category="Otros", created_by=user_id, stock=0.0))
                 db.session.flush()
-
+                
             db.session.add(
                 DispatchProduct(
                     nombre=nombre,
@@ -364,7 +366,8 @@ def update_dispatch(dispatch_id):
                 db.session.add(DispatchProduct(dispatch_id=d.id, nombre=nombre, cantidad=cant, unidad=unid))
                 new_qty[nombre] = new_qty.get(nombre, 0.0) + cant
                 
-                prod_row = Product.query.filter(func.lower(Product.name) == nombre.lower()).first()
+                nombre_key = normalize_product_name(nombre)
+                prod_row = next((p for p in Product.query.all() if normalize_product_name(p.name) == nombre_key), None)
                 if not prod_row:
                     db.session.add(Product(name=nombre, category="Otros", created_by=user_id, stock=0.0))
 

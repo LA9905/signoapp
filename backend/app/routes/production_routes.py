@@ -11,6 +11,7 @@ from app.utils.timezone import to_local, to_utc_naive, CL_TZ
 from sqlalchemy.exc import IntegrityError
 from flask_cors import CORS
 from collections import defaultdict
+from app.routes.product_routes import normalize_product_name
 
 production_bp = Blueprint("productions", __name__)
 CORS(
@@ -51,7 +52,8 @@ def create_production():
                 return jsonify({"error": "Faltan campos en productos (nombre, cantidad, unidad)"}), 400
 
             nombre = (p["nombre"] or "").strip()
-            prod_row = Product.query.filter(func.lower(Product.name) == nombre.lower()).first()
+            nombre_key = normalize_product_name(nombre)
+            prod_row = next((p for p in Product.query.all() if normalize_product_name(p.name) == nombre_key), None)
             if not prod_row:
                 db.session.add(Product(name=nombre, category="Otros", created_by=user_id, stock=0.0))
                 db.session.flush()
@@ -215,7 +217,8 @@ def update_production(production_id):
                 db.session.rollback()
                 return jsonify({"error": "Faltan campos en productos (nombre, cantidad, unidad)"}), 400
             nombre = (p["nombre"] or "").strip()
-            prod_row = Product.query.filter(func.lower(Product.name) == nombre.lower()).first()
+            nombre_key = normalize_product_name(nombre)
+            prod_row = next((p for p in Product.query.all() if normalize_product_name(p.name) == nombre_key), None)
             if not prod_row:
                 db.session.add(Product(name=nombre, category="Otros", created_by=user_id, stock=0.0))
             new_qty_by_name[nombre] += float(p["cantidad"] or 0)

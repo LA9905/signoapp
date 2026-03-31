@@ -4,6 +4,16 @@ from app import db
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from jwt import decode
 from sqlalchemy import func
+import unicodedata
+
+def normalize_product_name(name: str) -> str:
+    """Elimina acentos y espacios internos para comparar nombres de productos."""
+    # Eliminar acentos
+    nfkd = unicodedata.normalize("NFKD", name)
+    no_accents = "".join(c for c in nfkd if not unicodedata.combining(c))
+    # Eliminar todos los espacios internos para comparar (no para guardar)
+    no_spaces = "".join(no_accents.split())
+    return no_spaces.lower()
 
 product_bp = Blueprint('products', __name__)
 
@@ -23,9 +33,12 @@ def create_product():
         if not name_raw:
             return jsonify({"error": "El campo 'name' es requerido"}), 400
 
-        # Normalizamos nombre para comparar case-insensitive
+        # Normalizamos nombre: colapsar espacios dobles para guardar
         name_norm = " ".join(name_raw.split())
-        exists = Product.query.filter(func.lower(Product.name) == name_norm.lower()).first()
+        # Verificar duplicado: case-insensitive + sin acentos + sin espacios internos
+        name_norm_key = normalize_product_name(name_norm)
+        all_products = Product.query.all()
+        exists = next((p for p in all_products if normalize_product_name(p.name) == name_norm_key), None)
         if exists:
             return jsonify({"error": "Ya existe un producto con ese nombre"}), 409
 
