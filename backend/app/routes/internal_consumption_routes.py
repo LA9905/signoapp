@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 from sqlalchemy import func, cast, String
 from app.utils.timezone import to_utc_naive, to_local, CL_TZ
 from flask_cors import CORS
+from app.routes.product_routes import normalize_product_name
 
 internal_bp = Blueprint("internal_consumptions", __name__)
 CORS(internal_bp, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
@@ -42,7 +43,8 @@ def create_internal_consumption():
                 return jsonify({"error": "Faltan campos en productos (nombre, cantidad, unidad)"}), 400
 
             nombre = (p["nombre"] or "").strip()
-            prod_row = Product.query.filter(func.lower(Product.name) == nombre.lower()).first()
+            nombre_key = normalize_product_name(nombre)
+            prod_row = next((p for p in Product.query.all() if normalize_product_name(p.name) == nombre_key), None)
             if not prod_row:
                 db.session.add(Product(name=nombre, category="Otros", created_by=user_id, stock=0.0))
                 db.session.flush()
@@ -201,7 +203,8 @@ def update_internal_consumption(id):
             current_user = get_jwt_identity()
             for nombre in new_qty_by_name.keys():
                 nn = (nombre or "").strip()
-                exists = Product.query.filter(func.lower(Product.name) == nn.lower()).first()
+                nn_key = normalize_product_name(nn)
+                exists = next((p for p in Product.query.all() if normalize_product_name(p.name) == nn_key), None)
                 if not exists:
                     db.session.add(Product(name=nn, category="Otros", created_by=current_user, stock=0.0))
 
