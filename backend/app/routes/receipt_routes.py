@@ -173,10 +173,8 @@ def delete_receipt(receipt_id):
             if prod_row:
                 try:
                     prod_row.stock = float(prod_row.stock or 0) - float(product.cantidad or 0)
-                    if prod_row.stock < 0:
-                        prod_row.stock = 0  # Evitar stock negativo
                 except Exception:
-                    pass  # Manejo básico, podrías loguear esto
+                    pass
 
         # Eliminar los productos de la recepción
         for product in receipt.productos:
@@ -255,8 +253,6 @@ def update_receipt(receipt_id):
                 prod_row = Product.query.filter(func.lower(Product.name) == nombre.lower()).first()
                 if prod_row:
                     prod_row.stock = float(prod_row.stock or 0) + delta
-                    if prod_row.stock < 0:
-                        prod_row.stock = 0
 
         # Agregar nuevos productos al receipt
         for p in data["productos"]:

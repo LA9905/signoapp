@@ -362,7 +362,8 @@ def update_dispatch(dispatch_id):
             
             new_qty = {}
             for p in data["productos"]:
-                nombre, cant, unid = p["nombre"], float(p["cantidad"] or 0), p["unidad"]
+                nombre = (p["nombre"] or "").strip()
+                cant, unid = float(p["cantidad"] or 0), p["unidad"]
                 db.session.add(DispatchProduct(dispatch_id=d.id, nombre=nombre, cantidad=cant, unidad=unid))
                 new_qty[nombre] = new_qty.get(nombre, 0.0) + cant
                 

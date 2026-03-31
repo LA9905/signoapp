@@ -188,8 +188,6 @@ def delete_credit_note(credit_note_id):
             if prod_row:
                 try:
                     prod_row.stock = float(prod_row.stock or 0) - float(product.cantidad or 0)
-                    if prod_row.stock < 0:
-                        prod_row.stock = 0
                 except Exception:
                     pass
 
@@ -267,8 +265,6 @@ def update_credit_note(credit_note_id):
                 prod_row = Product.query.filter(func.lower(Product.name) == nombre.lower()).first()
                 if prod_row:
                     prod_row.stock = float(prod_row.stock or 0) + delta
-                    if prod_row.stock < 0:
-                        prod_row.stock = 0
 
         for p in data["productos"]:
             nombre = (p["nombre"] or "").strip()

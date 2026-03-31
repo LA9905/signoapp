@@ -159,10 +159,8 @@ def delete_production(production_id):
             if prod_row:
                 try:
                     prod_row.stock = float(prod_row.stock or 0) - float(product.cantidad or 0)
-                    if prod_row.stock < 0:
-                        prod_row.stock = 0  # Evitar stock negativo
                 except Exception:
-                    pass  # Manejo básico, podrías loguear esto
+                    pass
 
         # Eliminar los productos de la producción
         for product in production.productos:
@@ -235,8 +233,6 @@ def update_production(production_id):
                 prod_row = Product.query.filter(func.lower(Product.name) == nombre.lower()).first()
                 if prod_row:
                     prod_row.stock = float(prod_row.stock or 0) + delta
-                    if prod_row.stock < 0:
-                        prod_row.stock = 0
 
         # Agregar nuevos productos a la production
         for p in data["productos"]:

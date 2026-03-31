@@ -191,7 +191,7 @@ def update_internal_consumption(id):
                 if not all(k in p for k in ("nombre", "cantidad", "unidad")):
                     return jsonify({"error": "Cada producto requiere nombre, cantidad y unidad"}), 400
 
-                nombre = p["nombre"]
+                nombre = (p["nombre"] or "").strip()
                 cantidad = float(p["cantidad"] or 0)
                 unidad = p["unidad"]
 
