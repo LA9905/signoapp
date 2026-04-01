@@ -125,7 +125,7 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
 
   const saveEdit = (id: string) => {
     const updated = productos.map((p) =>
-      p.id === id ? { ...p, name: tmpName.trim(), cantidad: tmpCantidad, unidad: tmpUnidad } : p
+      p.id === id ? { ...p, cantidad: tmpCantidad, unidad: tmpUnidad } : p
     );
     setProductos(updated);
     cancelEdit();
@@ -172,12 +172,9 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
             ) : (
               <>
                 <div className="flex-1 flex flex-col sm:flex-row gap-2">
-                  <input
-                    value={tmpName}
-                    onChange={(e) => setTmpName(e.target.value)}
-                    className="border p-2 rounded w-full sm:w-1/2"
-                    placeholder="Nombre"
-                  />
+                  <span className="border p-2 rounded w-full sm:w-1/2 bg-gray-800 text-gray-400 cursor-not-allowed select-none">
+                    {tmpName}
+                  </span>
                   <input
                     type="number"
                     value={tmpCantidad}
