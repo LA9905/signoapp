@@ -36,6 +36,7 @@ type SearchState = {
   credit_note_number: string;
   reason: string;
   user: string;
+  product: string;
   date_from: string;
   date_to: string;
 };
@@ -70,6 +71,7 @@ const CreditNoteTracking = () => {
     credit_note_number: "",
     reason: "",
     user: "",
+    product: "",
     date_from: "",
     date_to: "",
   });
@@ -462,6 +464,13 @@ const CreditNoteTracking = () => {
           value={searchState.user}
           onChange={handleSearchChange}
           placeholder="Buscar por usuario que creó"
+          className="w-full border p-2 rounded"
+        />
+        <input
+          name="product"
+          value={searchState.product}
+          onChange={handleSearchChange}
+          placeholder="Buscar por nombre de producto"
           className="w-full border p-2 rounded"
         />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

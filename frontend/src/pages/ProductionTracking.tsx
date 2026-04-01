@@ -28,6 +28,7 @@ type ApiError = { error?: string; details?: string };
 type SearchState = {
   operator: string;
   user: string;
+  product: string;
   date_from: string;
   date_to: string;
 };
@@ -54,6 +55,7 @@ const ProductionTracking = () => {
   const [searchState, setSearchState] = useState<SearchState>({
     operator: "",
     user: "",
+    product: "",
     date_from: "",
     date_to: "",
   });
@@ -335,6 +337,14 @@ const ProductionTracking = () => {
           placeholder="Buscar por nombre del operario"
           className="w-full border p-2 rounded"
         />
+        <input
+          name="product"
+          value={searchState.product}
+          onChange={handleSearchChange}
+          placeholder="Buscar por nombre de producto"
+          className="w-full border p-2 rounded"
+        />
+        
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="block text-sm text-gray-300 mb-1">Desde</label>

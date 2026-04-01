@@ -82,6 +82,7 @@ def get_internal_consumptions():
         search_motivo = (request.args.get("motivo") or "").lower()
         search_user = (request.args.get("user") or "").lower()
         date_from_str = (request.args.get("date_from") or "").strip()
+        search_product = (request.args.get("product") or "").lower()
         date_to_str = (request.args.get("date_to") or "").strip()
 
         page = int(request.args.get("page", 1))
@@ -103,6 +104,11 @@ def get_internal_consumptions():
             query = query.join(User, cast(User.id, String) == InternalConsumption.created_by).filter(
                 func.lower(User.name).like(f"%{search_user}%")
             )
+
+        if search_product:
+            query = query.join(InternalConsumptionProduct, InternalConsumptionProduct.internal_consumption_id == InternalConsumption.id).filter(
+                func.lower(InternalConsumptionProduct.nombre).like(f"%{search_product}%")
+            ).distinct()
 
         if date_from_str:
             date_from = datetime.strptime(date_from_str, "%Y-%m-%d")

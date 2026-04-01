@@ -30,6 +30,7 @@ type SearchState = {
   supplier: string;
   order: string;
   user: string;
+  product: string;
   date_from: string;
   date_to: string;
 };
@@ -59,6 +60,7 @@ const SupplierTracking = () => {
     supplier: "",
     order: "",
     user: "",
+    product: "",
     date_from: "",
     date_to: "",
   });
@@ -350,6 +352,14 @@ const SupplierTracking = () => {
           placeholder="Buscar por número de factura"
           className="w-full border p-2 rounded"
         />
+        <input
+          name="product"
+          value={searchState.product}
+          onChange={handleSearchChange}
+          placeholder="Buscar por nombre de producto"
+          className="w-full border p-2 rounded"
+        />
+
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="block text-sm text-gray-300 mb-1">Desde</label>

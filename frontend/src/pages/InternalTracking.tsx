@@ -31,6 +31,7 @@ type SearchState = {
   area: string;
   motivo: string;
   user: string;
+  product: string;
   date_from: string;
   date_to: string;
 };
@@ -72,6 +73,7 @@ const InternalTracking = () => {
     area: "",
     motivo: "",
     user: "",
+    product: "",
     date_from: "",
     date_to: "",
   });
@@ -442,7 +444,14 @@ const InternalTracking = () => {
           placeholder="Buscar por usuario que creó"
           className="w-full border p-2 rounded"
         />
-
+        <input
+          name="product"
+          value={searchState.product}
+          onChange={handleSearchChange}
+          placeholder="Buscar por nombre de producto"
+          className="w-full border p-2 rounded"
+        />
+        
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="block text-sm text-gray-300 mb-1">Desde</label>

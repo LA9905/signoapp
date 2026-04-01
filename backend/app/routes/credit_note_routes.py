@@ -100,6 +100,7 @@ def get_credit_notes():
         search_credit_note = (request.args.get("credit_note_number") or "").lower()
         search_reason = (request.args.get("reason") or "").lower()
         search_user = (request.args.get("user") or "").lower()
+        search_product = (request.args.get("product") or "").lower()
         date_from_str = (request.args.get("date_from") or "").strip()
         date_to_str = (request.args.get("date_to") or "").strip()
         
@@ -128,6 +129,11 @@ def get_credit_notes():
             query = query.join(User, User.id == CreditNote.created_by).filter(
                 db.func.lower(User.name).like(f"%{search_user}%")
             )
+
+        if search_product:
+            query = query.join(CreditNoteProduct, CreditNoteProduct.credit_note_id == CreditNote.id).filter(
+                db.func.lower(CreditNoteProduct.nombre).like(f"%{search_product}%")
+            ).distinct()
 
         if date_from_str:
             date_to_str = date_to_str or date_from_str  # Si no hay "hasta", asumir igual a "desde"

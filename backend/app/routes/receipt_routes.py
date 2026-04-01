@@ -95,6 +95,7 @@ def get_receipts():
         search_supplier = (request.args.get("supplier") or "").lower()
         search_order = (request.args.get("order") or "").lower()
         search_user = (request.args.get("user") or "").lower()
+        search_product = (request.args.get("product") or "").lower()
         date_from_str = (request.args.get("date_from") or "").strip()
         date_to_str = (request.args.get("date_to") or "").strip()
         
@@ -115,6 +116,11 @@ def get_receipts():
             query = query.join(User, User.id == Receipt.created_by).filter(
                 db.func.lower(User.name).like(f"%{search_user}%")
             )
+
+        if search_product:
+            query = query.join(ReceiptProduct, ReceiptProduct.receipt_id == Receipt.id).filter(
+                db.func.lower(ReceiptProduct.nombre).like(f"%{search_product}%")
+            ).distinct()
 
         if date_from_str:
             date_to_str = date_to_str or date_from_str  # Si no hay "hasta", asumir igual a "desde"
