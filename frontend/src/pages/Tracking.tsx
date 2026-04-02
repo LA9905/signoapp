@@ -388,7 +388,7 @@ const Tracking = () => {
       setDispatches((prev) =>
         prev.map((d) =>
           d.id === id
-            ? { ...d, ...updated, chofer: choferName, cliente: draft.cliente }
+            ? { ...d, ...updated, chofer: choferName, cliente: draft.cliente, factura_numero: updated.factura_numero ?? draft.factura_numero }
             : d
         )
       );

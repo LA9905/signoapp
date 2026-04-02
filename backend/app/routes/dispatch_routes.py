@@ -403,6 +403,8 @@ def update_dispatch(dispatch_id):
             "created_by": creator.name if creator else d.created_by,
             "fecha": to_local(d.fecha).isoformat(timespec="seconds"),
             "status": d.status,
+            "factura_numero": d.factura_numero,
+            "paquete_numero": d.paquete_numero,
             "productos": [{"nombre": p.nombre, "cantidad": p.cantidad, "unidad": p.unidad} for p in d.productos],
             "images": [i.to_dict() for i in d.images],
         }), 200
@@ -447,7 +449,10 @@ def mark_driver_delivered(dispatch_id):
             d.delivered_driver_at = datetime.utcnow()
             d.status = "entregado_chofer"
             db.session.commit()
-        return jsonify(d.to_dict()), 200
+        creator = User.query.get(d.created_by)
+        result = d.to_dict()
+        result["created_by"] = creator.name if creator else d.created_by
+        return jsonify(result), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -464,7 +469,10 @@ def mark_client_delivered(dispatch_id):
         d.delivered_driver = True
         d.delivered_driver_at = datetime.utcnow()
         db.session.commit()
-        return jsonify(d.to_dict()), 200
+        creator = User.query.get(d.created_by)
+        result = d.to_dict()
+        result["created_by"] = creator.name if creator else d.created_by
+        return jsonify(result), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
