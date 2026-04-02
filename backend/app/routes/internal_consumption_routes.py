@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from sqlalchemy import func, cast, String
 from app.utils.timezone import to_utc_naive, to_local, CL_TZ
 from flask_cors import CORS
-from app.routes.product_routes import normalize_product_name
+from app.routes.product_routes import normalize_product_name, normalize_search, normalize_db_column
 
 internal_bp = Blueprint("internal_consumptions", __name__)
 CORS(internal_bp, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
@@ -77,12 +77,12 @@ def create_internal_consumption():
 @jwt_required()
 def get_internal_consumptions():
     try:
-        search_nombre = (request.args.get("nombre_retira") or "").lower()
-        search_area = (request.args.get("area") or "").lower()
-        search_motivo = (request.args.get("motivo") or "").lower()
-        search_user = (request.args.get("user") or "").lower()
+        search_nombre = normalize_search(request.args.get("nombre_retira") or "")
+        search_area = normalize_search(request.args.get("area") or "")
+        search_motivo = normalize_search(request.args.get("motivo") or "")
+        search_user = normalize_search(request.args.get("user") or "")
+        search_product = normalize_search(request.args.get("product") or "")
         date_from_str = (request.args.get("date_from") or "").strip()
-        search_product = (request.args.get("product") or "").lower()
         date_to_str = (request.args.get("date_to") or "").strip()
 
         page = int(request.args.get("page", 1))
@@ -92,24 +92,24 @@ def get_internal_consumptions():
         query = InternalConsumption.query
 
         if search_nombre:
-            query = query.filter(func.lower(InternalConsumption.nombre_retira).like(f"%{search_nombre}%"))
+            query = query.filter(normalize_db_column(InternalConsumption.nombre_retira).like(f"%{search_nombre}%"))
 
         if search_area:
-            query = query.filter(func.lower(InternalConsumption.area).like(f"%{search_area}%"))
+            query = query.filter(normalize_db_column(InternalConsumption.area).like(f"%{search_area}%"))
 
         if search_motivo:
-            query = query.filter(func.lower(InternalConsumption.motivo).like(f"%{search_motivo}%"))
+            query = query.filter(normalize_db_column(InternalConsumption.motivo).like(f"%{search_motivo}%"))
 
         if search_user:
             query = query.join(User, cast(User.id, String) == InternalConsumption.created_by).filter(
-                func.lower(User.name).like(f"%{search_user}%")
+                normalize_db_column(User.name).like(f"%{search_user}%")
             )
 
         if search_product:
             query = query.join(InternalConsumptionProduct, InternalConsumptionProduct.internal_consumption_id == InternalConsumption.id).filter(
-                func.lower(InternalConsumptionProduct.nombre).like(f"%{search_product}%")
+                normalize_db_column(InternalConsumptionProduct.nombre).like(f"%{search_product}%")
             ).distinct()
-
+            
         if date_from_str:
             date_from = datetime.strptime(date_from_str, "%Y-%m-%d")
             query = query.filter(InternalConsumption.fecha >= to_utc_naive(date_from.replace(tzinfo=CL_TZ)))
