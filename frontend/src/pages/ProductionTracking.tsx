@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback, type ChangeEvent } from "react";
+import { normalizeSearch } from "../utils/normalizeSearch";
 import type { AxiosError } from "axios";
 import { FiEdit2, FiTrash2, FiSave, FiX, FiPlus, FiMinus } from "react-icons/fi";
 import OperatorSelector from "../components/OperatorSelector";
@@ -239,7 +240,7 @@ const ProductionTracking = () => {
         setValidationError("Hay un producto sin nombre. Por favor selecciona un producto de la lista o elimina la fila vacía.");
         return;
       }
-      if (!productNames.map(n => n.toLowerCase()).includes(p.nombre.trim().toLowerCase())) {
+      if (!productNames.map(n => normalizeSearch(n)).includes(normalizeSearch(p.nombre.trim()))) {
         setValidationError(`El producto "${p.nombre}" no existe en el listado. Por favor selecciónalo desde las sugerencias o elimina esa fila.`);
         return;
       }
@@ -344,7 +345,7 @@ const ProductionTracking = () => {
           placeholder="Buscar por nombre de producto"
           className="w-full border p-2 rounded"
         />
-        
+
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="block text-sm text-gray-300 mb-1">Desde</label>
@@ -517,7 +518,7 @@ const ProductionTracking = () => {
                                     updateRow(idx, { nombre: value });
                                     if (value) {
                                       const filtered = productNames.filter((n) =>
-                                        n.toLowerCase().includes(value.toLowerCase())
+                                        normalizeSearch(n).includes(normalizeSearch(value))
                                       );
                                       setSuggestions((prev) => ({ ...prev, [idx]: filtered }));
                                     } else {

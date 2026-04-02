@@ -15,6 +15,28 @@ def normalize_product_name(name: str) -> str:
     no_spaces = "".join(no_accents.split())
     return no_spaces.lower()
 
+def normalize_search(text: str) -> str:
+    """Elimina acentos y espacios extremos para búsquedas. No elimina espacios internos."""
+    text = text.strip()
+    nfkd = unicodedata.normalize("NFKD", text)
+    no_accents = "".join(c for c in nfkd if not unicodedata.combining(c))
+    return no_accents.lower()
+
+def normalize_db_column(col):
+    """Aplica replace de vocales acentuadas sobre una columna SQLAlchemy para búsqueda sin acento."""
+    from sqlalchemy import func as f
+    col = f.lower(col)
+    replacements = [
+        ("á", "a"), ("é", "e"), ("í", "i"), ("ó", "o"), ("ú", "u"),
+        ("ä", "a"), ("ë", "e"), ("ï", "i"), ("ö", "o"), ("ü", "u"),
+        ("à", "a"), ("è", "e"), ("ì", "i"), ("ò", "o"), ("ù", "u"),
+        ("â", "a"), ("ê", "e"), ("î", "i"), ("ô", "o"), ("û", "u"),
+        ("ñ", "n"),
+    ]
+    for accented, plain in replacements:
+        col = f.replace(col, accented, plain)
+    return col
+
 product_bp = Blueprint('products', __name__)
 
 @product_bp.route('/products', methods=['POST'])
@@ -73,7 +95,8 @@ def list_products():
         result.append(dict_p)
 
     if search:
-        result = [p for p in result if search in p['name'].lower()]
+        search_norm = normalize_search(search)
+        result = [p for p in result if search_norm in normalize_search(p['name'])]
 
     return jsonify(result), 200
 

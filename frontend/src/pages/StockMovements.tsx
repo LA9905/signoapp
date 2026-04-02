@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { normalizeSearch } from "../utils/normalizeSearch";
 import ArrowBackButton from "../components/ArrowBackButton";
 import { api } from "../services/http";
 
@@ -53,7 +54,7 @@ const StockMovements = () => {
   }, []);
 
   const filteredProducts = products.filter((p) =>
-    p.name.toLowerCase().includes(productSearch.toLowerCase())
+    normalizeSearch(p.name).includes(normalizeSearch(productSearch))
   );
 
   const handleSelectProduct = (name: string) => {

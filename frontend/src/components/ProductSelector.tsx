@@ -1,4 +1,5 @@
 import { useState, type ChangeEvent } from "react";
+import { normalizeSearch } from "../utils/normalizeSearch";
 import { FaRegEdit, FaTrashAlt, FaSave, FaTimes } from "react-icons/fa";
 
 interface Producto {
@@ -105,7 +106,7 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
   };
 
   const filteredProducts = existingProductos
-  .filter((p) => p.name.toLowerCase().includes(searchProduct.toLowerCase()))
+  .filter((p) => normalizeSearch(p.name).includes(normalizeSearch(searchProduct)))
   .sort((a, b) => (b.usage || 0) - (a.usage || 0));  // Ordenar por uso descendente (más usados primero)
 
   // acciones sobre productos ya añadidos al formulario
@@ -231,7 +232,7 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
 
           // 🔹 Nuevo: autoseleccionar el primer producto que coincida
           const match = existingProductos.find((p) =>
-            p.name.toLowerCase().includes(value.toLowerCase())
+            normalizeSearch(p.name).includes(normalizeSearch(value))
           );
           if (match) {
             setNewProduct({

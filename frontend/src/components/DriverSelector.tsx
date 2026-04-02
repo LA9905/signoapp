@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect } from "react";
+import { normalizeSearch } from "../utils/normalizeSearch";
 import { useDrivers } from "../context/DriversContext";
 import { FaRegEdit, FaTrashAlt, FaSave, FaTimes } from "react-icons/fa";
 
@@ -24,7 +25,7 @@ const DriverSelector: React.FC<DriverSelectorProps> = ({ value, onChange }) => {
   }, [drivers.length, refresh]);
 
   const filtered = useMemo(
-    () => drivers.filter((d) => d.name.toLowerCase().includes(search.toLowerCase())),
+    () => drivers.filter((d) => normalizeSearch(d.name).includes(normalizeSearch(search))),
     [drivers, search]
   );
 
@@ -96,7 +97,7 @@ const DriverSelector: React.FC<DriverSelectorProps> = ({ value, onChange }) => {
 
           // 🔹 Autoseleccionar primer chofer que coincida
           const match = drivers.find((d) =>
-            d.name.toLowerCase().includes(value.toLowerCase())
+            normalizeSearch(d.name).includes(normalizeSearch(value))
           );
           if (match) {
             onChange(String(match.id));

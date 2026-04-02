@@ -4,6 +4,7 @@ from app.models.client_model import Client
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import func
+from app.routes.product_routes import normalize_search, normalize_db_column
 
 client_bp = Blueprint('clients', __name__)
 

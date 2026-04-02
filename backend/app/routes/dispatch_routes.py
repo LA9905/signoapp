@@ -19,7 +19,7 @@ from app.utils.timezone import (
 import cloudinary 
 import cloudinary.uploader
 import json 
-from app.routes.product_routes import normalize_product_name
+from app.routes.product_routes import normalize_product_name, normalize_search, normalize_db_column
 
 # === FUNCIÓN AUXILIAR PARA OBTENER public_id DE CLOUDINARY ===
 def get_public_id(url):
@@ -156,12 +156,12 @@ def create_dispatch():
 @jwt_required()
 def get_dispatches():
     try:
-        search_client = (request.args.get("client") or "").lower()
-        search_order = (request.args.get("order") or "").lower()
-        search_user = (request.args.get("user") or "").lower()
-        search_driver = (request.args.get("driver") or "").lower()
-        search_invoice = (request.args.get("invoice") or "").lower()
-        search_product = (request.args.get("product") or "").lower()
+        search_client = normalize_search(request.args.get("client") or "")
+        search_order = normalize_search(request.args.get("order") or "")
+        search_user = normalize_search(request.args.get("user") or "")
+        search_driver = normalize_search(request.args.get("driver") or "")
+        search_invoice = normalize_search(request.args.get("invoice") or "")
+        search_product = normalize_search(request.args.get("product") or "")
         
         page = int(request.args.get("page", 1))
         limit = int(request.args.get("limit", 10))
@@ -174,26 +174,26 @@ def get_dispatches():
         query = Dispatch.query
 
         if search_client:
-            query = query.filter(db.func.lower(Dispatch.client_name).like(f"%{search_client}%"))
+            query = query.filter(normalize_db_column(Dispatch.client_name).like(f"%{search_client}%"))
 
         if search_order:
-            query = query.filter(db.func.lower(Dispatch.orden).like(f"%{search_order}%"))
+            query = query.filter(normalize_db_column(Dispatch.orden).like(f"%{search_order}%"))
 
         if search_user:
             query = query.join(User, cast(User.id, String) == Dispatch.created_by).filter(
-                db.func.lower(User.name).like(f"%{search_user}%")
+                normalize_db_column(User.name).like(f"%{search_user}%")
             )
 
         if search_driver:
-            query = query.filter(db.func.lower(Dispatch.chofer_name).like(f"%{search_driver}%"))
+            query = query.filter(normalize_db_column(Dispatch.chofer_name).like(f"%{search_driver}%"))
 
         if search_invoice:
-            query = query.filter(db.func.lower(Dispatch.factura_numero).like(f"%{search_invoice}%"))
+            query = query.filter(normalize_db_column(Dispatch.factura_numero).like(f"%{search_invoice}%"))
 
         if search_product:
             subq = exists().where(
                 DispatchProduct.dispatch_id == Dispatch.id,
-                db.func.lower(DispatchProduct.nombre).like(f"%{search_product}%")
+                normalize_db_column(DispatchProduct.nombre).like(f"%{search_product}%")
             )
             query = query.filter(subq)
 

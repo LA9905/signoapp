@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect } from "react";
+import { normalizeSearch } from "../utils/normalizeSearch";
 import { useClients } from "../context/ClientsContext";
 import { FaRegEdit, FaTrashAlt, FaSave, FaTimes } from "react-icons/fa";
 
@@ -24,7 +25,7 @@ const ClientSelector: React.FC<ClientSelectorProps> = ({ value, onChange }) => {
   }, [clients.length, refresh]);
 
   const filteredClients = useMemo(
-    () => clients.filter((c) => c.name.toLowerCase().includes(searchClient.toLowerCase())),
+    () => clients.filter((c) => normalizeSearch(c.name).includes(normalizeSearch(searchClient))),
     [clients, searchClient]
   );
 
@@ -96,7 +97,7 @@ const ClientSelector: React.FC<ClientSelectorProps> = ({ value, onChange }) => {
 
           // 🔹 Autoseleccionar primer cliente que coincida
           const match = clients.find((c) =>
-            c.name.toLowerCase().includes(value.toLowerCase())
+            normalizeSearch(c.name).includes(normalizeSearch(value))
           );
           if (match) {
             onChange(match.name);

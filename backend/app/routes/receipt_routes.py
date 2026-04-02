@@ -11,7 +11,7 @@ from app.utils.timezone import to_local, to_utc_naive, CL_TZ
 from sqlalchemy.exc import IntegrityError
 from flask_cors import CORS
 from collections import defaultdict
-from app.routes.product_routes import normalize_product_name
+from app.routes.product_routes import normalize_product_name, normalize_search, normalize_db_column
 
 receipt_bp = Blueprint("receipts", __name__)
 CORS(
@@ -92,10 +92,10 @@ def create_receipt():
 @jwt_required()
 def get_receipts():
     try:
-        search_supplier = (request.args.get("supplier") or "").lower()
-        search_order = (request.args.get("order") or "").lower()
-        search_user = (request.args.get("user") or "").lower()
-        search_product = (request.args.get("product") or "").lower()
+        search_supplier = normalize_search(request.args.get("supplier") or "")
+        search_order = normalize_search(request.args.get("order") or "")
+        search_user = normalize_search(request.args.get("user") or "")
+        search_product = normalize_search(request.args.get("product") or "")
         date_from_str = (request.args.get("date_from") or "").strip()
         date_to_str = (request.args.get("date_to") or "").strip()
         
@@ -107,19 +107,19 @@ def get_receipts():
         query = Receipt.query
 
         if search_supplier:
-            query = query.join(Supplier).filter(db.func.lower(Supplier.name).like(f"%{search_supplier}%"))
+            query = query.join(Supplier).filter(normalize_db_column(Supplier.name).like(f"%{search_supplier}%"))
 
         if search_order:
-            query = query.filter(db.func.lower(Receipt.orden).like(f"%{search_order}%"))
+            query = query.filter(normalize_db_column(Receipt.orden).like(f"%{search_order}%"))
 
         if search_user:
             query = query.join(User, User.id == Receipt.created_by).filter(
-                db.func.lower(User.name).like(f"%{search_user}%")
+                normalize_db_column(User.name).like(f"%{search_user}%")
             )
 
         if search_product:
             query = query.join(ReceiptProduct, ReceiptProduct.receipt_id == Receipt.id).filter(
-                db.func.lower(ReceiptProduct.nombre).like(f"%{search_product}%")
+                normalize_db_column(ReceiptProduct.nombre).like(f"%{search_product}%")
             ).distinct()
 
         if date_from_str:

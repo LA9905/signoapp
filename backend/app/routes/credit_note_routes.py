@@ -11,7 +11,7 @@ from app.utils.timezone import to_local, to_utc_naive, CL_TZ
 from sqlalchemy.exc import IntegrityError
 from flask_cors import CORS
 from collections import defaultdict
-from app.routes.product_routes import normalize_product_name
+from app.routes.product_routes import normalize_product_name, normalize_search, normalize_db_column
 
 credit_note_bp = Blueprint("credit_notes", __name__)
 CORS(
@@ -94,13 +94,13 @@ def create_credit_note():
 @jwt_required()
 def get_credit_notes():
     try:
-        search_client = (request.args.get("client") or "").lower()
-        search_order = (request.args.get("order_number") or "").lower()
-        search_invoice = (request.args.get("invoice_number") or "").lower()
-        search_credit_note = (request.args.get("credit_note_number") or "").lower()
-        search_reason = (request.args.get("reason") or "").lower()
-        search_user = (request.args.get("user") or "").lower()
-        search_product = (request.args.get("product") or "").lower()
+        search_client = normalize_search(request.args.get("client") or "")
+        search_order = normalize_search(request.args.get("order_number") or "")
+        search_invoice = normalize_search(request.args.get("invoice_number") or "")
+        search_credit_note = normalize_search(request.args.get("credit_note_number") or "")
+        search_reason = normalize_search(request.args.get("reason") or "")
+        search_user = normalize_search(request.args.get("user") or "")
+        search_product = normalize_search(request.args.get("product") or "")
         date_from_str = (request.args.get("date_from") or "").strip()
         date_to_str = (request.args.get("date_to") or "").strip()
         
@@ -111,28 +111,28 @@ def get_credit_notes():
         query = CreditNote.query
 
         if search_client:
-            query = query.filter(db.func.lower(CreditNote.client_name).like(f"%{search_client}%"))
+            query = query.filter(normalize_db_column(CreditNote.client_name).like(f"%{search_client}%"))
 
         if search_order:
-            query = query.filter(db.func.lower(CreditNote.order_number).like(f"%{search_order}%"))
+            query = query.filter(normalize_db_column(CreditNote.order_number).like(f"%{search_order}%"))
 
         if search_invoice:
-            query = query.filter(db.func.lower(CreditNote.invoice_number).like(f"%{search_invoice}%"))
+            query = query.filter(normalize_db_column(CreditNote.invoice_number).like(f"%{search_invoice}%"))
 
         if search_credit_note:
-            query = query.filter(db.func.lower(CreditNote.credit_note_number).like(f"%{search_credit_note}%"))
+            query = query.filter(normalize_db_column(CreditNote.credit_note_number).like(f"%{search_credit_note}%"))
 
         if search_reason:
-            query = query.filter(db.func.lower(CreditNote.reason).like(f"%{search_reason}%"))
+            query = query.filter(normalize_db_column(CreditNote.reason).like(f"%{search_reason}%"))
 
         if search_user:
             query = query.join(User, User.id == CreditNote.created_by).filter(
-                db.func.lower(User.name).like(f"%{search_user}%")
+                normalize_db_column(User.name).like(f"%{search_user}%")
             )
 
         if search_product:
             query = query.join(CreditNoteProduct, CreditNoteProduct.credit_note_id == CreditNote.id).filter(
-                db.func.lower(CreditNoteProduct.nombre).like(f"%{search_product}%")
+                normalize_db_column(CreditNoteProduct.nombre).like(f"%{search_product}%")
             ).distinct()
 
         if date_from_str:
