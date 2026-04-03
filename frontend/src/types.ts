@@ -8,4 +8,5 @@ export interface MeResp {
   subscription_paid_until: string | null;
   due_day: number | null;
   can_edit_stock: boolean;
+  gender?: "m" | "f" | null;
 }
