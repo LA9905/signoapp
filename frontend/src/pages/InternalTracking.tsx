@@ -594,6 +594,7 @@ const InternalTracking = () => {
                 <div className="flex items-start justify-between gap-4">
                   {!isEditingRow ? (
                     <div>
+                      <p><strong>Folio:</strong> {int.id}</p>
                       <p><strong>Nombre quien retira:</strong> {int.nombre_retira}</p>
                       <p><strong>Área:</strong> {int.area}</p>
                       <p><strong>Motivo:</strong> {int.motivo}</p>

@@ -641,6 +641,7 @@ const CreditNoteTracking = () => {
                 <div className="flex items-start justify-between gap-4">
                   {!isEditingRow ? (
                     <div>
+                      <p><strong>Folio:</strong> {cn.id}</p>
                       <p><strong>Centro de Costo:</strong> {cn.client}</p>
                       <p><strong>N° Orden de Compra:</strong> {cn.order_number}</p>
                       <p><strong>N° Factura:</strong> {cn.invoice_number}</p>

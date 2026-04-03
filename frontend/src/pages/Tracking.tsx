@@ -849,6 +849,7 @@ const Tracking = () => {
                 <div className="flex items-start justify-between gap-4">
                   {!isEditingRow ? (
                     <div>
+                      <p><strong>Folio:</strong> {d.id}</p>
                       <p><strong>Orden:</strong> {d.orden}</p>
                       {d.paquete_numero ? <p><strong>Paquete N°:</strong> {d.paquete_numero}</p> : null}
                       {d.factura_numero ? <p><strong>Factura N°:</strong> {d.factura_numero}</p> : null}
