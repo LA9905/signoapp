@@ -44,6 +44,33 @@ def create_credit_note():
             db.session.add(client)
             db.session.flush()
 
+        force = data.get("force", False)
+
+        existing_order = CreditNote.query.filter_by(order_number=order_number).first() if order_number else None
+        existing_invoice = CreditNote.query.filter_by(invoice_number=invoice_number).first() if invoice_number else None
+        existing_credit = CreditNote.query.filter_by(credit_note_number=credit_note_number).first() if credit_note_number else None
+
+        if not force:
+            dup_order = bool(existing_order)
+            dup_invoice = bool(existing_invoice)
+            dup_credit = bool(existing_credit)
+            count = sum([dup_order, dup_invoice, dup_credit])
+
+            if count == 3:
+                return jsonify({"error": "duplicate_all", "msg": "⚠️ ATENCIÓN: El número de orden de compra, el número de factura Y el número de nota de crédito ya están registrados en otras notas de crédito. ¿Desea continuar de todas formas?"}), 409
+            elif dup_order and dup_invoice:
+                return jsonify({"error": "duplicate_order_invoice", "msg": "⚠️ ATENCIÓN: El número de orden de compra Y el número de factura ya están registrados en otras notas de crédito. ¿Desea continuar de todas formas?"}), 409
+            elif dup_order and dup_credit:
+                return jsonify({"error": "duplicate_order_credit", "msg": "⚠️ ATENCIÓN: El número de orden de compra Y el número de nota de crédito ya están registrados en otras notas de crédito. ¿Desea continuar de todas formas?"}), 409
+            elif dup_invoice and dup_credit:
+                return jsonify({"error": "duplicate_invoice_credit", "msg": "⚠️ ATENCIÓN: El número de factura Y el número de nota de crédito ya están registrados en otras notas de crédito. ¿Desea continuar de todas formas?"}), 409
+            elif dup_order:
+                return jsonify({"error": "duplicate_order", "msg": "El número de orden de compra ya está registrado en otra nota de crédito. ¿Desea continuar?"}), 409
+            elif dup_invoice:
+                return jsonify({"error": "duplicate_invoice", "msg": "El número de factura ya está registrado en otra nota de crédito. ¿Desea continuar?"}), 409
+            elif dup_credit:
+                return jsonify({"error": "duplicate_credit", "msg": "El número de nota de crédito ya está registrado en otra nota de crédito. ¿Desea continuar?"}), 409
+
         new_credit_note = CreditNote(
             client_id=client.id,
             client_name=client.name,
@@ -114,13 +141,22 @@ def get_credit_notes():
             query = query.filter(normalize_db_column(CreditNote.client_name).like(f"%{search_client}%"))
 
         if search_order:
-            query = query.filter(normalize_db_column(CreditNote.order_number).like(f"%{search_order}%"))
+            if search_order.isdigit():
+                query = query.filter(normalize_db_column(CreditNote.order_number) == search_order)
+            else:
+                query = query.filter(normalize_db_column(CreditNote.order_number).like(f"%{search_order}%"))
 
         if search_invoice:
-            query = query.filter(normalize_db_column(CreditNote.invoice_number).like(f"%{search_invoice}%"))
+            if search_invoice.isdigit():
+                query = query.filter(normalize_db_column(CreditNote.invoice_number) == search_invoice)
+            else:
+                query = query.filter(normalize_db_column(CreditNote.invoice_number).like(f"%{search_invoice}%"))
 
         if search_credit_note:
-            query = query.filter(normalize_db_column(CreditNote.credit_note_number).like(f"%{search_credit_note}%"))
+            if search_credit_note.isdigit():
+                query = query.filter(normalize_db_column(CreditNote.credit_note_number) == search_credit_note)
+            else:
+                query = query.filter(normalize_db_column(CreditNote.credit_note_number).like(f"%{search_credit_note}%"))
 
         if search_reason:
             query = query.filter(normalize_db_column(CreditNote.reason).like(f"%{search_reason}%"))
@@ -239,6 +275,39 @@ def update_credit_note(credit_note_id):
         credit_note.invoice_number = data["invoice_number"]
         credit_note.credit_note_number = data["credit_note_number"]
         credit_note.reason = data["reason"]
+
+        force = data.get("force", False)
+
+        if not force:
+            dup_order = CreditNote.query.filter(
+                CreditNote.order_number == data["order_number"],
+                CreditNote.id != credit_note_id
+            ).first() if data.get("order_number") else None
+            dup_invoice = CreditNote.query.filter(
+                CreditNote.invoice_number == data["invoice_number"],
+                CreditNote.id != credit_note_id
+            ).first() if data.get("invoice_number") else None
+            dup_credit = CreditNote.query.filter(
+                CreditNote.credit_note_number == data["credit_note_number"],
+                CreditNote.id != credit_note_id
+            ).first() if data.get("credit_note_number") else None
+
+            count = sum([bool(dup_order), bool(dup_invoice), bool(dup_credit)])
+
+            if count == 3:
+                return jsonify({"error": "duplicate_all", "msg": "⚠️ ATENCIÓN: El número de orden de compra, el número de factura Y el número de nota de crédito ya están registrados en otras notas de crédito. ¿Desea continuar de todas formas?"}), 409
+            elif dup_order and dup_invoice:
+                return jsonify({"error": "duplicate_order_invoice", "msg": "⚠️ ATENCIÓN: El número de orden de compra Y el número de factura ya están registrados en otras notas de crédito. ¿Desea continuar de todas formas?"}), 409
+            elif dup_order and dup_credit:
+                return jsonify({"error": "duplicate_order_credit", "msg": "⚠️ ATENCIÓN: El número de orden de compra Y el número de nota de crédito ya están registrados en otras notas de crédito. ¿Desea continuar de todas formas?"}), 409
+            elif dup_invoice and dup_credit:
+                return jsonify({"error": "duplicate_invoice_credit", "msg": "⚠️ ATENCIÓN: El número de factura Y el número de nota de crédito ya están registrados en otras notas de crédito. ¿Desea continuar de todas formas?"}), 409
+            elif dup_order:
+                return jsonify({"error": "duplicate_order", "msg": "El número de orden de compra ya está registrado en otra nota de crédito. ¿Desea continuar?"}), 409
+            elif dup_invoice:
+                return jsonify({"error": "duplicate_invoice", "msg": "El número de factura ya está registrado en otra nota de crédito. ¿Desea continuar?"}), 409
+            elif dup_credit:
+                return jsonify({"error": "duplicate_credit", "msg": "El número de nota de crédito ya está registrado en otra nota de crédito. ¿Desea continuar?"}), 409
 
         # Stock: similar a update en production
         old_qty_by_name = defaultdict(float)

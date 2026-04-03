@@ -22,6 +22,10 @@ interface FormularioCreditNote {
   productos: Producto[];
 }
 
+interface ApiError {
+  error?: string;
+  msg?: string;
+}
 interface Payload {
   client: string;
   order_number: string;
@@ -78,20 +82,20 @@ const CreateCreditNote = () => {
       return;
     }
 
-    try {
-      const payload: Payload = {
-        client: form.client,
-        order_number: form.order_number,
-        invoice_number: form.invoice_number,
-        credit_note_number: form.credit_note_number,
-        reason: form.reason,
-        productos: form.productos.map((p) => ({
-          nombre: p.name,
-          cantidad: p.cantidad,
-          unidad: p.unidad,
-        })),
-      };
+    const payload: Payload = {
+      client: form.client,
+      order_number: form.order_number,
+      invoice_number: form.invoice_number,
+      credit_note_number: form.credit_note_number,
+      reason: form.reason,
+      productos: form.productos.map((p) => ({
+        nombre: p.name,
+        cantidad: p.cantidad,
+        unidad: p.unidad,
+      })),
+    };
 
+    try {
       const newProducts = form.productos.filter(
         (p) => !productos.some((ep) => ep.id === p.id)
       );
@@ -151,7 +155,33 @@ const CreateCreditNote = () => {
       setForm({ ...form, productos: [] }); // Limpiar productos
     } catch (err: unknown) {
       if (err instanceof AxiosError) {
-        setMensaje(err.response?.data?.error || "Error al registrar nota de crédito");
+        const errCode = (err.response?.data as ApiError)?.error;
+        const errMsg = (err.response?.data as ApiError)?.msg || "";
+        const duplicateCodes = ["duplicate_order", "duplicate_invoice", "duplicate_credit", "duplicate_order_invoice", "duplicate_order_credit", "duplicate_invoice_credit", "duplicate_all"];
+        if (err.response?.status === 409 && errCode && duplicateCodes.includes(errCode)) {
+          if (window.confirm(errMsg)) {
+            try {
+              const createResp = await api.post("/credit-notes", { ...payload, force: true });
+              const creditNoteId: number = createResp.data?.id;
+              setMensaje("Nota de crédito registrada satisfactoriamente");
+              if (window.confirm("¿Desea imprimir la nota de crédito?")) {
+                if (creditNoteId) {
+                  const pdfResp = await api.get(`/print-credit-note/${creditNoteId}`, { params: { inline: "1", format: "pos80" }, responseType: "blob" });
+                  const blob = new Blob([pdfResp.data], { type: "application/pdf" });
+                  const url = URL.createObjectURL(blob);
+                  const w = window.open(url, "_blank");
+                  if (w) { setTimeout(() => { try { w.print(); } catch {} }, 500); } else { window.location.href = url; }
+                  setTimeout(() => URL.revokeObjectURL(url), 60000);
+                }
+              }
+              setForm({ ...form, productos: [] });
+            } catch {
+              setMensaje("Error al registrar nota de crédito");
+            }
+          }
+        } else {
+          setMensaje(err.response?.data?.error || "Error al registrar nota de crédito");
+        }
       } else {
         setMensaje("Error desconocido al registrar nota de crédito");
       }

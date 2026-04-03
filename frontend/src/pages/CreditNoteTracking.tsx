@@ -28,7 +28,7 @@ interface Product {
 }
 
 type ProductoRow = { nombre: string; cantidad: number; unidad: string };
-type ApiError = { error?: string; details?: string };
+type ApiError = { error?: string; details?: string; msg?: string };
 
 type SearchState = {
   client: string;
@@ -271,19 +271,20 @@ const CreditNoteTracking = () => {
     }
 
     setIsLoading(true);
+    const payload = {
+      client: draft.client,
+      order_number: draft.order_number,
+      invoice_number: draft.invoice_number,
+      credit_note_number: draft.credit_note_number,
+      reason: draft.reason,
+      productos: draft.productos.map((p) => ({
+        nombre: p.nombre,
+        cantidad: p.cantidad,
+        unidad: p.unidad,
+      })),
+    };
+
     try {
-      const payload = {
-        client: draft.client,
-        order_number: draft.order_number,
-        invoice_number: draft.invoice_number,
-        credit_note_number: draft.credit_note_number,
-        reason: draft.reason,
-        productos: draft.productos.map((p) => ({
-          nombre: p.nombre,
-          cantidad: p.cantidad,
-          unidad: p.unidad,
-        })),
-      };
       const response = await api.put<CreditNoteSummary>(`/credit-notes/${editingId}`, payload);
       const updated = response.data;
       setCreditNotes((prev) =>
@@ -298,8 +299,26 @@ const CreditNoteTracking = () => {
       cancelEditRow();
     } catch (err) {
       const error = err as AxiosError<ApiError>;
-      console.error("Error al actualizar nota de crédito:", error.response?.data || error.message);
-      alert(error.response?.data?.error || "No se pudo actualizar la nota de crédito");
+      const errCode = error.response?.data?.error;
+      const errMsg = error.response?.data?.msg || "";
+      const duplicateCodes = ["duplicate_order", "duplicate_invoice", "duplicate_credit", "duplicate_order_invoice", "duplicate_order_credit", "duplicate_invoice_credit", "duplicate_all"];
+      if (error.response?.status === 409 && errCode && duplicateCodes.includes(errCode)) {
+        if (window.confirm(errMsg)) {
+          try {
+            const forcedPayload = { ...payload, force: true };
+            const response = await api.put<CreditNoteSummary>(`/credit-notes/${editingId}`, forcedPayload);
+            const updated = response.data;
+            setCreditNotes((prev) => prev.map((cn) => (cn.id === editingId ? { ...cn, ...updated } : cn)));
+            setMensaje("Nota de crédito actualizada correctamente");
+            if (window.confirm("¿Desea imprimir la nota de crédito actualizada?")) { printPDF(editingId); }
+            cancelEditRow();
+          } catch {
+            alert("No se pudo actualizar la nota de crédito");
+          }
+        }
+      } else {
+        alert(error.response?.data?.error || "No se pudo actualizar la nota de crédito");
+      }
     } finally {
       setIsLoading(false);
     }
