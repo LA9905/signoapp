@@ -194,7 +194,10 @@ def get_dispatches():
             query = query.filter(normalize_db_column(Dispatch.client_name).like(f"%{search_client}%"))
 
         if search_order:
-            query = query.filter(normalize_db_column(Dispatch.orden).like(f"%{search_order}%"))
+            if search_order.isdigit():
+                query = query.filter(normalize_db_column(Dispatch.orden) == search_order)
+            else:
+                query = query.filter(normalize_db_column(Dispatch.orden).like(f"%{search_order}%"))
 
         if search_user:
             query = query.join(User, cast(User.id, String) == Dispatch.created_by).filter(
@@ -205,7 +208,10 @@ def get_dispatches():
             query = query.filter(normalize_db_column(Dispatch.chofer_name).like(f"%{search_driver}%"))
 
         if search_invoice:
-            query = query.filter(normalize_db_column(Dispatch.factura_numero).like(f"%{search_invoice}%"))
+            if search_invoice.isdigit():
+                query = query.filter(normalize_db_column(Dispatch.factura_numero) == search_invoice)
+            else:
+                query = query.filter(normalize_db_column(Dispatch.factura_numero).like(f"%{search_invoice}%"))
 
         if search_product:
             subq = exists().where(
