@@ -100,62 +100,71 @@ const Dashboard: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-blue-50 text-neutral-900">
+    <div className="min-h-screen bg-slate-100 text-neutral-900">
       <NavbarUser avatarUrl={avatarUrl} />
-      <div className="max-w-5xl mx-auto p-6">
-        <h2 className="text-2xl font-bold mb-4">Bienvenido, {name}</h2>
+      <div className="max-w-5xl mx-auto px-4 py-8">
 
-        <div className="flex flex-col sm:flex-row sm:justify-between gap-4 mt-4">
+        {/* Header */}
+        <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <p className="text-sm text-slate-500 uppercase tracking-wide font-medium">Panel principal</p>
+            <h2 className="text-2xl font-bold text-slate-800">Bienvenido, {name}</h2>
+          </div>
           {!isLimited && (
             <button
               onClick={handleStart}
-              className="bg-blue-600 text-white px-6 py-3 rounded shadow hover:bg-blue-700"
+              className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-5 py-2.5 rounded-lg shadow transition-colors"
             >
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M8 5v14l11-7z"/>
+              </svg>
               Iniciar jornada del día
             </button>
           )}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {menuItems.map((item) => (
-              <button
-                key={item.route}
-                onClick={() => navigate(item.route)}
-                className="bg-white text-neutral-800 border border-slate-200 hover:border-blue-400 rounded px-4 py-2 text-sm text-left shadow-sm"
-              >
-                {item.title}
-              </button>
-            ))}
-          </div>
         </div>
 
-        <div className="mt-10">
-          {errorMessage && <p className="text-red-500 mb-2">{errorMessage}</p>}
-          <div className="flex flex-col sm:flex-row gap-4 mb-4">
-            <select
-              value={selectedYear}
-              onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-              className="border p-2 rounded"
+        {/* Menu Grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-10">
+          {menuItems.map((item) => (
+            <button
+              key={item.route}
+              onClick={() => navigate(item.route)}
+              className="bg-white text-slate-700 border border-slate-200 border-l-4 border-l-blue-400 rounded-xl px-4 py-3 text-sm text-left shadow-sm transition-all duration-150 font-medium hover:bg-blue-50 hover:text-blue-700 hover:shadow-md"
             >
-              {years.map((year) => (
-                <option key={year} value={year}>
-                  {year}
-                </option>
-              ))}
-            </select>
-            <select
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-              className="border p-2 rounded"
-            >
-              {months.map((month, index) => (
-                <option key={index + 1} value={index + 1}>
-                  {month}
-                </option>
-              ))}
-            </select>
+              {item.title}
+            </button>
+          ))}
+        </div>
+
+        {/* Chart Section */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
+            <h3 className="text-base font-semibold text-slate-800">Despachos del mes</h3>
+            <div className="flex gap-2">
+              <select
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                className="border border-slate-200 bg-slate-50 text-slate-700 text-sm p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300"
+              >
+                {years.map((year) => (
+                  <option key={year} value={year}>{year}</option>
+                ))}
+              </select>
+              <select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+                className="border border-slate-200 bg-slate-50 text-slate-700 text-sm p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300"
+              >
+                {months.map((month, index) => (
+                  <option key={index + 1} value={index + 1}>{month}</option>
+                ))}
+              </select>
+            </div>
           </div>
-          <h3 className="text-lg font-semibold mb-2">Despachos del mes seleccionado</h3>
+          {errorMessage && <p className="text-red-500 text-sm mb-3">{errorMessage}</p>}
           <ChartMonthlyOrders dataPoints={chartData} />
         </div>
+
       </div>
     </div>
   );

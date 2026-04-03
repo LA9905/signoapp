@@ -1,6 +1,6 @@
 import { useEffect, useState, type ChangeEvent, type FormEvent, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { FiX } from "react-icons/fi"; // Agrega FiX para el botón de cerrar el modal
+import { FiX } from "react-icons/fi";
 import ProductSelector from "../components/ProductSelector.tsx";
 import ClientSelector from "../components/ClientSelector.tsx";
 import DriverSelector from "../components/DriverSelector.tsx";
@@ -114,28 +114,20 @@ const CreateDispatch = () => {
       return;
     }
 
-    try {
-      const checkResp = await api.get("/dispatches", { params: { order: form.orden } });
-      const dispatchData: DispatchPayload = {
-        orden: form.orden,
-        cliente: form.cliente,
-        chofer: form.chofer,
-        paquete_numero: form.numero_paquete,
-        factura_numero: form.numero_factura,
-        productos: form.productos.map((p) => ({
-          nombre: p.name,
-          cantidad: p.cantidad,
-          unidad: p.unidad,
-        })),
-      };
+    const dispatchData: DispatchPayload = {
+      orden: form.orden,
+      cliente: form.cliente,
+      chofer: form.chofer,
+      paquete_numero: form.numero_paquete,
+      factura_numero: form.numero_factura,
+      productos: form.productos.map((p) => ({
+        nombre: p.name,
+        cantidad: p.cantidad,
+        unidad: p.unidad,
+      })),
+    };
 
-      if (checkResp.data.length > 0) {
-        if (!window.confirm("Ya existe un despacho con ese número de orden. ¿Desea continuar?")) {
-          return;
-        }
-        dispatchData.force = true;
-      }
-
+   try {
       const formData = new FormData();
       formData.append('data', JSON.stringify(dispatchData));
       images.forEach((img) => formData.append('images', img));
@@ -174,8 +166,33 @@ const CreateDispatch = () => {
     } catch (err: unknown) {
       const error = err as AxiosError<ApiError>;
       console.log("Error response:", error.response?.data);
-      if (error.response?.status === 409 && error.response?.data?.error === "duplicate_order") {
-        setMensaje(error.response.data?.msg || "Ya existe un despacho");
+      const errCode = error.response?.data?.error;
+      const errMsg = error.response?.data?.msg || "";
+      if (error.response?.status === 409 && (errCode === "duplicate_order" || errCode === "duplicate_invoice" || errCode === "duplicate_both")) {
+        if (window.confirm(errMsg)) {
+          try {
+            const formData = new FormData();
+            formData.append('data', JSON.stringify({ ...dispatchData, force: true }));
+            images.forEach((img) => formData.append('images', img));
+            const createResp = await api.post("/dispatches", formData, {
+              headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            const dispatchId: number = createResp.data?.id;
+            setMensaje("Despacho creado correctamente");
+            if (dispatchId) {
+              const pdfResp = await api.get(`/print/${dispatchId}`, {
+                params: { inline: "1", format: "pos80" },
+                responseType: "blob",
+              });
+              const blob = new Blob([pdfResp.data], { type: "application/pdf" });
+              const url = URL.createObjectURL(blob);
+              window.open(url, "_blank");
+            }
+            setTimeout(() => navigate("/dashboard"), 2000);
+          } catch {
+            setMensaje("Error al crear despacho");
+          }
+        }
       } else {
         setMensaje("Error al crear despacho");
       }

@@ -11,7 +11,7 @@ from app.utils.timezone import to_local, to_utc_naive, CL_TZ
 from sqlalchemy.exc import IntegrityError
 from flask_cors import CORS
 from collections import defaultdict
-from app.routes.product_routes import normalize_product_name
+from app.routes.product_routes import normalize_product_name, normalize_search, normalize_db_column
 
 production_bp = Blueprint("productions", __name__)
 CORS(
@@ -84,8 +84,9 @@ def create_production():
 @jwt_required()
 def get_productions():
     try:
-        search_operator = (request.args.get("operator") or "").lower()
-        search_user = (request.args.get("user") or "").lower()
+        search_operator = normalize_search(request.args.get("operator") or "")
+        search_user = normalize_search(request.args.get("user") or "")
+        search_product = normalize_search(request.args.get("product") or "")
         date_from_str = (request.args.get("date_from") or "").strip()
         date_to_str = (request.args.get("date_to") or "").strip()
         
@@ -97,12 +98,17 @@ def get_productions():
         query = Production.query
 
         if search_operator:
-            query = query.join(Operator).filter(db.func.lower(Operator.name).like(f"%{search_operator}%"))
+            query = query.join(Operator).filter(normalize_db_column(Operator.name).like(f"%{search_operator}%"))
 
         if search_user:
             query = query.join(User, User.id == Production.created_by).filter(
-                db.func.lower(User.name).like(f"%{search_user}%")
+                normalize_db_column(User.name).like(f"%{search_user}%")
             )
+
+        if search_product:
+            query = query.join(ProductionProduct, ProductionProduct.production_id == Production.id).filter(
+                normalize_db_column(ProductionProduct.nombre).like(f"%{search_product}%")
+            ).distinct()
 
         if date_from_str:
             date_to_str = date_to_str or date_from_str
@@ -159,10 +165,8 @@ def delete_production(production_id):
             if prod_row:
                 try:
                     prod_row.stock = float(prod_row.stock or 0) - float(product.cantidad or 0)
-                    if prod_row.stock < 0:
-                        prod_row.stock = 0  # Evitar stock negativo
                 except Exception:
-                    pass  # Manejo básico, podrías loguear esto
+                    pass
 
         # Eliminar los productos de la producción
         for product in production.productos:
@@ -235,8 +239,6 @@ def update_production(production_id):
                 prod_row = Product.query.filter(func.lower(Product.name) == nombre.lower()).first()
                 if prod_row:
                     prod_row.stock = float(prod_row.stock or 0) + delta
-                    if prod_row.stock < 0:
-                        prod_row.stock = 0
 
         # Agregar nuevos productos a la production
         for p in data["productos"]:

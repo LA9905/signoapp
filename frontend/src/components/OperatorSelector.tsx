@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect } from "react";
 import { useOperators } from "../context/OperatorsContext";
 import { FaRegEdit, FaTrashAlt, FaSave, FaTimes } from "react-icons/fa";
+import { normalizeSearch } from "../utils/normalizeSearch";
 
 interface OperatorSelectorProps {
   value: string;
@@ -24,7 +25,7 @@ const OperatorSelector: React.FC<OperatorSelectorProps> = ({ value, onChange }) 
   }, [operators.length, refresh]);
 
   const filteredOperators = useMemo(
-    () => operators.filter((s) => s.name.toLowerCase().includes(searchOperator.toLowerCase())),
+    () => operators.filter((s) => normalizeSearch(s.name).includes(normalizeSearch(searchOperator))),
     [operators, searchOperator]
   );
 
@@ -94,7 +95,7 @@ const OperatorSelector: React.FC<OperatorSelectorProps> = ({ value, onChange }) 
           const value = e.target.value;
           setSearchOperator(value);
           const match = operators.find((s) =>
-            s.name.toLowerCase().includes(value.toLowerCase())
+            normalizeSearch(s.name).includes(normalizeSearch(value))
           );
           if (match) {
             onChange(match.name);

@@ -1,7 +1,9 @@
 import { useEffect, useState, type FormEvent, type ChangeEvent } from "react";
+import { normalizeSearch } from "../utils/normalizeSearch";
 import { FaRegEdit, FaTrashAlt, FaSave, FaTimes } from "react-icons/fa";
 import ArrowBackButton from "../components/ArrowBackButton";
 import { useClients } from "../context/ClientsContext";
+
 
 const Clients = () => {
   const { clients, refresh, createClient, updateClient, deleteClient } = useClients();
@@ -78,9 +80,9 @@ const Clients = () => {
   };
 
   // filtrado por nombre
-  const normalizedQuery = search.trim().toLowerCase();
+  const normalizedQuery = normalizeSearch(search);
   const filteredClients = normalizedQuery
-    ? clients.filter((c) => (c.name || "").toLowerCase().includes(normalizedQuery))
+    ? clients.filter((c) => normalizeSearch(c.name || "").includes(normalizedQuery))
     : clients;
 
   return (

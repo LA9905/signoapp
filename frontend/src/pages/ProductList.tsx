@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { normalizeSearch } from "../utils/normalizeSearch";
 import { FaRegEdit, FaTrashAlt, FaSave, FaTimes } from "react-icons/fa";
 import ArrowBackButton from "../components/ArrowBackButton";
 import { api } from "../services/http";
@@ -94,7 +95,7 @@ const ProductList = () => {
   
   // FILTRADO: por nombre + (opcional) por categoría
   const filtered = products.filter((p) => {
-    const matchName = p.name.toLowerCase().includes(search.toLowerCase());
+    const matchName = normalizeSearch(p.name).includes(normalizeSearch(search));
     const matchCategory = !categoryFilter || p.category === categoryFilter;
     return matchName && matchCategory;
   });
