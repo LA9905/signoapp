@@ -69,12 +69,11 @@ def update_operator(operator_id):
 def delete_operator(operator_id):
     try:
         operator = Operator.query.get_or_404(operator_id)
+        from app.models.production_model import Production
+        Production.query.filter_by(operator_id=operator_id).update({"operator_id": None}, synchronize_session=False)
         db.session.delete(operator)
         db.session.commit()
         return jsonify({"message": "Operario eliminado"}), 200
-    except IntegrityError:
-        db.session.rollback()
-        return jsonify({"error": "No se puede eliminar el operario porque está referenciado por otros registros"}), 409
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": "No se pudo eliminar el operario", "details": str(e)}), 500

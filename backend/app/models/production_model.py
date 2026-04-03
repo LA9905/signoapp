@@ -7,7 +7,8 @@ class Production(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     fecha = db.Column(db.DateTime, default=utcnow)
-    operator_id = db.Column(db.Integer, db.ForeignKey('operator.id'), nullable=False)
+    operator_id = db.Column(db.Integer, db.ForeignKey('operator.id'), nullable=True)
+    operator_name = db.Column(db.String(100), nullable=True)
     created_by = db.Column(db.String(50), nullable=False)
 
     productos = db.relationship('ProductionProduct', backref='production', lazy=True)
@@ -17,6 +18,7 @@ class Production(db.Model):
             'id': self.id,
             'fecha': to_local(self.fecha).isoformat(timespec="seconds"),
             'operator_id': self.operator_id,
+            'operator_name': self.operator_name,
             'created_by': self.created_by,
             'productos': [p.to_dict() for p in self.productos]
         }

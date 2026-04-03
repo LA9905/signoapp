@@ -49,6 +49,7 @@ def create_receipt():
         new_receipt = Receipt(
             orden=orden,
             supplier_id=supplier.id,
+            supplier_name=supplier_norm,
             created_by=user_id,
         )
         new_receipt.fecha = to_utc_naive(datetime.now(CL_TZ))
@@ -107,7 +108,13 @@ def get_receipts():
         query = Receipt.query
 
         if search_supplier:
-            query = query.join(Supplier).filter(normalize_db_column(Supplier.name).like(f"%{search_supplier}%"))
+            from app.models.receipt_model import Receipt as R
+            query = query.outerjoin(Supplier, Supplier.id == Receipt.supplier_id).filter(
+                db.or_(
+                    normalize_db_column(Supplier.name).like(f"%{search_supplier}%"),
+                    normalize_db_column(Receipt.supplier_name).like(f"%{search_supplier}%")
+                )
+            )
 
         if search_order:
             query = query.filter(normalize_db_column(Receipt.orden).like(f"%{search_order}%"))
@@ -147,13 +154,14 @@ def get_receipts():
 
         result = []
         for r in receipts:
-            supplier = Supplier.query.get(r.supplier_id)
+            supplier = Supplier.query.get(r.supplier_id) if r.supplier_id else None
             creator = User.query.get(r.created_by)
+            supplier_display = (supplier.name if supplier else None) or r.supplier_name or str(r.supplier_id or "")
             result.append(
                 {
                     "id": r.id,
                     "orden": r.orden,
-                    "supplier": supplier.name if supplier else str(r.supplier_id),
+                    "supplier": supplier_display,
                     "created_by": creator.name if creator else r.created_by,
                     "fecha": to_local(r.fecha).isoformat(timespec="seconds"),
                     "status": r.status or 'pendiente',
@@ -209,6 +217,12 @@ def update_receipt(receipt_id):
         receipt = Receipt.query.get_or_404(receipt_id)
         user_id = get_jwt_identity()
 
+        # Verificar duplicado de orden excluyendo la recepción actual
+        orden = data["orden"]
+        duplicate = Receipt.query.filter(Receipt.orden == orden, Receipt.id != receipt_id).first()
+        if duplicate and not data.get("force", False):
+            return jsonify({"error": "duplicate_order", "msg": "Ya existe una orden con ese número de factura. Confirme para continuar."}), 409
+
         # Actualizar proveedor
         supplier_name = data["supplier"]
         supplier_norm = " ".join((supplier_name or "").strip().split())
@@ -218,6 +232,7 @@ def update_receipt(receipt_id):
             db.session.add(supplier)
             db.session.flush()
         receipt.supplier_id = supplier.id
+        receipt.supplier_name = supplier_norm
 
         # Actualizar orden
         receipt.orden = data["orden"]

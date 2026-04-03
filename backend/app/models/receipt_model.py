@@ -7,7 +7,8 @@ class Receipt(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     orden = db.Column(db.String(50), nullable=False)
-    supplier_id = db.Column(db.Integer, db.ForeignKey('supplier.id'), nullable=False)
+    supplier_id = db.Column(db.Integer, db.ForeignKey('supplier.id'), nullable=True)
+    supplier_name = db.Column(db.String(100), nullable=True)  # nombre guardado al momento de crear
     fecha = db.Column(db.DateTime, default=utcnow)
     created_by = db.Column(db.String(50), nullable=False)
     status = db.Column(db.String(30), default='pendiente')
