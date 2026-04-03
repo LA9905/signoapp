@@ -35,7 +35,7 @@ def register():
     if User.query.filter_by(email=email_lower).first():
         return jsonify({"msg": "Ya existe un usuario con ese correo"}), 400
 
-    user = User(name=data["name"], email=email_lower)
+    user = User(name=data["name"], email=email_lower, gender=data.get("gender"))
     user.set_password(data["password"])
     db.session.add(user)
     db.session.commit()
@@ -107,6 +107,7 @@ def me():
         "subscription_paid_until": user.subscription_paid_until.isoformat() if user.subscription_paid_until else None,
         "can_edit_stock": user.can_edit_stock, # campo de permiso para editar stock
         "due_day": user.due_day,
+        "gender": user.gender,
     }), 200
 
 @auth_bp.route("/profile/request-code", methods=["POST"])
@@ -159,6 +160,10 @@ def update_profile():
 
     if password:
         user.set_password(password)
+
+    gender = request.form.get("gender")
+    if gender in ("m", "f"):
+        user.gender = gender    
 
     if "avatar" in request.files and cloud_name:
         avatar_file = request.files["avatar"]

@@ -14,7 +14,8 @@ class User(db.Model):
     subscription_paid_until = db.Column(db.Date, nullable=True)  # última fecha cubierta (ej.: 2025-09-08)
     due_day = db.Column(db.Integer, nullable=False, default=8)   # día de corte (8)
     receive_notifications = db.Column(db.Boolean, nullable=False, default=True)  # Suscripción a notificaciones
-    can_edit_stock = db.Column(db.Boolean, nullable=False, default=False) # Permiso para editar stock manualmente  
+    can_edit_stock = db.Column(db.Boolean, nullable=False, default=False) # Permiso para editar stock manualmente
+    gender = db.Column(db.String(1), nullable=True)  # 'm' = masculino, 'f' = femenino, None = sin definir  
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
