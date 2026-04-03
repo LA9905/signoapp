@@ -41,6 +41,7 @@ def create_production():
 
         new_production = Production(
             operator_id=operator.id,
+            operator_name=operator.name,
             created_by=user_id,
         )
         new_production.fecha = to_utc_naive(datetime.now(CL_TZ))
@@ -98,7 +99,12 @@ def get_productions():
         query = Production.query
 
         if search_operator:
-            query = query.join(Operator).filter(normalize_db_column(Operator.name).like(f"%{search_operator}%"))
+            query = query.outerjoin(Operator, Operator.id == Production.operator_id).filter(
+                db.or_(
+                    normalize_db_column(Operator.name).like(f"%{search_operator}%"),
+                    normalize_db_column(Production.operator_name).like(f"%{search_operator}%")
+                )
+            )
 
         if search_user:
             query = query.join(User, User.id == Production.created_by).filter(
@@ -135,12 +141,13 @@ def get_productions():
 
         result = []
         for p in productions:
-            operator = Operator.query.get(p.operator_id)
+            operator = Operator.query.get(p.operator_id) if p.operator_id else None
             creator = User.query.get(p.created_by)
+            operator_display = (operator.name if operator else None) or p.operator_name or "(operario eliminado)"
             result.append(
                 {
                     "id": p.id,
-                    "operator": operator.name if operator else str(p.operator_id),
+                    "operator": operator_display,
                     "created_by": creator.name if creator else p.created_by,
                     "fecha": to_local(p.fecha).isoformat(timespec="seconds"),
                     "productos": [
@@ -204,6 +211,7 @@ def update_production(production_id):
             db.session.add(operator)
             db.session.flush()
         production.operator_id = operator.id
+        production.operator_name = operator.name
 
         # Calcular cantidades antiguas sumadas por nombre
         old_qty_by_name = defaultdict(float)

@@ -69,12 +69,15 @@ def update_supplier(supplier_id):
 def delete_supplier(supplier_id):
     try:
         supplier = Supplier.query.get_or_404(supplier_id)
+        # Desasociar recepciones: poner supplier_id en NULL (el nombre ya está guardado en supplier_name)
+        from app.models.receipt_model import Receipt
+        Receipt.query.filter_by(supplier_id=supplier_id).update({"supplier_id": None}, synchronize_session="fetch")
+        db.session.flush()
         db.session.delete(supplier)
         db.session.commit()
         return jsonify({"message": "Proveedor eliminado"}), 200
-    except IntegrityError:
-        db.session.rollback()
-        return jsonify({"error": "No se puede eliminar el proveedor porque está referenciado por otros registros"}), 409
     except Exception as e:
         db.session.rollback()
+        import traceback
+        traceback.print_exc()
         return jsonify({"error": "No se pudo eliminar el proveedor", "details": str(e)}), 500

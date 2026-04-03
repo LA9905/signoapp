@@ -257,17 +257,18 @@ const SupplierTracking = () => {
       }
     }
 
+    const payload = {
+      orden: draft.orden,
+      supplier: draft.supplier,
+      productos: draft.productos.map((p) => ({
+        nombre: p.nombre,
+        cantidad: p.cantidad,
+        unidad: p.unidad,
+      })),
+    };
+
     setIsLoading(true);
     try {
-      const payload = {
-        orden: draft.orden,
-        supplier: draft.supplier,
-        productos: draft.productos.map((p) => ({
-          nombre: p.nombre,
-          cantidad: p.cantidad,
-          unidad: p.unidad,
-        })),
-      };
       const response = await api.put<ReceiptSummary>(`/receipts/${editingId}`, payload);
       const updated = response.data;
       setReceipts((prev) =>
@@ -277,6 +278,23 @@ const SupplierTracking = () => {
       cancelEditRow();
     } catch (err) {
       const error = err as AxiosError<ApiError>;
+      if (error.response?.status === 409 && (error.response.data as any)?.error === "duplicate_order") {
+        if (window.confirm("Ya existe una orden con ese número de factura. ¿Desea continuar de todas formas?")) {
+          try {
+            const response = await api.put<ReceiptSummary>(`/receipts/${editingId}`, { ...payload, force: true });
+            const updated = response.data;
+            setReceipts((prev) =>
+              prev.map((r) => (r.id === editingId ? { ...r, ...updated } : r))
+            );
+            setMensaje("Recepción actualizada correctamente");
+            cancelEditRow();
+          } catch (retryErr) {
+            const retryError = retryErr as AxiosError<ApiError>;
+            alert(retryError.response?.data?.error || "No se pudo actualizar la recepción");
+          }
+        }
+        return;
+      }
       console.error("Error al actualizar recepción:", error.response?.data || error.message);
       alert(error.response?.data?.error || "No se pudo actualizar la recepción");
     } finally {
@@ -510,7 +528,7 @@ const SupplierTracking = () => {
                     <div className="w-full">
                       <div className="grid sm:grid-cols-2 gap-3">
                         <div>
-                          <label className="block text-sm mb-1">Orden</label>
+                          <label className="block text-sm mb-1">Número de Factura</label>
                           <input
                             value={draft?.orden || ""}
                             onChange={(e) => setDraft((prev) => (prev ? { ...prev, orden: e.target.value } : prev))}
