@@ -200,8 +200,8 @@ def get_dispatches():
                 query = query.filter(normalize_db_column(Dispatch.orden).like(f"%{search_order}%"))
 
         if search_user:
-            query = query.join(User, cast(User.id, String) == Dispatch.created_by).filter(
-                normalize_db_column(User.name).like(f"%{search_user}%")
+            query = query.outerjoin(User, cast(User.id, String) == Dispatch.created_by).filter(
+                db.func.lower(User.name).like(f"%{search_user}%")
             )
 
         if search_driver:
