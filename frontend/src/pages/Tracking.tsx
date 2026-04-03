@@ -850,7 +850,6 @@ const Tracking = () => {
                             <option value="pendiente">pendiente</option>
                             <option value="entregado_chofer">entregado_chofer</option>
                             <option value="entregado_cliente">entregado_cliente</option>
-                            <option value="cancelado">cancelado</option>
                           </select>
                         </div>
                         <div>

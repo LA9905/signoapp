@@ -329,8 +329,7 @@ def update_dispatch(dispatch_id):
                 db.session.add(cliente)
                 db.session.flush()
             d.cliente_id = cliente.id
-            d.client_name = cliente.name # CORRECCIÓN: client_name
-
+            d.client_name = cliente.name
         if "chofer" in data and data["chofer"]:
             chofer = Driver.query.get(int(data["chofer"]))
             if chofer:
@@ -342,19 +341,24 @@ def update_dispatch(dispatch_id):
 
         if "status" in data and data["status"]:
             new_status = data["status"]
-            if not d.delivered_client:
-                if new_status == "entregado_cliente":
-                    d.delivered_client = True
-                    d.delivered_client_at = datetime.utcnow()
-                    d.status = "entregado_cliente"
-                    d.delivered_driver = True
-                    d.delivered_driver_at = datetime.utcnow()
-                elif new_status == "entregado_chofer":
-                    d.delivered_driver = True
-                    d.delivered_driver_at = datetime.utcnow()
-                    d.status = "entregado_chofer"
-                elif new_status in ("pendiente", "cancelado"):
-                    d.status = new_status
+            if new_status == "entregado_cliente":
+                d.delivered_client = True
+                d.delivered_client_at = datetime.utcnow()
+                d.status = "entregado_cliente"
+                d.delivered_driver = True
+                d.delivered_driver_at = datetime.utcnow()
+            elif new_status == "entregado_chofer":
+                d.delivered_driver = True
+                d.delivered_driver_at = datetime.utcnow()
+                d.delivered_client = False
+                d.delivered_client_at = None
+                d.status = "entregado_chofer"
+            elif new_status == "pendiente":
+                d.delivered_driver = False
+                d.delivered_driver_at = None
+                d.delivered_client = False
+                d.delivered_client_at = None
+                d.status = "pendiente"
 
         if "productos" in data and isinstance(data["productos"], list):
             old_qty = {item.nombre: float(item.cantidad or 0) for item in d.productos}
@@ -398,11 +402,13 @@ def update_dispatch(dispatch_id):
         return jsonify({
             "id": d.id,
             "orden": d.orden,
-            "cliente": client.name if client else d.client_name, # CORRECCIÓN: client_name
+            "cliente": client.name if client else d.client_name,
             "chofer": d.chofer_name,
             "created_by": creator.name if creator else d.created_by,
             "fecha": to_local(d.fecha).isoformat(timespec="seconds"),
             "status": d.status,
+            "delivered_driver": d.delivered_driver,
+            "delivered_client": d.delivered_client,
             "factura_numero": d.factura_numero,
             "paquete_numero": d.paquete_numero,
             "productos": [{"nombre": p.nombre, "cantidad": p.cantidad, "unidad": p.unidad} for p in d.productos],
@@ -412,9 +418,6 @@ def update_dispatch(dispatch_id):
         db.session.rollback()
         return jsonify({"error": "Error al actualizar", "details": str(e)}), 500
 
-# ----------------------------
-# Los demás endpoints (Monthly, Mark, Delete) permanecen lógicamente igual
-# ----------------------------
 @dispatch_bp.route("/dispatches/monthly", methods=["GET"])
 @jwt_required()
 def get_monthly_dispatches():
