@@ -11,6 +11,7 @@ from app.models.user_model import User
 from flask_jwt_extended import jwt_required
 from datetime import datetime, timedelta
 from sqlalchemy import func
+from app.routes.product_routes import normalize_search, normalize_db_column
 from app.utils.timezone import to_local, to_utc_naive, CL_TZ
 from flask_cors import CORS
 
@@ -22,7 +23,7 @@ CORS(stock_movement_bp, resources={r"/*": {"origins": "*"}}, supports_credential
 @jwt_required()
 def get_stock_movements():
     try:
-        product_name = (request.args.get("product") or "").strip()
+        product_name = normalize_search(request.args.get("product") or "")
         date_from_str = (request.args.get("date_from") or "").strip()
         date_to_str = (request.args.get("date_to") or "").strip()
 
@@ -50,7 +51,7 @@ def get_stock_movements():
         # ── 1. DESPACHOS (salida) ──
         dispatch_q = db.session.query(DispatchProduct, Dispatch).join(
             Dispatch, DispatchProduct.dispatch_id == Dispatch.id
-        ).filter(func.lower(DispatchProduct.nombre) == product_name.lower())
+        ).filter(normalize_db_column(DispatchProduct.nombre) == product_name)
         if date_from_utc:
             dispatch_q = dispatch_q.filter(Dispatch.fecha >= date_from_utc)
         if date_to_utc:
@@ -74,7 +75,7 @@ def get_stock_movements():
         internal_q = db.session.query(InternalConsumptionProduct, InternalConsumption).join(
             InternalConsumption,
             InternalConsumptionProduct.internal_consumption_id == InternalConsumption.id
-        ).filter(func.lower(InternalConsumptionProduct.nombre) == product_name.lower())
+        ).filter(normalize_db_column(InternalConsumptionProduct.nombre) == product_name)
         if date_from_utc:
             internal_q = internal_q.filter(InternalConsumption.fecha >= date_from_utc)
         if date_to_utc:
@@ -98,7 +99,7 @@ def get_stock_movements():
         receipt_q = db.session.query(ReceiptProduct, Receipt, Supplier).join(
             Receipt, ReceiptProduct.receipt_id == Receipt.id
         ).join(Supplier, Receipt.supplier_id == Supplier.id).filter(
-            func.lower(ReceiptProduct.nombre) == product_name.lower()
+            normalize_db_column(ReceiptProduct.nombre) == product_name
         )
         if date_from_utc:
             receipt_q = receipt_q.filter(Receipt.fecha >= date_from_utc)
@@ -122,7 +123,7 @@ def get_stock_movements():
         production_q = db.session.query(ProductionProduct, Production, Operator).join(
             Production, ProductionProduct.production_id == Production.id
         ).join(Operator, Production.operator_id == Operator.id).filter(
-            func.lower(ProductionProduct.nombre) == product_name.lower()
+            normalize_db_column(ProductionProduct.nombre) == product_name
         )
         if date_from_utc:
             production_q = production_q.filter(Production.fecha >= date_from_utc)
@@ -144,7 +145,7 @@ def get_stock_movements():
         # ── 5. NOTA DE CRÉDITO (entrada) ──
         cn_q = db.session.query(CreditNoteProduct, CreditNote).join(
             CreditNote, CreditNoteProduct.credit_note_id == CreditNote.id
-        ).filter(func.lower(CreditNoteProduct.nombre) == product_name.lower())
+        ).filter(normalize_db_column(CreditNoteProduct.nombre) == product_name)
         if date_from_utc:
             cn_q = cn_q.filter(CreditNote.fecha >= date_from_utc)
         if date_to_utc:

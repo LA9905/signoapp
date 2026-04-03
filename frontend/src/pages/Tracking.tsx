@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback, type ChangeEvent } from "react";
+import { normalizeSearch } from "../utils/normalizeSearch";
 import type { AxiosError, AxiosResponse } from "axios";
 import { FiEdit2, FiTrash2, FiSave, FiX, FiPlus, FiMinus } from "react-icons/fi";
 import ClientSelector from "../components/ClientSelector";
@@ -36,7 +37,7 @@ interface Product {
 }
 
 type ProductoRow = { nombre: string; cantidad: number; unidad: string };
-type ApiError = { error?: string; details?: string };
+type ApiError = { error?: string; details?: string; msg?: string };
 
 type SearchState = {
   client: string;
@@ -349,7 +350,7 @@ const Tracking = () => {
         setValidationError("Hay un producto sin nombre. Por favor selecciona un producto de la lista o elimina la fila vacía.");
         return;
       }
-      if (!productNames.map(n => n.toLowerCase()).includes(p.nombre.trim().toLowerCase())) {
+      if (!productNames.map(n => normalizeSearch(n)).includes(normalizeSearch(p.nombre.trim()))) {
         setValidationError(`El producto "${p.nombre}" no existe en el listado. Por favor selecciónalo desde las sugerencias o elimina esa fila.`);
         return;
       }
@@ -387,7 +388,7 @@ const Tracking = () => {
       setDispatches((prev) =>
         prev.map((d) =>
           d.id === id
-            ? { ...d, ...updated, chofer: choferName, cliente: draft.cliente }
+            ? { ...d, ...updated, chofer: choferName, cliente: draft.cliente, factura_numero: updated.factura_numero ?? draft.factura_numero }
             : d
         )
       );
@@ -396,7 +397,50 @@ const Tracking = () => {
       setScrollToId(id);
     } catch (err) {
       const error = err as AxiosError<ApiError>;
-      alert(error.response?.data?.error || "No se pudo actualizar");
+      const errCode = error.response?.data?.error;
+      const errMsg = error.response?.data?.msg || "";
+      if (error.response?.status === 409 && (errCode === "duplicate_order" || errCode === "duplicate_invoice" || errCode === "duplicate_both")) {
+        if (window.confirm(errMsg)) {
+          try {
+            const payload = {
+              orden: draft.orden,
+              cliente: draft.cliente,
+              chofer: draft.chofer,
+              status: draft.status,
+              factura_numero: draft.factura_numero,
+              force: true,
+              productos: draft.productos.map((p) => ({
+                nombre: p.nombre,
+                cantidad: p.cantidad,
+                unidad: p.unidad,
+              })),
+              delete_image_ids: deleteImageIds,
+            };
+            const formData = new FormData();
+            formData.append('data', JSON.stringify(payload));
+            newImages.forEach((img) => formData.append('new_images', img));
+            const resp = await api.put<DispatchSummary>(`/dispatches/${id}`, formData, {
+              headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            const updated = resp.data;
+            const choferName = drivers.find((d) => d.id === parseInt(draft.chofer))?.name || updated.chofer;
+            setDispatches((prev) =>
+              prev.map((d) =>
+                d.id === id
+                  ? { ...d, ...updated, chofer: choferName, cliente: draft.cliente, factura_numero: updated.factura_numero ?? draft.factura_numero }
+                  : d
+              )
+            );
+            setMensaje("Despacho actualizado.");
+            cancelEditRow();
+            setScrollToId(id);
+          } catch {
+            alert("No se pudo actualizar el despacho");
+          }
+        }
+      } else {
+        alert(error.response?.data?.error || "No se pudo actualizar");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -805,6 +849,7 @@ const Tracking = () => {
                 <div className="flex items-start justify-between gap-4">
                   {!isEditingRow ? (
                     <div>
+                      <p><strong>Folio:</strong> {d.id}</p>
                       <p><strong>Orden:</strong> {d.orden}</p>
                       {d.paquete_numero ? <p><strong>Paquete N°:</strong> {d.paquete_numero}</p> : null}
                       {d.factura_numero ? <p><strong>Factura N°:</strong> {d.factura_numero}</p> : null}
@@ -849,7 +894,6 @@ const Tracking = () => {
                             <option value="pendiente">pendiente</option>
                             <option value="entregado_chofer">entregado_chofer</option>
                             <option value="entregado_cliente">entregado_cliente</option>
-                            <option value="cancelado">cancelado</option>
                           </select>
                         </div>
                         <div>
@@ -889,7 +933,7 @@ const Tracking = () => {
                                     updateRow(idx, { nombre: value });
                                     if (value) {
                                       const filtered = productNames.filter((n) =>
-                                        n.toLowerCase().includes(value.toLowerCase())
+                                        normalizeSearch(n).includes(normalizeSearch(value))
                                       );
                                       setSuggestions((prev) => ({ ...prev, [idx]: filtered }));
                                     } else {

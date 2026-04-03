@@ -1,4 +1,5 @@
 import { useState, type ChangeEvent } from "react";
+import { normalizeSearch } from "../utils/normalizeSearch";
 import { FaRegEdit, FaTrashAlt, FaSave, FaTimes } from "react-icons/fa";
 
 interface Producto {
@@ -105,7 +106,7 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
   };
 
   const filteredProducts = existingProductos
-  .filter((p) => p.name.toLowerCase().includes(searchProduct.toLowerCase()))
+  .filter((p) => normalizeSearch(p.name).includes(normalizeSearch(searchProduct)))
   .sort((a, b) => (b.usage || 0) - (a.usage || 0));  // Ordenar por uso descendente (más usados primero)
 
   // acciones sobre productos ya añadidos al formulario
@@ -125,7 +126,7 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
 
   const saveEdit = (id: string) => {
     const updated = productos.map((p) =>
-      p.id === id ? { ...p, name: tmpName.trim(), cantidad: tmpCantidad, unidad: tmpUnidad } : p
+      p.id === id ? { ...p, cantidad: tmpCantidad, unidad: tmpUnidad } : p
     );
     setProductos(updated);
     cancelEdit();
@@ -172,12 +173,9 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
             ) : (
               <>
                 <div className="flex-1 flex flex-col sm:flex-row gap-2">
-                  <input
-                    value={tmpName}
-                    onChange={(e) => setTmpName(e.target.value)}
-                    className="border p-2 rounded w-full sm:w-1/2"
-                    placeholder="Nombre"
-                  />
+                  <span className="border p-2 rounded w-full sm:w-1/2 bg-gray-800 text-gray-400 cursor-not-allowed select-none">
+                    {tmpName}
+                  </span>
                   <input
                     type="number"
                     value={tmpCantidad}
@@ -234,7 +232,7 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
 
           // 🔹 Nuevo: autoseleccionar el primer producto que coincida
           const match = existingProductos.find((p) =>
-            p.name.toLowerCase().includes(value.toLowerCase())
+            normalizeSearch(p.name).includes(normalizeSearch(value))
           );
           if (match) {
             setNewProduct({

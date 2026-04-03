@@ -11,7 +11,7 @@ from app.utils.timezone import to_local, to_utc_naive, CL_TZ
 from sqlalchemy.exc import IntegrityError
 from flask_cors import CORS
 from collections import defaultdict
-from app.routes.product_routes import normalize_product_name
+from app.routes.product_routes import normalize_product_name, normalize_search, normalize_db_column
 
 credit_note_bp = Blueprint("credit_notes", __name__)
 CORS(
@@ -43,6 +43,33 @@ def create_credit_note():
             client = Client(name=client_norm, created_by=user_id)
             db.session.add(client)
             db.session.flush()
+
+        force = data.get("force", False)
+
+        existing_order = CreditNote.query.filter_by(order_number=order_number).first() if order_number else None
+        existing_invoice = CreditNote.query.filter_by(invoice_number=invoice_number).first() if invoice_number else None
+        existing_credit = CreditNote.query.filter_by(credit_note_number=credit_note_number).first() if credit_note_number else None
+
+        if not force:
+            dup_order = bool(existing_order)
+            dup_invoice = bool(existing_invoice)
+            dup_credit = bool(existing_credit)
+            count = sum([dup_order, dup_invoice, dup_credit])
+
+            if count == 3:
+                return jsonify({"error": "duplicate_all", "msg": "⚠️ ATENCIÓN: El número de orden de compra, el número de factura Y el número de nota de crédito ya están registrados en otras notas de crédito. ¿Desea continuar de todas formas?"}), 409
+            elif dup_order and dup_invoice:
+                return jsonify({"error": "duplicate_order_invoice", "msg": "⚠️ ATENCIÓN: El número de orden de compra Y el número de factura ya están registrados en otras notas de crédito. ¿Desea continuar de todas formas?"}), 409
+            elif dup_order and dup_credit:
+                return jsonify({"error": "duplicate_order_credit", "msg": "⚠️ ATENCIÓN: El número de orden de compra Y el número de nota de crédito ya están registrados en otras notas de crédito. ¿Desea continuar de todas formas?"}), 409
+            elif dup_invoice and dup_credit:
+                return jsonify({"error": "duplicate_invoice_credit", "msg": "⚠️ ATENCIÓN: El número de factura Y el número de nota de crédito ya están registrados en otras notas de crédito. ¿Desea continuar de todas formas?"}), 409
+            elif dup_order:
+                return jsonify({"error": "duplicate_order", "msg": "El número de orden de compra ya está registrado en otra nota de crédito. ¿Desea continuar?"}), 409
+            elif dup_invoice:
+                return jsonify({"error": "duplicate_invoice", "msg": "El número de factura ya está registrado en otra nota de crédito. ¿Desea continuar?"}), 409
+            elif dup_credit:
+                return jsonify({"error": "duplicate_credit", "msg": "El número de nota de crédito ya está registrado en otra nota de crédito. ¿Desea continuar?"}), 409
 
         new_credit_note = CreditNote(
             client_id=client.id,
@@ -94,12 +121,13 @@ def create_credit_note():
 @jwt_required()
 def get_credit_notes():
     try:
-        search_client = (request.args.get("client") or "").lower()
-        search_order = (request.args.get("order_number") or "").lower()
-        search_invoice = (request.args.get("invoice_number") or "").lower()
-        search_credit_note = (request.args.get("credit_note_number") or "").lower()
-        search_reason = (request.args.get("reason") or "").lower()
-        search_user = (request.args.get("user") or "").lower()
+        search_client = normalize_search(request.args.get("client") or "")
+        search_order = normalize_search(request.args.get("order_number") or "")
+        search_invoice = normalize_search(request.args.get("invoice_number") or "")
+        search_credit_note = normalize_search(request.args.get("credit_note_number") or "")
+        search_reason = normalize_search(request.args.get("reason") or "")
+        search_user = normalize_search(request.args.get("user") or "")
+        search_product = normalize_search(request.args.get("product") or "")
         date_from_str = (request.args.get("date_from") or "").strip()
         date_to_str = (request.args.get("date_to") or "").strip()
         
@@ -110,24 +138,38 @@ def get_credit_notes():
         query = CreditNote.query
 
         if search_client:
-            query = query.filter(db.func.lower(CreditNote.client_name).like(f"%{search_client}%"))
+            query = query.filter(normalize_db_column(CreditNote.client_name).like(f"%{search_client}%"))
 
         if search_order:
-            query = query.filter(db.func.lower(CreditNote.order_number).like(f"%{search_order}%"))
+            if search_order.isdigit():
+                query = query.filter(normalize_db_column(CreditNote.order_number) == search_order)
+            else:
+                query = query.filter(normalize_db_column(CreditNote.order_number).like(f"%{search_order}%"))
 
         if search_invoice:
-            query = query.filter(db.func.lower(CreditNote.invoice_number).like(f"%{search_invoice}%"))
+            if search_invoice.isdigit():
+                query = query.filter(normalize_db_column(CreditNote.invoice_number) == search_invoice)
+            else:
+                query = query.filter(normalize_db_column(CreditNote.invoice_number).like(f"%{search_invoice}%"))
 
         if search_credit_note:
-            query = query.filter(db.func.lower(CreditNote.credit_note_number).like(f"%{search_credit_note}%"))
+            if search_credit_note.isdigit():
+                query = query.filter(normalize_db_column(CreditNote.credit_note_number) == search_credit_note)
+            else:
+                query = query.filter(normalize_db_column(CreditNote.credit_note_number).like(f"%{search_credit_note}%"))
 
         if search_reason:
-            query = query.filter(db.func.lower(CreditNote.reason).like(f"%{search_reason}%"))
+            query = query.filter(normalize_db_column(CreditNote.reason).like(f"%{search_reason}%"))
 
         if search_user:
             query = query.join(User, User.id == CreditNote.created_by).filter(
-                db.func.lower(User.name).like(f"%{search_user}%")
+                normalize_db_column(User.name).like(f"%{search_user}%")
             )
+
+        if search_product:
+            query = query.join(CreditNoteProduct, CreditNoteProduct.credit_note_id == CreditNote.id).filter(
+                normalize_db_column(CreditNoteProduct.nombre).like(f"%{search_product}%")
+            ).distinct()
 
         if date_from_str:
             date_to_str = date_to_str or date_from_str  # Si no hay "hasta", asumir igual a "desde"
@@ -188,8 +230,6 @@ def delete_credit_note(credit_note_id):
             if prod_row:
                 try:
                     prod_row.stock = float(prod_row.stock or 0) - float(product.cantidad or 0)
-                    if prod_row.stock < 0:
-                        prod_row.stock = 0
                 except Exception:
                     pass
 
@@ -236,6 +276,39 @@ def update_credit_note(credit_note_id):
         credit_note.credit_note_number = data["credit_note_number"]
         credit_note.reason = data["reason"]
 
+        force = data.get("force", False)
+
+        if not force:
+            dup_order = CreditNote.query.filter(
+                CreditNote.order_number == data["order_number"],
+                CreditNote.id != credit_note_id
+            ).first() if data.get("order_number") else None
+            dup_invoice = CreditNote.query.filter(
+                CreditNote.invoice_number == data["invoice_number"],
+                CreditNote.id != credit_note_id
+            ).first() if data.get("invoice_number") else None
+            dup_credit = CreditNote.query.filter(
+                CreditNote.credit_note_number == data["credit_note_number"],
+                CreditNote.id != credit_note_id
+            ).first() if data.get("credit_note_number") else None
+
+            count = sum([bool(dup_order), bool(dup_invoice), bool(dup_credit)])
+
+            if count == 3:
+                return jsonify({"error": "duplicate_all", "msg": "⚠️ ATENCIÓN: El número de orden de compra, el número de factura Y el número de nota de crédito ya están registrados en otras notas de crédito. ¿Desea continuar de todas formas?"}), 409
+            elif dup_order and dup_invoice:
+                return jsonify({"error": "duplicate_order_invoice", "msg": "⚠️ ATENCIÓN: El número de orden de compra Y el número de factura ya están registrados en otras notas de crédito. ¿Desea continuar de todas formas?"}), 409
+            elif dup_order and dup_credit:
+                return jsonify({"error": "duplicate_order_credit", "msg": "⚠️ ATENCIÓN: El número de orden de compra Y el número de nota de crédito ya están registrados en otras notas de crédito. ¿Desea continuar de todas formas?"}), 409
+            elif dup_invoice and dup_credit:
+                return jsonify({"error": "duplicate_invoice_credit", "msg": "⚠️ ATENCIÓN: El número de factura Y el número de nota de crédito ya están registrados en otras notas de crédito. ¿Desea continuar de todas formas?"}), 409
+            elif dup_order:
+                return jsonify({"error": "duplicate_order", "msg": "El número de orden de compra ya está registrado en otra nota de crédito. ¿Desea continuar?"}), 409
+            elif dup_invoice:
+                return jsonify({"error": "duplicate_invoice", "msg": "El número de factura ya está registrado en otra nota de crédito. ¿Desea continuar?"}), 409
+            elif dup_credit:
+                return jsonify({"error": "duplicate_credit", "msg": "El número de nota de crédito ya está registrado en otra nota de crédito. ¿Desea continuar?"}), 409
+
         # Stock: similar a update en production
         old_qty_by_name = defaultdict(float)
         for p in credit_note.productos:
@@ -267,8 +340,6 @@ def update_credit_note(credit_note_id):
                 prod_row = Product.query.filter(func.lower(Product.name) == nombre.lower()).first()
                 if prod_row:
                     prod_row.stock = float(prod_row.stock or 0) + delta
-                    if prod_row.stock < 0:
-                        prod_row.stock = 0
 
         for p in data["productos"]:
             nombre = (p["nombre"] or "").strip()

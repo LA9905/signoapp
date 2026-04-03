@@ -19,7 +19,7 @@ from app.utils.timezone import (
 import cloudinary 
 import cloudinary.uploader
 import json 
-from app.routes.product_routes import normalize_product_name
+from app.routes.product_routes import normalize_product_name, normalize_search, normalize_db_column
 
 # === FUNCIÓN AUXILIAR PARA OBTENER public_id DE CLOUDINARY ===
 def get_public_id(url):
@@ -87,11 +87,28 @@ def create_dispatch():
         if not chofer:
             return jsonify({"error": f"Chofer con ID {chofer_id} no encontrado"}), 404
 
-        existing = Dispatch.query.filter_by(orden=orden).first()
-        if existing and not force:
-            return jsonify({"error": "duplicate_order", "msg": "Ya existe un despacho con ese número de orden. Confirme para continuar."}), 409
+        existing_orden = Dispatch.query.filter_by(orden=orden).first() if orden else None
+        existing_factura = Dispatch.query.filter(
+            Dispatch.factura_numero == factura_numero
+        ).first() if factura_numero else None
 
-        # CORRECCIÓN: Se usa client_name (sin doble 'c')
+        if not force:
+            if existing_orden and existing_factura:
+                return jsonify({
+                    "error": "duplicate_both",
+                    "msg": "⚠️ ATENCIÓN: El número de orden de compra Y el número de factura ya están registrados en otros despachos. ¿Desea continuar de todas formas?"
+                }), 409
+            elif existing_orden:
+                return jsonify({
+                    "error": "duplicate_order",
+                    "msg": "El número de orden de compra ya está registrado en otro despacho. ¿Desea continuar?"
+                }), 409
+            elif existing_factura:
+                return jsonify({
+                    "error": "duplicate_invoice",
+                    "msg": "El número de factura ya está registrado en otro despacho. ¿Desea continuar?"
+                }), 409
+
         new_dispatch = Dispatch(
             orden=orden,
             chofer_id=chofer_id,
@@ -156,12 +173,12 @@ def create_dispatch():
 @jwt_required()
 def get_dispatches():
     try:
-        search_client = (request.args.get("client") or "").lower()
-        search_order = (request.args.get("order") or "").lower()
-        search_user = (request.args.get("user") or "").lower()
-        search_driver = (request.args.get("driver") or "").lower()
-        search_invoice = (request.args.get("invoice") or "").lower()
-        search_product = (request.args.get("product") or "").lower()
+        search_client = normalize_search(request.args.get("client") or "")
+        search_order = normalize_search(request.args.get("order") or "")
+        search_user = normalize_search(request.args.get("user") or "")
+        search_driver = normalize_search(request.args.get("driver") or "")
+        search_invoice = normalize_search(request.args.get("invoice") or "")
+        search_product = normalize_search(request.args.get("product") or "")
         
         page = int(request.args.get("page", 1))
         limit = int(request.args.get("limit", 10))
@@ -174,26 +191,32 @@ def get_dispatches():
         query = Dispatch.query
 
         if search_client:
-            query = query.filter(db.func.lower(Dispatch.client_name).like(f"%{search_client}%"))
+            query = query.filter(normalize_db_column(Dispatch.client_name).like(f"%{search_client}%"))
 
         if search_order:
-            query = query.filter(db.func.lower(Dispatch.orden).like(f"%{search_order}%"))
+            if search_order.isdigit():
+                query = query.filter(normalize_db_column(Dispatch.orden) == search_order)
+            else:
+                query = query.filter(normalize_db_column(Dispatch.orden).like(f"%{search_order}%"))
 
         if search_user:
             query = query.join(User, cast(User.id, String) == Dispatch.created_by).filter(
-                db.func.lower(User.name).like(f"%{search_user}%")
+                normalize_db_column(User.name).like(f"%{search_user}%")
             )
 
         if search_driver:
-            query = query.filter(db.func.lower(Dispatch.chofer_name).like(f"%{search_driver}%"))
+            query = query.filter(normalize_db_column(Dispatch.chofer_name).like(f"%{search_driver}%"))
 
         if search_invoice:
-            query = query.filter(db.func.lower(Dispatch.factura_numero).like(f"%{search_invoice}%"))
+            if search_invoice.isdigit():
+                query = query.filter(normalize_db_column(Dispatch.factura_numero) == search_invoice)
+            else:
+                query = query.filter(normalize_db_column(Dispatch.factura_numero).like(f"%{search_invoice}%"))
 
         if search_product:
             subq = exists().where(
                 DispatchProduct.dispatch_id == Dispatch.id,
-                db.func.lower(DispatchProduct.nombre).like(f"%{search_product}%")
+                normalize_db_column(DispatchProduct.nombre).like(f"%{search_product}%")
             )
             query = query.filter(subq)
 
@@ -318,6 +341,37 @@ def update_dispatch(dispatch_id):
             return jsonify({"error": "Faltan datos"}), 400
         data = json.loads(request.form['data'])
 
+        # Verificar duplicados de orden y factura en edición
+        new_orden = data.get("orden") or d.orden
+        new_factura = (data.get("factura_numero") or "").strip() or None
+        force_edit = data.get("force", False)
+
+        if not force_edit:
+            dup_orden = Dispatch.query.filter(
+                Dispatch.orden == new_orden,
+                Dispatch.id != dispatch_id
+            ).first() if new_orden else None
+            dup_factura = Dispatch.query.filter(
+                Dispatch.factura_numero == new_factura,
+                Dispatch.id != dispatch_id
+            ).first() if new_factura else None
+
+            if dup_orden and dup_factura:
+                return jsonify({
+                    "error": "duplicate_both",
+                    "msg": "⚠️ ATENCIÓN: El número de orden de compra Y el número de factura ya están registrados en otros despachos. ¿Desea continuar de todas formas?"
+                }), 409
+            elif dup_orden:
+                return jsonify({
+                    "error": "duplicate_order",
+                    "msg": "El número de orden de compra ya está registrado en otro despacho. ¿Desea continuar?"
+                }), 409
+            elif dup_factura:
+                return jsonify({
+                    "error": "duplicate_invoice",
+                    "msg": "El número de factura ya está registrado en otro despacho. ¿Desea continuar?"
+                }), 409
+
         if "orden" in data and data["orden"]:
             d.orden = data["orden"]
 
@@ -329,8 +383,7 @@ def update_dispatch(dispatch_id):
                 db.session.add(cliente)
                 db.session.flush()
             d.cliente_id = cliente.id
-            d.client_name = cliente.name # CORRECCIÓN: client_name
-
+            d.client_name = cliente.name
         if "chofer" in data and data["chofer"]:
             chofer = Driver.query.get(int(data["chofer"]))
             if chofer:
@@ -342,19 +395,24 @@ def update_dispatch(dispatch_id):
 
         if "status" in data and data["status"]:
             new_status = data["status"]
-            if not d.delivered_client:
-                if new_status == "entregado_cliente":
-                    d.delivered_client = True
-                    d.delivered_client_at = datetime.utcnow()
-                    d.status = "entregado_cliente"
-                    d.delivered_driver = True
-                    d.delivered_driver_at = datetime.utcnow()
-                elif new_status == "entregado_chofer":
-                    d.delivered_driver = True
-                    d.delivered_driver_at = datetime.utcnow()
-                    d.status = "entregado_chofer"
-                elif new_status in ("pendiente", "cancelado"):
-                    d.status = new_status
+            if new_status == "entregado_cliente":
+                d.delivered_client = True
+                d.delivered_client_at = datetime.utcnow()
+                d.status = "entregado_cliente"
+                d.delivered_driver = True
+                d.delivered_driver_at = datetime.utcnow()
+            elif new_status == "entregado_chofer":
+                d.delivered_driver = True
+                d.delivered_driver_at = datetime.utcnow()
+                d.delivered_client = False
+                d.delivered_client_at = None
+                d.status = "entregado_chofer"
+            elif new_status == "pendiente":
+                d.delivered_driver = False
+                d.delivered_driver_at = None
+                d.delivered_client = False
+                d.delivered_client_at = None
+                d.status = "pendiente"
 
         if "productos" in data and isinstance(data["productos"], list):
             old_qty = {item.nombre: float(item.cantidad or 0) for item in d.productos}
@@ -362,7 +420,8 @@ def update_dispatch(dispatch_id):
             
             new_qty = {}
             for p in data["productos"]:
-                nombre, cant, unid = p["nombre"], float(p["cantidad"] or 0), p["unidad"]
+                nombre = (p["nombre"] or "").strip()
+                cant, unid = float(p["cantidad"] or 0), p["unidad"]
                 db.session.add(DispatchProduct(dispatch_id=d.id, nombre=nombre, cantidad=cant, unidad=unid))
                 new_qty[nombre] = new_qty.get(nombre, 0.0) + cant
                 
@@ -397,11 +456,15 @@ def update_dispatch(dispatch_id):
         return jsonify({
             "id": d.id,
             "orden": d.orden,
-            "cliente": client.name if client else d.client_name, # CORRECCIÓN: client_name
+            "cliente": client.name if client else d.client_name,
             "chofer": d.chofer_name,
             "created_by": creator.name if creator else d.created_by,
             "fecha": to_local(d.fecha).isoformat(timespec="seconds"),
             "status": d.status,
+            "delivered_driver": d.delivered_driver,
+            "delivered_client": d.delivered_client,
+            "factura_numero": d.factura_numero,
+            "paquete_numero": d.paquete_numero,
             "productos": [{"nombre": p.nombre, "cantidad": p.cantidad, "unidad": p.unidad} for p in d.productos],
             "images": [i.to_dict() for i in d.images],
         }), 200
@@ -409,9 +472,6 @@ def update_dispatch(dispatch_id):
         db.session.rollback()
         return jsonify({"error": "Error al actualizar", "details": str(e)}), 500
 
-# ----------------------------
-# Los demás endpoints (Monthly, Mark, Delete) permanecen lógicamente igual
-# ----------------------------
 @dispatch_bp.route("/dispatches/monthly", methods=["GET"])
 @jwt_required()
 def get_monthly_dispatches():
@@ -446,7 +506,10 @@ def mark_driver_delivered(dispatch_id):
             d.delivered_driver_at = datetime.utcnow()
             d.status = "entregado_chofer"
             db.session.commit()
-        return jsonify(d.to_dict()), 200
+        creator = User.query.get(d.created_by)
+        result = d.to_dict()
+        result["created_by"] = creator.name if creator else d.created_by
+        return jsonify(result), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -463,7 +526,10 @@ def mark_client_delivered(dispatch_id):
         d.delivered_driver = True
         d.delivered_driver_at = datetime.utcnow()
         db.session.commit()
-        return jsonify(d.to_dict()), 200
+        creator = User.query.get(d.created_by)
+        result = d.to_dict()
+        result["created_by"] = creator.name if creator else d.created_by
+        return jsonify(result), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

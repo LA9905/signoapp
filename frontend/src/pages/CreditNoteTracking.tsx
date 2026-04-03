@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback, type ChangeEvent } from "react";
+import { normalizeSearch } from "../utils/normalizeSearch";
 import type { AxiosError } from "axios";
 import { FiEdit2, FiTrash2, FiSave, FiX, FiPlus, FiMinus } from "react-icons/fi";
 import ClientSelector from "../components/ClientSelector";
@@ -27,7 +28,7 @@ interface Product {
 }
 
 type ProductoRow = { nombre: string; cantidad: number; unidad: string };
-type ApiError = { error?: string; details?: string };
+type ApiError = { error?: string; details?: string; msg?: string };
 
 type SearchState = {
   client: string;
@@ -36,6 +37,7 @@ type SearchState = {
   credit_note_number: string;
   reason: string;
   user: string;
+  product: string;
   date_from: string;
   date_to: string;
 };
@@ -70,6 +72,7 @@ const CreditNoteTracking = () => {
     credit_note_number: "",
     reason: "",
     user: "",
+    product: "",
     date_from: "",
     date_to: "",
   });
@@ -257,7 +260,7 @@ const CreditNoteTracking = () => {
         setValidationError("Hay un producto sin nombre. Por favor selecciona un producto de la lista o elimina la fila vacía.");
         return;
       }
-      if (!productNames.map(n => n.toLowerCase()).includes(p.nombre.trim().toLowerCase())) {
+      if (!productNames.map(n => normalizeSearch(n)).includes(normalizeSearch(p.nombre.trim()))) {
         setValidationError(`El producto "${p.nombre}" no existe en el listado. Por favor selecciónalo desde las sugerencias o elimina esa fila.`);
         return;
       }
@@ -268,19 +271,20 @@ const CreditNoteTracking = () => {
     }
 
     setIsLoading(true);
+    const payload = {
+      client: draft.client,
+      order_number: draft.order_number,
+      invoice_number: draft.invoice_number,
+      credit_note_number: draft.credit_note_number,
+      reason: draft.reason,
+      productos: draft.productos.map((p) => ({
+        nombre: p.nombre,
+        cantidad: p.cantidad,
+        unidad: p.unidad,
+      })),
+    };
+
     try {
-      const payload = {
-        client: draft.client,
-        order_number: draft.order_number,
-        invoice_number: draft.invoice_number,
-        credit_note_number: draft.credit_note_number,
-        reason: draft.reason,
-        productos: draft.productos.map((p) => ({
-          nombre: p.nombre,
-          cantidad: p.cantidad,
-          unidad: p.unidad,
-        })),
-      };
       const response = await api.put<CreditNoteSummary>(`/credit-notes/${editingId}`, payload);
       const updated = response.data;
       setCreditNotes((prev) =>
@@ -295,8 +299,26 @@ const CreditNoteTracking = () => {
       cancelEditRow();
     } catch (err) {
       const error = err as AxiosError<ApiError>;
-      console.error("Error al actualizar nota de crédito:", error.response?.data || error.message);
-      alert(error.response?.data?.error || "No se pudo actualizar la nota de crédito");
+      const errCode = error.response?.data?.error;
+      const errMsg = error.response?.data?.msg || "";
+      const duplicateCodes = ["duplicate_order", "duplicate_invoice", "duplicate_credit", "duplicate_order_invoice", "duplicate_order_credit", "duplicate_invoice_credit", "duplicate_all"];
+      if (error.response?.status === 409 && errCode && duplicateCodes.includes(errCode)) {
+        if (window.confirm(errMsg)) {
+          try {
+            const forcedPayload = { ...payload, force: true };
+            const response = await api.put<CreditNoteSummary>(`/credit-notes/${editingId}`, forcedPayload);
+            const updated = response.data;
+            setCreditNotes((prev) => prev.map((cn) => (cn.id === editingId ? { ...cn, ...updated } : cn)));
+            setMensaje("Nota de crédito actualizada correctamente");
+            if (window.confirm("¿Desea imprimir la nota de crédito actualizada?")) { printPDF(editingId); }
+            cancelEditRow();
+          } catch {
+            alert("No se pudo actualizar la nota de crédito");
+          }
+        }
+      } else {
+        alert(error.response?.data?.error || "No se pudo actualizar la nota de crédito");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -464,6 +486,13 @@ const CreditNoteTracking = () => {
           placeholder="Buscar por usuario que creó"
           className="w-full border p-2 rounded"
         />
+        <input
+          name="product"
+          value={searchState.product}
+          onChange={handleSearchChange}
+          placeholder="Buscar por nombre de producto"
+          className="w-full border p-2 rounded"
+        />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="block text-sm text-gray-300 mb-1">Desde</label>
@@ -612,6 +641,7 @@ const CreditNoteTracking = () => {
                 <div className="flex items-start justify-between gap-4">
                   {!isEditingRow ? (
                     <div>
+                      <p><strong>Folio:</strong> {cn.id}</p>
                       <p><strong>Centro de Costo:</strong> {cn.client}</p>
                       <p><strong>N° Orden de Compra:</strong> {cn.order_number}</p>
                       <p><strong>N° Factura:</strong> {cn.invoice_number}</p>
@@ -688,7 +718,7 @@ const CreditNoteTracking = () => {
                                     updateRow(idx, { nombre: value });
                                     if (value) {
                                       const filtered = productNames.filter((n) =>
-                                        n.toLowerCase().includes(value.toLowerCase())
+                                        normalizeSearch(n).includes(normalizeSearch(value))
                                       );
                                       setSuggestions((prev) => ({ ...prev, [idx]: filtered }));
                                     } else {

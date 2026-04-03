@@ -21,23 +21,42 @@ const ChartMonthlyOrders: React.FC<Props> = ({ dataPoints }) => {
       {
         label: "Despachos",
         data: dataSafe,
-        backgroundColor: "rgba(59, 130, 246, 0.5)",
-        borderRadius: 6,
+        backgroundColor: "rgba(59, 130, 246, 0.6)",
+        hoverBackgroundColor: "rgba(37, 99, 235, 0.85)",
+        borderRadius: 8,
+        borderSkipped: false,
       },
     ],
   };
 
   const options = {
     responsive: true,
-    maintainAspectRatio: false as const, // para que se adapte mejor al contenedor
-    plugins: { legend: { display: false } },
+    maintainAspectRatio: false as const,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: "rgba(15, 23, 42, 0.85)",
+        titleColor: "#94a3b8",
+        bodyColor: "#f1f5f9",
+        padding: 10,
+        cornerRadius: 8,
+      },
+    },
     scales: {
-      y: { beginAtZero: true, ticks: { stepSize: 1 } },
+      x: {
+        grid: { display: false },
+        ticks: { color: "#94a3b8", font: { size: 11 } },
+      },
+      y: {
+        beginAtZero: true,
+        ticks: { stepSize: 1, color: "#94a3b8", font: { size: 11 } },
+        grid: { color: "rgba(148, 163, 184, 0.15)" },
+      },
     },
   };
 
   return (
-    <div style={{ height: 300 }}>
+    <div style={{ height: 280 }}>
       <Bar data={data} options={options} />
     </div>
   );
