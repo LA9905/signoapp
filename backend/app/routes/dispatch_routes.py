@@ -87,11 +87,28 @@ def create_dispatch():
         if not chofer:
             return jsonify({"error": f"Chofer con ID {chofer_id} no encontrado"}), 404
 
-        existing = Dispatch.query.filter_by(orden=orden).first()
-        if existing and not force:
-            return jsonify({"error": "duplicate_order", "msg": "Ya existe un despacho con ese número de orden. Confirme para continuar."}), 409
+        existing_orden = Dispatch.query.filter_by(orden=orden).first() if orden else None
+        existing_factura = Dispatch.query.filter(
+            Dispatch.factura_numero == factura_numero
+        ).first() if factura_numero else None
 
-        # CORRECCIÓN: Se usa client_name (sin doble 'c')
+        if not force:
+            if existing_orden and existing_factura:
+                return jsonify({
+                    "error": "duplicate_both",
+                    "msg": "⚠️ ATENCIÓN: El número de orden de compra Y el número de factura ya están registrados en otros despachos. ¿Desea continuar de todas formas?"
+                }), 409
+            elif existing_orden:
+                return jsonify({
+                    "error": "duplicate_order",
+                    "msg": "El número de orden de compra ya está registrado en otro despacho. ¿Desea continuar?"
+                }), 409
+            elif existing_factura:
+                return jsonify({
+                    "error": "duplicate_invoice",
+                    "msg": "El número de factura ya está registrado en otro despacho. ¿Desea continuar?"
+                }), 409
+
         new_dispatch = Dispatch(
             orden=orden,
             chofer_id=chofer_id,
@@ -317,6 +334,37 @@ def update_dispatch(dispatch_id):
         if not request.form.get('data'):
             return jsonify({"error": "Faltan datos"}), 400
         data = json.loads(request.form['data'])
+
+        # Verificar duplicados de orden y factura en edición
+        new_orden = data.get("orden") or d.orden
+        new_factura = (data.get("factura_numero") or "").strip() or None
+        force_edit = data.get("force", False)
+
+        if not force_edit:
+            dup_orden = Dispatch.query.filter(
+                Dispatch.orden == new_orden,
+                Dispatch.id != dispatch_id
+            ).first() if new_orden else None
+            dup_factura = Dispatch.query.filter(
+                Dispatch.factura_numero == new_factura,
+                Dispatch.id != dispatch_id
+            ).first() if new_factura else None
+
+            if dup_orden and dup_factura:
+                return jsonify({
+                    "error": "duplicate_both",
+                    "msg": "⚠️ ATENCIÓN: El número de orden de compra Y el número de factura ya están registrados en otros despachos. ¿Desea continuar de todas formas?"
+                }), 409
+            elif dup_orden:
+                return jsonify({
+                    "error": "duplicate_order",
+                    "msg": "El número de orden de compra ya está registrado en otro despacho. ¿Desea continuar?"
+                }), 409
+            elif dup_factura:
+                return jsonify({
+                    "error": "duplicate_invoice",
+                    "msg": "El número de factura ya está registrado en otro despacho. ¿Desea continuar?"
+                }), 409
 
         if "orden" in data and data["orden"]:
             d.orden = data["orden"]

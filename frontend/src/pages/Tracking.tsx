@@ -37,7 +37,7 @@ interface Product {
 }
 
 type ProductoRow = { nombre: string; cantidad: number; unidad: string };
-type ApiError = { error?: string; details?: string };
+type ApiError = { error?: string; details?: string; msg?: string };
 
 type SearchState = {
   client: string;
@@ -397,7 +397,50 @@ const Tracking = () => {
       setScrollToId(id);
     } catch (err) {
       const error = err as AxiosError<ApiError>;
-      alert(error.response?.data?.error || "No se pudo actualizar");
+      const errCode = error.response?.data?.error;
+      const errMsg = error.response?.data?.msg || "";
+      if (error.response?.status === 409 && (errCode === "duplicate_order" || errCode === "duplicate_invoice" || errCode === "duplicate_both")) {
+        if (window.confirm(errMsg)) {
+          try {
+            const payload = {
+              orden: draft.orden,
+              cliente: draft.cliente,
+              chofer: draft.chofer,
+              status: draft.status,
+              factura_numero: draft.factura_numero,
+              force: true,
+              productos: draft.productos.map((p) => ({
+                nombre: p.nombre,
+                cantidad: p.cantidad,
+                unidad: p.unidad,
+              })),
+              delete_image_ids: deleteImageIds,
+            };
+            const formData = new FormData();
+            formData.append('data', JSON.stringify(payload));
+            newImages.forEach((img) => formData.append('new_images', img));
+            const resp = await api.put<DispatchSummary>(`/dispatches/${id}`, formData, {
+              headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            const updated = resp.data;
+            const choferName = drivers.find((d) => d.id === parseInt(draft.chofer))?.name || updated.chofer;
+            setDispatches((prev) =>
+              prev.map((d) =>
+                d.id === id
+                  ? { ...d, ...updated, chofer: choferName, cliente: draft.cliente, factura_numero: updated.factura_numero ?? draft.factura_numero }
+                  : d
+              )
+            );
+            setMensaje("Despacho actualizado.");
+            cancelEditRow();
+            setScrollToId(id);
+          } catch {
+            alert("No se pudo actualizar el despacho");
+          }
+        }
+      } else {
+        alert(error.response?.data?.error || "No se pudo actualizar");
+      }
     } finally {
       setIsLoading(false);
     }
