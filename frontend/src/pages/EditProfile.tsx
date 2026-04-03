@@ -4,8 +4,7 @@ import { api } from "../services/http";
 import ArrowBackButton from "../components/ArrowBackButton";
 import { deleteAccount } from "../services/authService";
 
-type Profile = { id: number; name: string; email: string; avatar_url?: string | null };
-
+type Profile = { id: number; name: string; email: string; avatar_url?: string | null; gender?: "m" | "f" | null };
 const EditProfile: React.FC = () => {
   const navigate = useNavigate();
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -13,6 +12,7 @@ const EditProfile: React.FC = () => {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [gender, setGender] = useState<"m" | "f" | "">("");
   const [avatar, setAvatar] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
 
@@ -31,6 +31,7 @@ const EditProfile: React.FC = () => {
         setName(p.name);
         setEmail(p.email);
         setPreview(p.avatar_url || null);
+        setGender((p.gender as "m" | "f") || "");
       } catch (e: any) {
         setErr(e?.response?.data?.msg || "No se pudo cargar el perfil");
       }
@@ -76,6 +77,7 @@ const EditProfile: React.FC = () => {
     try {
       const formData = new FormData();
       formData.append("name", name);
+      if (gender) formData.append("gender", gender);
       formData.append("email", email);
       if (password) formData.append("password", password);
       if (avatar) formData.append("avatar", avatar);
@@ -159,6 +161,19 @@ const EditProfile: React.FC = () => {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
               />
+            </div>
+
+            <div>
+              <label className="block text-sm mb-1">Género</label>
+              <select
+                value={gender}
+                onChange={(e) => setGender(e.target.value as "m" | "f" | "")}
+                className="w-full border p-2 rounded bg-dark border-white/10 text-neutral-300"
+              >
+                <option value="">Prefiero no decirlo</option>
+                <option value="m">Masculino</option>
+                <option value="f">Femenino</option>
+              </select>
             </div>
 
             <div>

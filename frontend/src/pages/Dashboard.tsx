@@ -13,6 +13,7 @@ const Dashboard: React.FC = () => {
   const [chartData, setChartData] = useState<number[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isLimited, setIsLimited] = useState(false);
+  const [gender, setGender] = useState<"m" | "f" | null>(null);
   const [isLoadingUser, setIsLoadingUser] = useState(true);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
@@ -46,6 +47,7 @@ const Dashboard: React.FC = () => {
         setIsAdmin(!!res.data.is_admin);
         setIsLimited(!!res.data.is_limited);
         setAvatarUrl(res.data.avatar_url || null);
+        setGender(res.data.gender ?? null);
         setIsLoadingUser(false);
       })
       .catch(() => {
@@ -108,7 +110,9 @@ const Dashboard: React.FC = () => {
         <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <p className="text-sm text-slate-500 uppercase tracking-wide font-medium">Panel principal</p>
-            <h2 className="text-2xl font-bold text-slate-800">Bienvenido, {name}</h2>
+            <h2 className="text-2xl font-bold text-slate-800">
+              {gender === "f" ? "Bienvenida" : "Bienvenido"}, {name}
+            </h2>
           </div>
           {!isLimited && (
             <button

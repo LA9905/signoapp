@@ -5,7 +5,7 @@ import { api } from "../services/http";
 
 const Register: React.FC = () => {
   const navigate = useNavigate();
-  const [form, setForm] = useState({ name: "", email: "", password: "" });
+  const [form, setForm] = useState({ name: "", email: "", password: "", gender: "" });
   const [error, setError] = useState("");
 
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -49,6 +49,20 @@ const Register: React.FC = () => {
               required
               className="block w-full px-4 py-2 rounded bg-[#2a2a2a] border border-gray-600 text-white focus:outline-none focus:ring-2 focus:ring-blue-300"
             />
+          </div>
+
+          <div>
+            <label className="block text-sm mb-1">Género</label>
+            <select
+              name="gender"
+              value={form.gender}
+              onChange={(e) => setForm({ ...form, gender: e.target.value })}
+              className="block w-full px-4 py-2 rounded bg-[#2a2a2a] border border-gray-600 text-white focus:outline-none focus:ring-2 focus:ring-blue-300"
+            >
+              <option value="">Prefiero no decirlo</option>
+              <option value="m">Masculino</option>
+              <option value="f">Femenino</option>
+            </select>
           </div>
 
           <div>
