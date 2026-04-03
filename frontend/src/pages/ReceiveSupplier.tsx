@@ -86,7 +86,7 @@ const ReceiveSupplier = () => {
       if (checkResp.data.length > 0) {
         // Verificar si alguna de las recepciones existentes tiene un ID diferente (no es la misma que se está editando)
         const isDuplicate = checkResp.data.some((r: any) => r.orden === form.orden && !payload.force);
-        if (isDuplicate && !window.confirm("Ya existe una orden con ese número. ¿Desea continuar?")) {
+        if (isDuplicate && !window.confirm("Ya existe una orden con ese número de factura. ¿Desea continuar?")) {
           return;
         }
         // Añadir force=true si el usuario confirma
