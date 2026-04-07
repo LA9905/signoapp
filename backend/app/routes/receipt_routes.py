@@ -117,7 +117,11 @@ def get_receipts():
             )
 
         if search_order:
-            query = query.filter(normalize_db_column(Receipt.orden).like(f"%{search_order}%"))
+            raw_order = (request.args.get("order") or "").strip()
+            if raw_order.isdigit():
+                query = query.filter(Receipt.orden == raw_order)
+            else:
+                query = query.filter(normalize_db_column(Receipt.orden).like(f"%{search_order}%"))
 
         if search_user:
             query = query.join(User, User.id == Receipt.created_by).filter(
