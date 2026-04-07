@@ -1,7 +1,7 @@
 import { useState, type ChangeEvent, type FormEvent } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import ArrowBackLogin from "../components/ArrowBackLogin";
 import { api } from "../services/http";
+import { NavBar, Footer } from "./Home";
 
 const Register: React.FC = () => {
   const navigate = useNavigate();
@@ -25,93 +25,86 @@ const Register: React.FC = () => {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-[#0f0f0f]">
-      <div className="mb-12">
-        <ArrowBackLogin />
-      </div> 
-      <div className="w-[60%] sm:w-3/4 md:w-1/2 max-w-md bg-[#1e1e1e] p-8 rounded-lg shadow-md text-white">
-        <h2 className="text-3xl font-bold mb-6 text-center text-blue-300">Crear cuenta</h2>
+    <div className="min-h-screen flex flex-col bg-[#0f0f0f] text-white">
+      <NavBar hideRegister />
+      <div className="flex-1 flex items-center justify-center px-4 py-12">
+        <div className="w-[60%] sm:w-3/4 md:w-1/2 max-w-md bg-[#1e1e1e] p-8 rounded-lg shadow-md">
+          <h2 className="text-3xl font-bold mb-6 text-center text-blue-300">Crear cuenta</h2>
 
-        {error && <p className="text-red-500 mb-4 text-center">{error}</p>}
+          {error && <p className="text-red-500 mb-4 text-center">{error}</p>}
 
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <div>
-            <label htmlFor="name" className="block text-sm mb-1">
-              Nombre
-            </label>
-            <input
-              type="text"
-              name="name"
-              id="name"
-              placeholder="Tu nombre"
-              value={form.name}
-              onChange={handleChange}
-              required
-              className="block w-full px-4 py-2 rounded bg-[#2a2a2a] border border-gray-600 text-white focus:outline-none focus:ring-2 focus:ring-blue-300"
-            />
-          </div>
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div>
+              <label htmlFor="name" className="block text-sm mb-1">Nombre</label>
+              <input
+                type="text"
+                name="name"
+                id="name"
+                placeholder="Tu nombre"
+                value={form.name}
+                onChange={handleChange}
+                required
+                className="block w-full px-4 py-2 rounded bg-[#2a2a2a] border border-gray-600 text-white focus:outline-none focus:ring-2 focus:ring-blue-300"
+              />
+            </div>
 
-          <div>
-            <label className="block text-sm mb-1">Género</label>
-            <select
-              name="gender"
-              value={form.gender}
-              onChange={(e) => setForm({ ...form, gender: e.target.value })}
-              className="block w-full px-4 py-2 rounded bg-[#2a2a2a] border border-gray-600 text-white focus:outline-none focus:ring-2 focus:ring-blue-300"
+            <div>
+              <label className="block text-sm mb-1">Género</label>
+              <select
+                name="gender"
+                value={form.gender}
+                onChange={(e) => setForm({ ...form, gender: e.target.value })}
+                className="block w-full px-4 py-2 rounded bg-[#2a2a2a] border border-gray-600 text-white focus:outline-none focus:ring-2 focus:ring-blue-300"
+              >
+                <option value="">Prefiero no decirlo</option>
+                <option value="m">Masculino</option>
+                <option value="f">Femenino</option>
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="email" className="block text-sm mb-1">Correo electrónico</label>
+              <input
+                type="email"
+                name="email"
+                id="email"
+                placeholder="correo@ejemplo.com"
+                value={form.email}
+                onChange={handleChange}
+                required
+                className="block w-full px-4 py-2 rounded bg-[#2a2a2a] border border-gray-600 text-white focus:outline-none focus:ring-2 focus:ring-blue-300"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="password" className="block text-sm mb-1">Contraseña</label>
+              <input
+                type="password"
+                name="password"
+                id="password"
+                placeholder="********"
+                value={form.password}
+                onChange={handleChange}
+                required
+                className="block w-full px-4 py-2 rounded bg-[#2a2a2a] border border-gray-600 text-white focus:outline-none focus:ring-2 focus:ring-blue-300"
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="block w-full py-2 bg-blue-400 hover:bg-blue-500 rounded font-semibold transition-colors"
             >
-              <option value="">Prefiero no decirlo</option>
-              <option value="m">Masculino</option>
-              <option value="f">Femenino</option>
-            </select>
-          </div>
+              Crear cuenta
+            </button>
+          </form>
 
-          <div>
-            <label htmlFor="email" className="block text-sm mb-1">
-              Correo electrónico
-            </label>
-            <input
-              type="email"
-              name="email"
-              id="email"
-              placeholder="correo@ejemplo.com"
-              value={form.email}
-              onChange={handleChange}
-              required
-              className="block w-full px-4 py-2 rounded bg-[#2a2a2a] border border-gray-600 text-white focus:outline-none focus:ring-2 focus:ring-blue-300"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="password" className="block text-sm mb-1">
-              Contraseña
-            </label>
-            <input
-              type="password"
-              name="password"
-              id="password"
-              placeholder="********"
-              value={form.password}
-              onChange={handleChange}
-              required
-              className="block w-full px-4 py-2 rounded bg-[#2a2a2a] border border-gray-600 text-white focus:outline-none focus:ring-2 focus:ring-blue-300"
-            />
-          </div>
-
-          <button
-            type="submit"
-            className="block w-full py-2 bg-blue-400 hover:bg-blue-500 rounded font-semibold transition-colors"
-          >
-            Crear cuenta
-          </button>
-        </form>
-
-        <p className="mt-6 text-sm text-center">
-          ¿Ya tienes una cuenta?{" "}
-          <Link to="/login" className="text-blue-300 hover:underline">
-            Inicia sesión
-          </Link>
-        </p>
+          <p className="mt-6 text-sm text-center">
+            ¿Ya tienes una cuenta?{" "}
+            <Link to="/login" className="text-blue-300 hover:underline">Inicia sesión</Link>
+          </p>
+        </div>
       </div>
+      <Footer />
     </div>
   );
 };

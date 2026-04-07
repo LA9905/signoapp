@@ -126,7 +126,7 @@ export default function Home() {
 
 /* ----------------- Componentes ----------------- */
 
-function NavBar() {
+export function NavBar({ hideRegister, hideLogin }: { hideRegister?: boolean; hideLogin?: boolean } = {}) {
   return (
     <nav className="sticky top-0 z-30 border-b border-white/10 bg-neutral-950/70 backdrop-blur supports-[backdrop-filter]:bg-neutral-950/60">
       <div className="mx-auto max-w-[1366px] flex items-center justify-between px-4 py-3 sm:py-4">
@@ -141,15 +141,19 @@ function NavBar() {
 
 
         <div className="flex items-center gap-2 sm:gap-3">
-          <Link to="/login" className="rounded-xl border border-white/15 px-4 py-2 text-sm hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-white/20">
-            Iniciar sesión
-          </Link>
-          <Link
+          {!hideLogin && (
+            <Link to="/login" className="rounded-xl border border-white/15 px-4 py-2 text-sm hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-white/20">
+              Iniciar sesión
+            </Link>
+          )}
+          {!hideRegister && (
+            <Link
               to="/register"
               className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold shadow shadow-blue-600/20 hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-400/60 !text-white"
             >
               Registrarse
-          </Link>
+            </Link>
+          )}
         </div>
       </div>
     </nav>
@@ -282,7 +286,7 @@ function WhatsAppFloat() {
   );
 }
 
-function Footer() {
+export function Footer() {
   return (
     <footer className="border-t border-white/10 bg-neutral-950">
       <div className="mx-auto max-w-[1366px] flex items-center justify-between px-4 py-3 sm:py-4">
