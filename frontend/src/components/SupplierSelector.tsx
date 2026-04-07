@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect } from "react";
 import { useSuppliers } from "../context/SuppliersContext";
 import { FaRegEdit, FaTrashAlt, FaSave, FaTimes } from "react-icons/fa";
+import { normalizeSearch } from "../utils/normalizeSearch";
 
 interface SupplierSelectorProps {
   value: string;
@@ -24,7 +25,7 @@ const SupplierSelector: React.FC<SupplierSelectorProps> = ({ value, onChange }) 
   }, [suppliers.length, refresh]);
 
   const filteredSuppliers = useMemo(
-    () => suppliers.filter((s) => s.name.toLowerCase().includes(searchSupplier.toLowerCase())),
+    () => suppliers.filter((s) => normalizeSearch(s.name).includes(normalizeSearch(searchSupplier))),
     [suppliers, searchSupplier]
   );
 
@@ -94,7 +95,7 @@ const SupplierSelector: React.FC<SupplierSelectorProps> = ({ value, onChange }) 
           const value = e.target.value;
           setSearchSupplier(value);
           const match = suppliers.find((s) =>
-            s.name.toLowerCase().includes(value.toLowerCase())
+            normalizeSearch(s.name).includes(normalizeSearch(value))
           );
           if (match) {
             onChange(match.name);
