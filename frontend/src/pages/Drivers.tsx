@@ -3,6 +3,7 @@ import { useEffect, useState, type FormEvent, type ChangeEvent } from "react";
 import { FiEdit2, FiTrash2, FiCheck, FiX } from "react-icons/fi";
 import ArrowBackButton from "../components/ArrowBackButton";
 import { api } from "../services/http";
+import { normalizeSearch } from "../utils/normalizeSearch";
 
 type Driver = { id: number; name: string; created_by?: string };
 
@@ -18,6 +19,7 @@ const Drivers = () => {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [tmpName, setTmpName] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
+  const [search, setSearch] = useState("");
 
   const fetchDrivers = () => {
     api
@@ -96,12 +98,25 @@ const Drivers = () => {
     }
   };
 
+  const filteredDrivers = search
+    ? drivers.filter((d) => normalizeSearch(d.name).includes(normalizeSearch(search)))
+    : drivers;
+
   return (
     <div className="p-4 max-w-xl mx-auto">
       <div className="mb-12">
         <ArrowBackButton />
       </div>
       <h2 className="text-2xl font-semibold mb-4">Choferes registrados</h2>
+
+      <input
+        type="text"
+        placeholder="Buscar chofer por nombre..."
+        value={search}
+        onChange={(e: ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
+        className="border p-2 rounded w-full mb-4"
+        aria-label="Buscar chofer por nombre"
+      />
 
       <form onSubmit={handleSubmit} className="flex gap-2 mb-6">
         <input
@@ -122,7 +137,7 @@ const Drivers = () => {
       </form>
 
       <ul className="space-y-2">
-        {drivers.map((driver) => {
+        {filteredDrivers.map((driver) => {
           const isEditing = editingId === driver.id;
           return (
             <li key={driver.id} className="border p-3 rounded shadow flex items-center justify-between gap-3">
