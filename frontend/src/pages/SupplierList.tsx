@@ -1,82 +1,179 @@
-import React, { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useEffect, useState, type FormEvent, type ChangeEvent } from "react";
 import { useSuppliers } from "../context/SuppliersContext";
 import ArrowBackButton from "../components/ArrowBackButton";
-import { FiEdit2, FiTrash2, FiPlus } from "react-icons/fi";
+import { FaRegEdit, FaTrashAlt, FaSave, FaTimes } from "react-icons/fa";
+import { normalizeSearch } from "../utils/normalizeSearch";
 
 const SupplierList: React.FC = () => {
-  const navigate = useNavigate();
-  const { suppliers, refresh, updateSupplier, deleteSupplier } = useSuppliers();
-  const [message, setMessage] = React.useState<string>("");
+  const { suppliers, refresh, createSupplier, updateSupplier, deleteSupplier } = useSuppliers();
+
+  const [name, setName] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editName, setEditName] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
-    refresh().catch(() => setMessage("Error al cargar proveedores"));
+    refresh().catch((e) => console.error("Error loading suppliers:", e));
   }, [refresh]);
 
-  const handleEdit = (id: number, name: string) => {
-    const newName = prompt("Editar nombre del proveedor:", name);
-    if (newName && newName.trim() !== name) {
-      updateSupplier(id, newName.trim())
-        .then(() => setMessage("Proveedor actualizado"))
-        .catch((err: any) => setMessage(err?.response?.data?.error || "Error al actualizar"));
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    try {
+      setSubmitting(true);
+      await createSupplier(trimmed);
+      setName("");
+    } catch (err: any) {
+      alert(err?.response?.data?.error || "No se pudo crear el proveedor");
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  const handleDelete = (id: number, name: string) => {
-    if (window.confirm(`¿Eliminar el proveedor "${name}"?`)) {
-      deleteSupplier(id)
-        .then(() => setMessage("Proveedor eliminado"))
-        .catch((err: any) => setMessage(err?.response?.data?.error || "Error al eliminar"));
+  const startEdit = (id: number, currentName: string) => {
+    setEditingId(id);
+    setEditName(currentName);
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditName("");
+    setSavingEdit(false);
+  };
+
+  const saveEdit = async (id: number) => {
+    const trimmed = editName.trim();
+    if (!trimmed) { alert("El nombre no puede estar vacío"); return; }
+    try {
+      setSavingEdit(true);
+      await updateSupplier(id, trimmed);
+      cancelEdit();
+    } catch (err: any) {
+      alert(err?.response?.data?.error || "No se pudo actualizar el proveedor");
+    } finally {
+      setSavingEdit(false);
     }
   };
 
-  const handleCreateNew = () => {
-    navigate("/receive-supplier"); // Redirige a la página de recepción para crear un proveedor
+  const remove = async (id: number) => {
+    if (!window.confirm("¿Eliminar este proveedor?")) return;
+    try {
+      await deleteSupplier(id);
+    } catch (err: any) {
+      alert(err?.response?.data?.error || "No se pudo eliminar el proveedor");
+    }
   };
+
+  const normalizedQuery = normalizeSearch(search);
+  const filteredSuppliers = normalizedQuery
+    ? suppliers.filter((s) => normalizeSearch(s.name || "").includes(normalizedQuery))
+    : suppliers;
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
+    <div className="p-4 max-w-xl mx-auto">
       <div className="mb-12">
         <ArrowBackButton />
       </div>
-      <h2 className="text-xl font-bold mb-4">Listado de Proveedores</h2>
-      {message && <p className="mb-4 text-green-600">{message}</p>}
+      <h2 className="text-2xl font-semibold mb-4">Lista de Proveedores</h2>
 
-      <div className="space-y-4">
-        {suppliers.map((supplier) => (
-          <div key={supplier.id} className="border p-4 rounded flex justify-between items-center">
-            <span>{supplier.name}</span>
-            <div className="flex gap-2">
-              <button
-                onClick={() => handleEdit(supplier.id, supplier.name)}
-                className="text-blue-500 hover:text-blue-700"
-                title="Editar"
-              >
-                <FiEdit2 size={18} />
-              </button>
-              <button
-                onClick={() => handleDelete(supplier.id, supplier.name)}
-                className="text-red-500 hover:text-red-700"
-                title="Eliminar"
-              >
-                <FiTrash2 size={18} />
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
-      {suppliers.length === 0 && (
-        <div>
-          <p>No hay proveedores registrados.</p>
-          <button
-            onClick={handleCreateNew}
-            className="mt-4 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 flex items-center"
-          >
-            <FiPlus size={18} /> {/* Quitamos className del ícono y lo movemos al button */}
-            <span className="ml-2">Crear Nuevo Proveedor</span>
-          </button>
-        </div>
-      )}
+      <input
+        type="text"
+        placeholder="Buscar proveedor por nombre..."
+        value={search}
+        onChange={(e: ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
+        className="border p-2 rounded w-full mb-4"
+        aria-label="Buscar proveedor por nombre"
+      />
+
+      <form onSubmit={handleSubmit} className="flex gap-2 mb-6">
+        <input
+          type="text"
+          placeholder="Nombre del Proveedor"
+          value={name}
+          onChange={(e: ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
+          className="flex-1 border p-2 rounded"
+          required
+        />
+        <button
+          type="submit"
+          disabled={submitting}
+          className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 disabled:opacity-60"
+        >
+          {submitting ? "Agregando..." : "Agregar"}
+        </button>
+      </form>
+
+      <ul className="space-y-2">
+        {filteredSuppliers.map((supplier) => {
+          const isEditing = editingId === supplier.id;
+          return (
+            <li
+              key={supplier.id}
+              className="border p-3 rounded shadow flex items-center justify-between gap-3"
+            >
+              <div className="flex-1">
+                {!isEditing ? (
+                  <strong>{supplier.name}</strong>
+                ) : (
+                  <input
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    className="border p-2 rounded w-full"
+                    placeholder="Nombre del proveedor"
+                  />
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                {!isEditing ? (
+                  <>
+                    <button
+                      className="px-2 py-2 rounded border border-gray-600 text-white hover:text-blue-400"
+                      title="Editar"
+                      aria-label="Editar"
+                      onClick={() => startEdit(supplier.id, supplier.name)}
+                    >
+                      <FaRegEdit size={16} />
+                    </button>
+                    <button
+                      className="px-2 py-2 rounded border border-gray-600 text-white hover:text-red-400"
+                      title="Eliminar"
+                      aria-label="Eliminar"
+                      onClick={() => remove(supplier.id)}
+                    >
+                      <FaTrashAlt size={16} />
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      className="px-2 py-2 rounded border border-gray-600 text-white hover:text-emerald-300 disabled:opacity-60"
+                      title="Guardar"
+                      aria-label="Guardar"
+                      onClick={() => saveEdit(supplier.id)}
+                      disabled={savingEdit}
+                    >
+                      <FaSave size={16} />
+                    </button>
+                    <button
+                      className="px-2 py-2 rounded border border-gray-600 text-white hover:text-gray-300"
+                      title="Cancelar"
+                      aria-label="Cancelar"
+                      onClick={cancelEdit}
+                    >
+                      <FaTimes size={16} />
+                    </button>
+                  </>
+                )}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 };
