@@ -548,25 +548,27 @@ const CreditNoteTracking = () => {
                     /* ── View mode ── */
                     <div className="p-5">
                       {/* Top row */}
-                      <div className="flex items-start justify-between gap-3 mb-4">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="folio-badge">Folio# {cn.id}</span>
-                          <span className="font-display font-semibold text-base text-white/90">{cn.client}</span>
+                      <div className="mb-4">
+                        {/* Fila 1: folio + botones */}
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <span className="folio-badge flex-shrink-0">Folio# {cn.id}</span>
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            <button className="btn-action btn-pdf" onClick={() => downloadPDF(cn.id)} title="Descargar PDF" aria-label="Descargar PDF">
+                              <FiDownload size={13} /> <span className="hidden sm:inline">PDF</span>
+                            </button>
+                            <button className="btn-action btn-print" onClick={() => printPDF(cn.id)} title="Imprimir PDF" aria-label="Imprimir PDF">
+                              <FiPrinter size={13} /> <span className="hidden sm:inline">Imprimir</span>
+                            </button>
+                            <button className="btn-action btn-edit" onClick={() => startEditRow(cn)} title="Editar" aria-label="Editar">
+                              <FiEdit2 size={13} />
+                            </button>
+                            <button className="btn-action btn-del" onClick={() => deleteRow(cn.id)} title="Eliminar" aria-label="Eliminar">
+                              <FiTrash2 size={13} />
+                            </button>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2 flex-shrink-0 flex-wrap justify-end">
-                          <button className="btn-action btn-pdf" onClick={() => downloadPDF(cn.id)} title="Descargar PDF" aria-label="Descargar PDF">
-                            <FiDownload size={13} /> PDF
-                          </button>
-                          <button className="btn-action btn-print" onClick={() => printPDF(cn.id)} title="Imprimir PDF" aria-label="Imprimir PDF">
-                            <FiPrinter size={13} /> Imprimir
-                          </button>
-                          <button className="btn-action btn-edit" onClick={() => startEditRow(cn)} title="Editar" aria-label="Editar">
-                            <FiEdit2 size={13} />
-                          </button>
-                          <button className="btn-action btn-del" onClick={() => deleteRow(cn.id)} title="Eliminar" aria-label="Eliminar">
-                            <FiTrash2 size={13} />
-                          </button>
-                        </div>
+                        {/* Fila 2: nombre del cliente */}
+                        <span className="font-display font-semibold text-lg text-white/90 break-words">{cn.client}</span>
                       </div>
 
                       {/* Meta chips */}

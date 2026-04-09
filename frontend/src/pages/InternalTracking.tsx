@@ -677,25 +677,29 @@ const InternalTracking = () => {
                     /* ── View mode ── */
                     <div className="p-5">
                       {/* Top row */}
-                      <div className="flex items-start justify-between gap-3 mb-4">
-                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="folio-badge-it">Folio# {int.id}</span>
-                        <span className="meta-chip-it"><span className="text-white/90">Retirado por:</span> <strong>{int.nombre_retira}</strong></span>
-                        <span className="meta-chip-it"><span className="text-white/90">Área:</span> <strong className="text-emerald-400">{int.area}</strong></span>
-                      </div>
-                        <div className="flex items-center gap-2 flex-shrink-0 flex-wrap justify-end">
-                          <button className="btn-action-it btn-pdf-it" onClick={() => downloadPDF(int.id)} title="Descargar PDF" aria-label="Descargar PDF">
-                            <FiDownload size={13} /> PDF
-                          </button>
-                          <button className="btn-action-it btn-print-it" onClick={() => printPDF(int.id)} title="Imprimir PDF" aria-label="Imprimir PDF">
-                            <FiPrinter size={13} /> Imprimir
-                          </button>
-                          <button className="btn-action-it btn-edit-it" onClick={() => startEditRow(int)} title="Editar" aria-label="Editar">
-                            <FiEdit2 size={13} />
-                          </button>
-                          <button className="btn-action-it btn-del-it" onClick={() => deleteRow(int.id)} title="Eliminar" aria-label="Eliminar">
-                            <FiTrash2 size={13} />
-                          </button>
+                      <div className="mb-4">
+                        {/* Fila 1: folio + botones */}
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <span className="folio-badge-it flex-shrink-0">Folio# {int.id}</span>
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            <button className="btn-action-it btn-pdf-it" onClick={() => downloadPDF(int.id)} title="Descargar PDF" aria-label="Descargar PDF">
+                              <FiDownload size={13} /> <span className="hidden sm:inline">PDF</span>
+                            </button>
+                            <button className="btn-action-it btn-print-it" onClick={() => printPDF(int.id)} title="Imprimir PDF" aria-label="Imprimir PDF">
+                              <FiPrinter size={13} /> <span className="hidden sm:inline">Imprimir</span>
+                            </button>
+                            <button className="btn-action-it btn-edit-it" onClick={() => startEditRow(int)} title="Editar" aria-label="Editar">
+                              <FiEdit2 size={13} />
+                            </button>
+                            <button className="btn-action-it btn-del-it" onClick={() => deleteRow(int.id)} title="Eliminar" aria-label="Eliminar">
+                              <FiTrash2 size={13} />
+                            </button>
+                          </div>
+                        </div>
+                        {/* Fila 2: */}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="meta-chip-it"><span className="text-white/90">Retirado por:</span> <strong>{int.nombre_retira}</strong></span>
+                          <span className="meta-chip-it"><span className="text-white/90">Área:</span> <strong className="text-emerald-400">{int.area}</strong></span>
                         </div>
                       </div>
 
