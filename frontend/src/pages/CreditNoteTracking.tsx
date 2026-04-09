@@ -292,7 +292,7 @@ const CreditNoteTracking = () => {
           border: 1px solid rgba(255,255,255,0.08);
           color: white; border-radius: 10px;
           transition: border-color .15s, box-shadow .15s;
-          font-size: 13px;
+          font-size: 15px;
         }
         .input-cn::placeholder { color: rgba(255,255,255,0.2); }
         .input-cn:focus { outline: none; border-color: rgba(99,102,241,0.6); box-shadow: 0 0 0 3px rgba(99,102,241,0.08); }
@@ -358,24 +358,24 @@ const CreditNoteTracking = () => {
         .btn-excel:hover { background: rgba(52,211,153,0.14); border-color: rgba(52,211,153,0.35); }
 
         .btn-load-more {
-          background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
-          color: rgba(255,255,255,0.6); padding: 9px 28px; border-radius: 10px;
+          background: rgba(52,211,153,0.6); border: 1px solid rgba(52,211,153,0.35);
+          color: rgba(255,255,255,0.9); padding: 9px 28px; border-radius: 10px;
           font-size: 13px; font-weight: 500; cursor: pointer; transition: all .15s;
         }
-        .btn-load-more:hover { background: rgba(255,255,255,0.09); color: white; }
+        .btn-load-more:hover { background: rgba(59,130,246,0.35); color: white; }
 
         .field-label { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: rgba(255,255,255,0.9); margin-bottom: 4px; }
 
         .meta-chip {
           display: inline-flex; align-items: center; gap: 5px;
           background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07);
-          border-radius: 6px; padding: 3px 8px; font-size: 11px; color: rgba(255,255,255,0.9);
+          border-radius: 6px; padding: 3px 8px; font-size: 13px; color: rgba(255,255,255,0.9);
         }
         .meta-chip strong { color: rgba(255,255,255,0.9); font-weight: 500; }
 
         .folio-badge {
           font-family: 'DM Mono', monospace;
-          font-size: 10px; letter-spacing: .08em;
+          font-size: 12px; letter-spacing: .08em;
           background: rgba(99,102,241,0.12); border: 1px solid rgba(99,102,241,0.2);
           color: #A5B4FC; border-radius: 5px; padding: 2px 7px;
         }
@@ -574,14 +574,17 @@ const CreditNoteTracking = () => {
                         {cn.order_number && <span className="meta-chip"><span className="text-blue-500">Orden</span> <strong>{cn.order_number}</strong></span>}
                         {cn.invoice_number && <span className="meta-chip"><span className="text-blue-500">Factura</span> <strong>{cn.invoice_number}</strong></span>}
                         {cn.credit_note_number && <span className="meta-chip"><span className="text-blue-500">NC</span> <strong>{cn.credit_note_number}</strong></span>}
-                        <span className="meta-chip">{cn.created_by}</span>
+                        <span className="meta-chip"><span className="text-white/90">Registrado por:</span> <strong>{cn.created_by}</strong></span>
                         <span className="meta-chip">{new Date(cn.fecha).toLocaleString("es-CL", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
                       </div>
 
                       {/* Reason */}
                       {cn.reason && (
-                        <p className="text-sm text-white/90 mb-4 leading-relaxed italic">"{cn.reason}"</p>
-                      )}
+                      <p className="text-sm text-white/90 mb-4 leading-relaxed">
+                        <span className="text-white/90 not-italic font-semibold text-xs uppercase tracking-wide">Motivo: </span>
+                        <span className="italic">"{cn.reason}"</span>
+                      </p>
+                    )}
 
                       {/* Products */}
                       <div className="border-t border-white/5 pt-3">
