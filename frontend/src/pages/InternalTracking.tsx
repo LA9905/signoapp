@@ -398,8 +398,8 @@ const InternalTracking = () => {
 
         .font-display { font-family: 'Syne', sans-serif; }
 
-        .glass { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); }
-        .glass-hover:hover { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.12); }
+        .glass { background: rgba(30,40,80,0.35); border: 1px solid rgba(99,102,241,0.18); }
+        .glass-hover:hover { background: rgba(30,40,80,0.45); border-color: rgba(99,102,241,0.28); }
 
         .input-it {
           background: rgba(255,255,255,0.04);
@@ -435,11 +435,11 @@ const InternalTracking = () => {
         .btn-print-it { background: rgba(52,211,153,0.1); border-color: rgba(52,211,153,0.2); color: #6EE7B7; }
         .btn-print-it:hover { background: rgba(52,211,153,0.18); border-color: rgba(52,211,153,0.35); }
 
-        .btn-edit-it { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1); color: rgba(255,255,255,0.5); }
-        .btn-edit-it:hover { background: rgba(96,165,250,0.1); border-color: rgba(96,165,250,0.3); color: #60A5FA; }
+        .btn-edit-it { background: rgba(96,165,250,0.08); border-color: rgba(96,165,250,0.25); color: #60A5FA; }
+        .btn-edit-it:hover { background: rgba(96,165,250,0.18); border-color: rgba(96,165,250,0.45); color: #93C5FD; }
 
-        .btn-del-it { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1); color: rgba(255,255,255,0.5); }
-        .btn-del-it:hover { background: rgba(248,113,113,0.1); border-color: rgba(248,113,113,0.3); color: #F87171; }
+        .btn-del-it { background: rgba(248,113,113,0.08); border-color: rgba(248,113,113,0.25); color: #F87171; }
+        .btn-del-it:hover { background: rgba(248,113,113,0.18); border-color: rgba(248,113,113,0.45); color: #FCA5A5; }
 
         .btn-save-it { background: rgba(52,211,153,0.1); border-color: rgba(52,211,153,0.2); color: #6EE7B7; }
         .btn-save-it:hover { background: rgba(52,211,153,0.18); border-color: rgba(52,211,153,0.35); }
@@ -501,7 +501,7 @@ const InternalTracking = () => {
         }
 
         .it-card { transition: background .12s; }
-        .it-card:hover { background: rgba(255,255,255,0.035); }
+        .it-card:hover { background: rgba(99,102,241,0.08); }
 
         @keyframes slide-down { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
         .slide-down { animation: slide-down .2s ease both; }
