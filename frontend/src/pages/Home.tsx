@@ -649,7 +649,7 @@ export function Footer() {
       </div>
 
       <div className="border-t border-white/5 px-6 py-4">
-        <div className="mx-auto max-w-7xl flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-white/20">
+        <div className="mx-auto max-w-7xl flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-white/80">
           <span>&copy; {new Date().getFullYear()} SignoApp. Todos los derechos reservados.</span>
           <span>
             Developed with ❤️ by{" "}
