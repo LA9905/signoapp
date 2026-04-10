@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { normalizeSearch } from "../utils/normalizeSearch";
 import ArrowBackButton from "../components/ArrowBackButton";
 import { api } from "../services/http";
-
 interface MovementDetail {
   // Despacho
   cliente?: string;
@@ -45,12 +44,21 @@ const StockMovements = () => {
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const [error, setError] = useState<string>("");
+  const [clientsList, setClientsList] = useState<{ id: number; name: string }[]>([]);
+  const [selectedClient, setSelectedClient] = useState<string>("");
 
   useEffect(() => {
     api
       .get<Product[]>("/products")
       .then((res) => setProducts(res.data))
       .catch(() => setError("No se pudieron cargar los productos"));
+  }, []);
+
+  useEffect(() => {
+    api
+      .get<{ id: number; name: string }[]>("/clients")
+      .then((res) => setClientsList(res.data))
+      .catch(() => {});
   }, []);
 
   const filteredProducts = products.filter((p) =>
@@ -73,6 +81,7 @@ const StockMovements = () => {
     setSearched(false);
     try {
       const params: Record<string, string> = { product: selectedProduct };
+      if (selectedClient) params.client = selectedClient;
       if (dateFrom) params.date_from = dateFrom;
       if (dateTo) params.date_to = dateTo;
 
@@ -214,6 +223,22 @@ const StockMovements = () => {
               onChange={(e) => setDateTo(e.target.value)}
             />
           </div>
+        </div>
+        {/* Filtro por cliente (opcional) */}
+        <div>
+          <label className="block text-sm text-gray-300 mb-1">Cliente (opcional)</label>
+          <select
+            className="w-full border p-2 rounded"
+            value={selectedClient}
+            onChange={(e) => setSelectedClient(e.target.value)}
+          >
+            <option value="">Todos los clientes</option>
+            {clientsList.map((c) => (
+              <option key={c.id} value={c.name}>
+                {c.name}
+              </option>
+            ))}
+          </select>
         </div>
 
         {error && <p className="text-red-400 text-sm">{error}</p>}
