@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { normalizeSearch } from "../utils/normalizeSearch";
 import ArrowBackButton from "../components/ArrowBackButton";
 import { api } from "../services/http";
+
 interface MovementDetail {
   // Despacho
   cliente?: string;
@@ -32,6 +33,18 @@ interface Product {
   id: number;
   name: string;
 }
+
+/* ── Micro-componentes de icono ── */
+const IconUp = () => (
+  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} width={13} height={13}>
+    <path d="M8 12V4M4 8l4-4 4 4" />
+  </svg>
+);
+const IconDown = () => (
+  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} width={13} height={13}>
+    <path d="M8 4v8M4 8l4 4 4-4" />
+  </svg>
+);
 
 const StockMovements = () => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -103,224 +116,481 @@ const StockMovements = () => {
     .filter((m) => m.tipo === "salida")
     .reduce((acc, m) => acc + m.cantidad, 0);
 
+  /* ── Detalle de cada movimiento ── */
   const renderDetalle = (m: StockMovement) => {
     const d = m.detalle;
+
+    const Item = ({ label, value }: { label: string; value?: string }) =>
+      value ? (
+        <span className="sm-meta-chip">
+          <span style={{ color: "rgba(255,255,255,0.35)" }}>{label}</span>
+          <strong style={{ color: "rgba(255,255,255,0.85)", fontWeight: 500 }}>{value}</strong>
+        </span>
+      ) : null;
+
     if (m.origen === "Despacho") {
       return (
-        <span className="text-sm text-gray-300">
-          <span className="font-medium text-white">Centro de costo:</span> {d.cliente || "—"}{" "}
-          &nbsp;|&nbsp;
-          <span className="font-medium text-white">Orden:</span> {d.orden || "—"}{" "}
-          {d.factura ? (
-            <>
-              &nbsp;|&nbsp;
-              <span className="font-medium text-white">Factura:</span> {d.factura}
-            </>
-          ) : null}
-        </span>
+        <div className="sm-detail-row">
+          <Item label="Centro de costo" value={d.cliente || "—"} />
+          <Item label="Orden" value={d.orden || "—"} />
+          {d.factura && <Item label="Factura" value={d.factura} />}
+        </div>
       );
     }
     if (m.origen === "Consumo Interno") {
       return (
-        <span className="text-sm text-gray-300">
-          <span className="font-medium text-white">Retirado por:</span> {d.nombre_retira || "—"}{" "}
-          &nbsp;|&nbsp;
-          <span className="font-medium text-white">Área:</span> {d.area || "—"}{" "}
-          &nbsp;|&nbsp;
-          <span className="font-medium text-white">Motivo:</span> {d.motivo || "—"}
-        </span>
+        <div className="sm-detail-row">
+          <Item label="Retirado por" value={d.nombre_retira || "—"} />
+          <Item label="Área" value={d.area || "—"} />
+          <Item label="Motivo" value={d.motivo || "—"} />
+        </div>
       );
     }
     if (m.origen === "Recepción Proveedor") {
       return (
-        <span className="text-sm text-gray-300">
-          <span className="font-medium text-white">Proveedor:</span> {d.proveedor || "—"}{" "}
-          &nbsp;|&nbsp;
-          <span className="font-medium text-white">Factura:</span> {d.orden || "—"}
-        </span>
+        <div className="sm-detail-row">
+          <Item label="Proveedor" value={d.proveedor || "—"} />
+          <Item label="Factura" value={d.orden || "—"} />
+        </div>
       );
     }
     if (m.origen === "Producción") {
       return (
-        <span className="text-sm text-gray-300">
-          <span className="font-medium text-white">Operario:</span> {d.operario || "—"}
-        </span>
+        <div className="sm-detail-row">
+          <Item label="Operario" value={d.operario || "—"} />
+        </div>
       );
     }
     if (m.origen === "Nota de Crédito") {
       return (
-        <span className="text-sm text-gray-300">
-          <span className="font-medium text-white">Cliente:</span> {d.cliente || "—"}{" "}
-          &nbsp;|&nbsp;
-          <span className="font-medium text-white">Orden:</span> {d.orden || "—"}{" "}
-          &nbsp;|&nbsp;
-          <span className="font-medium text-white">Factura:</span> {d.factura || "—"}{" "}
-          &nbsp;|&nbsp;
-          <span className="font-medium text-white">N° Nota:</span> {d.nota_credito || "—"}
-        </span>
+        <div className="sm-detail-row">
+          <Item label="Cliente" value={d.cliente || "—"} />
+          <Item label="Orden" value={d.orden || "—"} />
+          <Item label="Factura" value={d.factura || "—"} />
+          <Item label="N° Nota" value={d.nota_credito || "—"} />
+        </div>
       );
     }
     return null;
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-4">
-      <div className="mb-10">
-        <ArrowBackButton />
-      </div>
-      <h2 className="text-2xl font-bold mb-6">Movimientos de Stock por Producto</h2>
+    <div
+      className="min-h-screen"
+      style={{ background: "#080C14", color: "white", fontFamily: "'DM Sans', sans-serif" }}
+    >
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
 
-      {/* Filtros */}
-      <div className="space-y-4 mb-6">
-        {/* Selector de producto con autocomplete */}
-        <div className="relative">
-          <label className="block text-sm text-gray-300 mb-1">Producto *</label>
-          <input
-            type="text"
-            className="w-full border p-2 rounded"
-            placeholder="Escribe para buscar producto..."
-            value={productSearch}
-            onChange={(e) => {
-              setProductSearch(e.target.value);
-              setSelectedProduct("");
-              setShowDropdown(true);
-            }}
-            onFocus={() => setShowDropdown(true)}
-            onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
-          />
-          {showDropdown && productSearch && filteredProducts.length > 0 && (
-            <ul className="absolute z-20 bg-neutral-800 border border-gray-600 rounded mt-1 w-full max-h-48 overflow-auto text-white shadow-lg">
-              {filteredProducts.map((p) => (
-                <li
-                  key={p.id}
-                  className="p-2 hover:bg-neutral-700 cursor-pointer text-sm"
-                  onMouseDown={() => handleSelectProduct(p.name)}
-                >
-                  {p.name}
-                </li>
-              ))}
-            </ul>
-          )}
+        .sm-font-display { font-family: 'Syne', sans-serif; }
+
+        .sm-glass {
+          background: rgba(30,40,80,0.35);
+          border: 1px solid rgba(99,102,241,0.18);
+        }
+
+        .sm-input {
+          background: rgba(255,255,255,0.04);
+          border: 1px solid rgba(255,255,255,0.08);
+          color: white;
+          border-radius: 10px;
+          transition: border-color .15s, box-shadow .15s;
+          font-size: 14px;
+          width: 100%;
+          padding: 9px 12px;
+          box-sizing: border-box;
+          font-family: 'DM Sans', sans-serif;
+        }
+        .sm-input::placeholder { color: rgba(255,255,255,0.2); }
+        .sm-input:focus { outline: none; border-color: rgba(99,102,241,0.6); box-shadow: 0 0 0 3px rgba(99,102,241,0.08); }
+
+        .sm-select {
+          background: rgba(255,255,255,0.04);
+          border: 1px solid rgba(255,255,255,0.08);
+          color: rgba(255,255,255,0.7);
+          border-radius: 10px;
+          font-size: 14px;
+          width: 100%;
+          padding: 9px 12px;
+          box-sizing: border-box;
+          transition: border-color .15s;
+          font-family: 'DM Sans', sans-serif;
+          cursor: pointer;
+        }
+        .sm-select:focus { outline: none; border-color: rgba(99,102,241,0.5); }
+        .sm-select option { background: #111827; color: white; }
+
+        .sm-field-label {
+          display: block;
+          font-size: 11px;
+          font-weight: 600;
+          letter-spacing: .06em;
+          text-transform: uppercase;
+          color: rgba(255,255,255,0.35);
+          margin-bottom: 5px;
+        }
+
+        .sm-btn-primary {
+          background: linear-gradient(135deg, #4F46E5, #6366F1);
+          box-shadow: 0 4px 16px rgba(99,102,241,0.3);
+          color: white;
+          border: none;
+          border-radius: 10px;
+          padding: 9px 22px;
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all .15s;
+          font-family: 'DM Sans', sans-serif;
+        }
+        .sm-btn-primary:hover { box-shadow: 0 6px 20px rgba(99,102,241,0.4); transform: translateY(-1px); }
+        .sm-btn-primary:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+
+        .sm-dropdown-list {
+          position: absolute;
+          z-index: 20;
+          top: 100%;
+          left: 0;
+          margin-top: 4px;
+          width: 100%;
+          border-radius: 10px;
+          background: #0F172A;
+          border: 1px solid rgba(99,102,241,0.25);
+          box-shadow: 0 16px 40px rgba(0,0,0,0.6);
+          max-height: 180px;
+          overflow-y: auto;
+        }
+        .sm-dropdown-item {
+          padding: 9px 12px;
+          font-size: 13px;
+          cursor: pointer;
+          color: rgba(255,255,255,0.8);
+          transition: background .1s;
+          border-bottom: 1px solid rgba(255,255,255,0.04);
+        }
+        .sm-dropdown-item:last-child { border-bottom: none; }
+        .sm-dropdown-item:hover { background: rgba(99,102,241,0.15); color: white; }
+
+        .sm-metrics-grid {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0,1fr));
+          gap: 12px;
+          margin-bottom: 20px;
+        }
+        .sm-metric {
+          border-radius: 12px;
+          padding: 14px 18px;
+        }
+        .sm-metric-neutral {
+          background: rgba(255,255,255,0.04);
+          border: 1px solid rgba(255,255,255,0.07);
+        }
+        .sm-metric-entrada {
+          background: rgba(52,211,153,0.07);
+          border: 1px solid rgba(52,211,153,0.15);
+        }
+        .sm-metric-salida {
+          background: rgba(248,113,113,0.07);
+          border: 1px solid rgba(248,113,113,0.15);
+        }
+        .sm-metric-label {
+          font-size: 11px;
+          font-weight: 600;
+          letter-spacing: .06em;
+          text-transform: uppercase;
+          margin-bottom: 6px;
+        }
+        .sm-metric-value {
+          font-size: 24px;
+          font-weight: 500;
+          margin: 0;
+        }
+
+        .sm-card {
+          border-radius: 16px;
+          padding: 16px 20px;
+          background: rgba(30,40,80,0.35);
+          border: 1px solid rgba(99,102,241,0.18);
+          border-left-width: 3px;
+          transition: background .12s;
+        }
+        .sm-card:hover { background: rgba(30,40,80,0.5); }
+        .sm-card.entrada { border-left-color: rgba(52,211,153,0.65); }
+        .sm-card.salida  { border-left-color: rgba(248,113,113,0.65); }
+
+        .sm-card-top {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+        }
+        .sm-card-left  { display: flex; align-items: center; gap: 8px; }
+        .sm-card-right { display: flex; align-items: center; gap: 14px; }
+
+        .sm-icon-circle {
+          width: 28px; height: 28px;
+          border-radius: 50%;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+        .sm-icon-circle.entrada { background: rgba(52,211,153,0.12); color: #6EE7B7; }
+        .sm-icon-circle.salida  { background: rgba(248,113,113,0.12); color: #FCA5A5; }
+
+        .sm-badge {
+          display: inline-flex;
+          align-items: center;
+          font-size: 11px;
+          font-weight: 600;
+          letter-spacing: .04em;
+          padding: 3px 9px;
+          border-radius: 99px;
+        }
+        .sm-badge.entrada {
+          background: rgba(52,211,153,0.1);
+          border: 1px solid rgba(52,211,153,0.2);
+          color: #6EE7B7;
+        }
+        .sm-badge.salida {
+          background: rgba(248,113,113,0.1);
+          border: 1px solid rgba(248,113,113,0.2);
+          color: #FCA5A5;
+        }
+
+        .sm-meta-chip {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          background: rgba(255,255,255,0.04);
+          border: 1px solid rgba(255,255,255,0.07);
+          border-radius: 6px;
+          padding: 3px 8px;
+          font-size: 12px;
+        }
+
+        .sm-detail-row {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+          margin-top: 10px;
+          padding-top: 10px;
+          border-top: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .sm-divider {
+          border: none;
+          border-top: 1px solid rgba(255,255,255,0.05);
+          margin: 0 0 20px;
+        }
+
+        .sm-empty {
+          border-radius: 16px;
+          padding: 48px 24px;
+          text-align: center;
+          background: rgba(30,40,80,0.35);
+          border: 1px solid rgba(99,102,241,0.18);
+        }
+
+        @keyframes sm-fade-in {
+          from { opacity: 0; transform: translateY(6px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        .sm-fade-in { animation: sm-fade-in .25s ease both; }
+      `}</style>
+
+      <div style={{ maxWidth: 760, margin: "0 auto", padding: "32px 16px" }}>
+
+        {/* Volver */}
+        <div style={{ marginBottom: 32 }}>
+          <ArrowBackButton />
         </div>
 
-        {/* Rango de fechas */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="block text-sm text-gray-300 mb-1">Desde (opcional)</label>
-            <input
-              type="date"
-              className="w-full border p-2 rounded"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-            />
-          </div>
-          <div>
-            <label className="block text-sm text-gray-300 mb-1">Hasta (opcional)</label>
-            <input
-              type="date"
-              className="w-full border p-2 rounded"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-            />
-          </div>
-        </div>
-        {/* Filtro por cliente (opcional) */}
-        <div>
-          <label className="block text-sm text-gray-300 mb-1">Cliente (opcional)</label>
-          <select
-            className="w-full border p-2 rounded"
-            value={selectedClient}
-            onChange={(e) => setSelectedClient(e.target.value)}
+        {/* Título */}
+        <div className="sm-fade-in" style={{ marginBottom: 28 }}>
+          <h1
+            className="sm-font-display"
+            style={{ fontSize: 28, fontWeight: 700, letterSpacing: "-0.01em", margin: "0 0 4px" }}
           >
-            <option value="">Todos los clientes</option>
-            {clientsList.map((c) => (
-              <option key={c.id} value={c.name}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+            Movimientos de Stock
+          </h1>
+          <p style={{ fontSize: 13, color: "rgba(255,255,255,0.3)", margin: 0 }}>
+            Trazabilidad por producto y cliente
+          </p>
         </div>
 
-        {error && <p className="text-red-400 text-sm">{error}</p>}
-
-        <button
-          onClick={handleSearch}
-          disabled={loading}
-          className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 disabled:bg-blue-400"
+        {/* ── Panel de filtros ── */}
+        <div
+          className="sm-glass sm-fade-in"
+          style={{ borderRadius: 16, padding: "20px 24px", marginBottom: 24, display: "flex", flexDirection: "column", gap: 16 }}
         >
-          {loading ? "Buscando..." : "Buscar movimientos"}
-        </button>
-      </div>
+          {/* Producto */}
+          <div style={{ position: "relative" }}>
+            <label className="sm-field-label">Producto *</label>
+            <input
+              type="text"
+              className="sm-input"
+              placeholder="Escribe para buscar producto..."
+              value={productSearch}
+              onChange={(e) => {
+                setProductSearch(e.target.value);
+                setSelectedProduct("");
+                setShowDropdown(true);
+              }}
+              onFocus={() => setShowDropdown(true)}
+              onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
+            />
+            {showDropdown && productSearch && filteredProducts.length > 0 && (
+              <ul className="sm-dropdown-list">
+                {filteredProducts.map((p) => (
+                  <li
+                    key={p.id}
+                    className="sm-dropdown-item"
+                    onMouseDown={() => handleSelectProduct(p.name)}
+                  >
+                    {p.name}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
 
-      {/* Resultados */}
-      {searched && (
-        <>
-          {/* Resumen */}
-          <div className="grid grid-cols-3 gap-3 mb-6">
-            <div className="border rounded p-3 text-center">
-              <p className="text-xs text-gray-400 mb-1">Total movimientos</p>
-              <p className="text-xl font-bold">{movements.length}</p>
+          {/* Fechas */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div>
+              <label className="sm-field-label">Desde (opcional)</label>
+              <input
+                type="date"
+                className="sm-input"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+              />
             </div>
-            <div className="border rounded p-3 text-center border-emerald-700">
-              <p className="text-xs text-emerald-400 mb-1">Total entradas</p>
-              <p className="text-xl font-bold text-emerald-400">+{totalEntradas.toLocaleString("es-CL")}</p>
-            </div>
-            <div className="border rounded p-3 text-center border-red-700">
-              <p className="text-xs text-red-400 mb-1">Total salidas</p>
-              <p className="text-xl font-bold text-red-400">-{totalSalidas.toLocaleString("es-CL")}</p>
+            <div>
+              <label className="sm-field-label">Hasta (opcional)</label>
+              <input
+                type="date"
+                className="sm-input"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+              />
             </div>
           </div>
 
-          {movements.length === 0 ? (
-            <p className="text-center text-gray-400 py-8">
-              No se encontraron movimientos para "{selectedProduct}"
-              {dateFrom || dateTo ? " en el rango de fechas indicado" : ""}.
-            </p>
-          ) : (
-            <div className="space-y-3">
-              {movements.map((m, i) => (
-                <div
-                  key={i}
-                  className={`border rounded p-4 ${
-                    m.tipo === "entrada"
-                      ? "border-l-4 border-l-emerald-500"
-                      : "border-l-4 border-l-red-500"
-                  }`}
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={`text-xs font-bold px-2 py-1 rounded ${
-                          m.tipo === "entrada"
-                            ? "bg-emerald-700 text-emerald-100"
-                            : "bg-red-800 text-red-100"
-                        }`}
-                      >
-                        {m.tipo === "entrada" ? "▲ ENTRADA" : "▼ SALIDA"}
-                      </span>
-                      <span className="text-sm font-semibold text-gray-200">{m.origen}</span>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <span
-                        className={`text-lg font-bold ${
-                          m.tipo === "entrada" ? "text-emerald-400" : "text-red-400"
-                        }`}
-                      >
-                        {m.tipo === "entrada" ? "+" : "-"}
-                        {m.cantidad} {m.unidad}
-                      </span>
-                      <span className="text-xs text-gray-400">
-                        {new Date(m.fecha).toLocaleString("es-CL")}
-                      </span>
-                    </div>
-                  </div>
-                  <div>{renderDetalle(m)}</div>
-                </div>
+          {/* Cliente */}
+          <div>
+            <label className="sm-field-label">Cliente (opcional)</label>
+            <select
+              className="sm-select"
+              value={selectedClient}
+              onChange={(e) => setSelectedClient(e.target.value)}
+            >
+              <option value="">Todos los clientes</option>
+              {clientsList.map((c) => (
+                <option key={c.id} value={c.name}>
+                  {c.name}
+                </option>
               ))}
-            </div>
+            </select>
+          </div>
+
+          {/* Error */}
+          {error && (
+            <p style={{ fontSize: 12, color: "#FCA5A5", margin: 0 }}>{error}</p>
           )}
-        </>
-      )}
+
+          {/* Botón */}
+          <div>
+            <button
+              onClick={handleSearch}
+              disabled={loading}
+              className="sm-btn-primary"
+            >
+              {loading ? "Buscando…" : "Buscar movimientos"}
+            </button>
+          </div>
+        </div>
+
+        {/* ── Resultados ── */}
+        {searched && (
+          <div className="sm-fade-in">
+
+            {/* Métricas */}
+            <div className="sm-metrics-grid">
+              <div className="sm-metric sm-metric-neutral">
+                <p className="sm-metric-label" style={{ color: "rgba(255,255,255,0.35)" }}>Movimientos</p>
+                <p className="sm-metric-value">{movements.length}</p>
+              </div>
+              <div className="sm-metric sm-metric-entrada">
+                <p className="sm-metric-label" style={{ color: "rgba(52,211,153,0.65)" }}>Entradas</p>
+                <p className="sm-metric-value" style={{ color: "#6EE7B7" }}>
+                  +{totalEntradas.toLocaleString("es-CL")}
+                </p>
+              </div>
+              <div className="sm-metric sm-metric-salida">
+                <p className="sm-metric-label" style={{ color: "rgba(248,113,113,0.65)" }}>Salidas</p>
+                <p className="sm-metric-value" style={{ color: "#FCA5A5" }}>
+                  -{totalSalidas.toLocaleString("es-CL")}
+                </p>
+              </div>
+            </div>
+
+            <hr className="sm-divider" />
+
+            {/* Lista o vacío */}
+            {movements.length === 0 ? (
+              <div className="sm-empty">
+                <p style={{ fontSize: 13, color: "rgba(255,255,255,0.25)", margin: 0 }}>
+                  No se encontraron movimientos para "{selectedProduct}"
+                  {dateFrom || dateTo ? " en el rango de fechas indicado" : ""}.
+                </p>
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {movements.map((m, i) => {
+                  const esEntrada = m.tipo === "entrada";
+                  return (
+                    <div
+                      key={i}
+                      className={`sm-card sm-fade-in ${esEntrada ? "entrada" : "salida"}`}
+                      style={{ animationDelay: `${Math.min(i, 8) * 0.03}s` }}
+                    >
+                      {/* Fila principal */}
+                      <div className="sm-card-top">
+                        <div className="sm-card-left">
+                          <span className={`sm-icon-circle ${esEntrada ? "entrada" : "salida"}`}>
+                            {esEntrada ? <IconUp /> : <IconDown />}
+                          </span>
+                          <span className={`sm-badge ${esEntrada ? "entrada" : "salida"}`}>
+                            {esEntrada ? "entrada" : "salida"}
+                          </span>
+                          <span style={{ fontSize: 14, fontWeight: 500, color: "rgba(255,255,255,0.9)" }}>
+                            {m.origen}
+                          </span>
+                        </div>
+
+                        <div className="sm-card-right">
+                          <span style={{ fontSize: 15, fontWeight: 500, color: esEntrada ? "#6EE7B7" : "#FCA5A5" }}>
+                            {esEntrada ? "+" : "-"}{m.cantidad.toLocaleString("es-CL")} {m.unidad}
+                          </span>
+                          <span style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", whiteSpace: "nowrap" }}>
+                            {new Date(m.fecha).toLocaleString("es-CL")}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Detalle */}
+                      {renderDetalle(m)}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+      </div>
     </div>
   );
 };
