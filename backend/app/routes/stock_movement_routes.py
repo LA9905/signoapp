@@ -24,6 +24,7 @@ CORS(stock_movement_bp, resources={r"/*": {"origins": "*"}}, supports_credential
 def get_stock_movements():
     try:
         product_name = normalize_search(request.args.get("product") or "")
+        client_name  = normalize_search(request.args.get("client") or "")
         date_from_str = (request.args.get("date_from") or "").strip()
         date_to_str = (request.args.get("date_to") or "").strip()
 
@@ -52,6 +53,8 @@ def get_stock_movements():
         dispatch_q = db.session.query(DispatchProduct, Dispatch).join(
             Dispatch, DispatchProduct.dispatch_id == Dispatch.id
         ).filter(normalize_db_column(DispatchProduct.nombre) == product_name)
+        if client_name:
+            dispatch_q = dispatch_q.filter(normalize_db_column(Dispatch.client_name) == client_name)
         if date_from_utc:
             dispatch_q = dispatch_q.filter(Dispatch.fecha >= date_from_utc)
         if date_to_utc:
@@ -81,19 +84,21 @@ def get_stock_movements():
         if date_to_utc:
             internal_q = internal_q.filter(InternalConsumption.fecha < date_to_utc)
 
-        for ip, ic in internal_q.all():
-            movements.append({
-                "tipo": "salida",
-                "origen": "Consumo Interno",
-                "fecha": to_local(ic.fecha).isoformat(timespec="seconds"),
-                "cantidad": ip.cantidad,
-                "unidad": ip.unidad,
-                "detalle": {
-                    "nombre_retira": ic.nombre_retira,
-                    "area": ic.area,
-                    "motivo": ic.motivo,
-                },
-            })
+        if not client_name:
+            for ip, ic in internal_q.all():
+                movements.append({
+                    "tipo": "salida",
+                    "origen": "Consumo Interno",
+                    "fecha": to_local(ic.fecha).isoformat(timespec="seconds"),
+                    "cantidad": ip.cantidad,
+                    "unidad": ip.unidad,
+                    "detalle": {
+                        "nombre_retira": ic.nombre_retira,
+                        "area": ic.area,
+                        "motivo": ic.motivo,
+                    },
+                })
+
 
         # ── 3. RECEPCIÓN DE PROVEEDOR (entrada) ──
         receipt_q = db.session.query(ReceiptProduct, Receipt, Supplier).join(
@@ -105,19 +110,20 @@ def get_stock_movements():
             receipt_q = receipt_q.filter(Receipt.fecha >= date_from_utc)
         if date_to_utc:
             receipt_q = receipt_q.filter(Receipt.fecha < date_to_utc)
-
-        for rp, r, s in receipt_q.all():
-            movements.append({
-                "tipo": "entrada",
-                "origen": "Recepción Proveedor",
-                "fecha": to_local(r.fecha).isoformat(timespec="seconds"),
-                "cantidad": rp.cantidad,
-                "unidad": rp.unidad,
-                "detalle": {
-                    "proveedor": s.name,
-                    "orden": r.orden,
-                },
-            })
+        
+        if not client_name:
+            for rp, r, s in receipt_q.all():
+                movements.append({
+                    "tipo": "entrada",
+                    "origen": "Recepción Proveedor",
+                    "fecha": to_local(r.fecha).isoformat(timespec="seconds"),
+                    "cantidad": rp.cantidad,
+                    "unidad": rp.unidad,
+                    "detalle": {
+                        "proveedor": s.name,
+                        "orden": r.orden,
+                    },
+                })
 
         # ── 4. PRODUCCIÓN (entrada) ──
         production_q = db.session.query(ProductionProduct, Production, Operator).join(
@@ -130,22 +136,25 @@ def get_stock_movements():
         if date_to_utc:
             production_q = production_q.filter(Production.fecha < date_to_utc)
 
-        for pp, prod, op in production_q.all():
-            movements.append({
-                "tipo": "entrada",
-                "origen": "Producción",
-                "fecha": to_local(prod.fecha).isoformat(timespec="seconds"),
-                "cantidad": pp.cantidad,
-                "unidad": pp.unidad,
-                "detalle": {
-                    "operario": op.name,
-                },
-            })
+        if not client_name:
+            for pp, prod, op in production_q.all():
+                movements.append({
+                    "tipo": "entrada",
+                    "origen": "Producción",
+                    "fecha": to_local(prod.fecha).isoformat(timespec="seconds"),
+                    "cantidad": pp.cantidad,
+                    "unidad": pp.unidad,
+                    "detalle": {
+                        "operario": op.name,
+                    },
+                })
 
         # ── 5. NOTA DE CRÉDITO (entrada) ──
         cn_q = db.session.query(CreditNoteProduct, CreditNote).join(
             CreditNote, CreditNoteProduct.credit_note_id == CreditNote.id
         ).filter(normalize_db_column(CreditNoteProduct.nombre) == product_name)
+        if client_name:
+            cn_q = cn_q.filter(normalize_db_column(CreditNote.client_name) == client_name)
         if date_from_utc:
             cn_q = cn_q.filter(CreditNote.fecha >= date_from_utc)
         if date_to_utc:
