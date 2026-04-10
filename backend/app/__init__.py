@@ -28,10 +28,25 @@ def _str_to_bool(v: str, default: bool = False) -> bool:
 
 
 def create_app():
-    # Carga .env desde el root del proyecto
     load_dotenv()
 
     app = Flask(__name__)
+    logging.basicConfig(level=logging.DEBUG)
+
+    # 🔥 FORZAR TRACEBACK EN PRODUCCIÓN
+    app.config["PROPAGATE_EXCEPTIONS"] = True
+    app.config["TRAP_HTTP_EXCEPTIONS"] = True
+
+    # 🔥🔥🔥 HANDLER GLOBAL DE EXCEPCIONES (DEBUG PRODUCCIÓN)
+    import sys
+    import traceback
+
+    @app.errorhandler(Exception)
+    def global_exception_handler(e):
+        print("\n🔥🔥🔥 EXCEPCIÓN GLOBAL CAPTURADA 🔥🔥🔥", file=sys.stderr)
+        traceback.print_exc()
+        raise
+
     try:
         app.config.from_object("config.Config")
     except Exception:
@@ -185,11 +200,21 @@ def create_app():
             return
 
         from app.utils.billing import is_blocked
-        if is_blocked(user):
-            return jsonify({
-                "error": "payment_required",
-                "msg": "Debe pagar la suscripción para seguir usando la app."
-            }), 402
+        # if is_blocked(user):
+        #     return jsonify({
+        #         "error": "payment_required",
+        #         "msg": "Debe pagar la suscripción para seguir usando la app."
+        #     }), 402
+
+        try:
+            if is_blocked(user):
+                current_app.logger.warning(
+                    f"[BILLING] Usuario bloqueado: {user.id} – permitiendo acceso para debug"
+                )
+                return
+        except Exception as e:
+            current_app.logger.error(f"[BILLING ERROR] {e}")
+            return
 
     # Ruta para servir archivos subidos
     @app.route('/uploads/<path:filename>')
