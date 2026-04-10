@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState, useCallback, type ChangeEvent } from "react";
+import { createPortal } from "react-dom";
 import { normalizeSearch } from "../utils/normalizeSearch";
 import type { AxiosError } from "axios";
-import { FiEdit2, FiTrash2, FiSave, FiX, FiPlus, FiMinus } from "react-icons/fi";
+import { FiEdit2, FiTrash2, FiSave, FiX, FiPlus, FiMinus, FiDownload, FiSearch, FiFileText } from "react-icons/fi";
 import OperatorSelector from "../components/OperatorSelector";
 import ArrowBackButton from "../components/ArrowBackButton";
 import { api } from "../services/http";
-import * as XLSX from "xlsx";  //para generar Excel
+import * as XLSX from "xlsx";
 
 interface ProductionSummary {
   id: number;
@@ -34,10 +35,6 @@ type SearchState = {
   date_to: string;
 };
 
-const btnIcon =
-  "rounded-full p-2 bg-white/10 text-white border border-white/50 transition-colors " +
-  "focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-neutral-900";
-
 const ProductionTracking = () => {
   const [productions, setProductions] = useState<ProductionSummary[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -52,6 +49,8 @@ const ProductionTracking = () => {
   const [productNames, setProductNames] = useState<string[]>([]);
   const [suggestions, setSuggestions] = useState<Record<number, string[]>>({});
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [dropdownPos, setDropdownPos] = useState<Record<number, { top: number; left: number; width: number }>>({});
+  const inputRefs = useRef<Record<number, HTMLInputElement | null>>({});
 
   const [searchState, setSearchState] = useState<SearchState>({
     operator: "",
@@ -69,7 +68,6 @@ const ProductionTracking = () => {
   }, [searchState]);
 
   const fetchControllerRef = useRef<AbortController | null>(null);
-
   const observer = useRef<IntersectionObserver | null>(null);
   const lastProductionRef = useRef<HTMLDivElement | null>(null);
 
@@ -128,7 +126,6 @@ const ProductionTracking = () => {
   useEffect(() => {
     fetchProducts();
     setDebouncedSearch(searchState);
-
     const onFocus = () => {
       fetchProducts();
       setDebouncedSearch(searchStateRef.current);
@@ -139,7 +136,6 @@ const ProductionTracking = () => {
 
   useEffect(() => {
     if (isLoading || !hasMore) return;
-
     observer.current = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting) {
@@ -148,11 +144,9 @@ const ProductionTracking = () => {
       },
       { threshold: 0.1 }
     );
-
     if (lastProductionRef.current) {
       observer.current.observe(lastProductionRef.current);
     }
-
     return () => {
       if (observer.current) {
         observer.current.disconnect();
@@ -234,7 +228,6 @@ const ProductionTracking = () => {
   const saveEditRow = async () => {
     if (!draft || !editingId) return;
 
-    // Validaciones antes de guardar
     for (const p of draft.productos) {
       if (!p.nombre || !p.nombre.trim()) {
         setValidationError("Hay un producto sin nombre. Por favor selecciona un producto de la lista o elimina la fila vacía.");
@@ -323,195 +316,357 @@ const ProductionTracking = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
-      <div className="mb-12">
-        <ArrowBackButton />
-      </div>
-      <h2 className="text-xl font-bold mb-4">Registros de Producción</h2>
-      {mensaje && <p className="mb-4 text-emerald-400">{mensaje}</p>}
+    <div className="min-h-screen bg-[#080C14] text-white" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
 
-      <form onSubmit={handleSearchSubmit} className="space-y-4 mb-6">
-        <input
-          name="operator"
-          value={searchState.operator}
-          onChange={handleSearchChange}
-          placeholder="Buscar por nombre del operario"
-          className="w-full border p-2 rounded"
-        />
-        <input
-          name="product"
-          value={searchState.product}
-          onChange={handleSearchChange}
-          placeholder="Buscar por nombre de producto"
-          className="w-full border p-2 rounded"
-        />
+        .font-display { font-family: 'Syne', sans-serif; }
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="block text-sm text-gray-300 mb-1">Desde</label>
-            <input
-              name="date_from"
-              type="date"
-              value={searchState.date_from}
-              onChange={handleSearchChange}
-              className="w-full border p-2 rounded"
-            />
-          </div>
-          <div>
-            <label className="block text-sm text-gray-300 mb-1">Hasta</label>
-            <input
-              name="date_to"
-              type="date"
-              value={searchState.date_to}
-              onChange={handleSearchChange}
-              className="w-full border p-2 rounded"
-            />
-          </div>
+        .glass { background: rgba(30,40,80,0.35); border: 1px solid rgba(99,102,241,0.18); }
+
+        .input-pt {
+          background: rgba(255,255,255,0.04);
+          border: 1px solid rgba(255,255,255,0.08);
+          color: white; border-radius: 10px;
+          transition: border-color .15s, box-shadow .15s;
+          font-size: 14px;
+        }
+        .input-pt::placeholder { color: rgba(255,255,255,0.2); }
+        .input-pt:focus { outline: none; border-color: rgba(99,102,241,0.6); box-shadow: 0 0 0 3px rgba(99,102,241,0.08); }
+
+        .select-pt {
+          background: rgba(255,255,255,0.04);
+          border: 1px solid rgba(255,255,255,0.08);
+          color: rgba(255,255,255,0.75); border-radius: 10px;
+          font-size: 14px; transition: border-color .15s;
+        }
+        .select-pt:focus { outline: none; border-color: rgba(99,102,241,0.5); }
+        .select-pt option { background: #111827; color: white; }
+
+        .btn-action-pt {
+          display: inline-flex; align-items: center; justify-content: center;
+          gap: 6px; padding: 6px 8px; border-radius: 8px;
+          font-size: 13px; font-weight: 500;
+          border: 1px solid transparent;
+          transition: all .15s; cursor: pointer;
+          white-space: nowrap;
+        }
+
+        .btn-edit-pt { background: rgba(96,165,250,0.08); border-color: rgba(96,165,250,0.25); color: #60A5FA; }
+        .btn-edit-pt:hover { background: rgba(96,165,250,0.18); border-color: rgba(96,165,250,0.45); color: #93C5FD; }
+
+        
+        .btn-del-pt:hover { background: rgba(248,113,113,0.1); border-color: rgba(248,113,113,0.3); color: #F87171; }
+
+        .btn-del-pt { background: rgba(248,113,113,0.08); border-color: rgba(248,113,113,0.25); color: #F87171; }
+        .btn-del-pt:hover { background: rgba(248,113,113,0.18); border-color: rgba(248,113,113,0.45); color: #FCA5A5; }
+
+        .btn-cancel-pt { background: rgba(99,102,241,0.1); border-color: rgba(99,102,241,0.25); color: rgba(255,255,255,0.9); padding: 6px 12px; }
+        .btn-cancel-pt:hover { background: rgba(255,255,255,0.08); color: white; }
+        
+        .btn-save-pt { background: rgba(52,211,153,0.1); border-color: rgba(52,211,153,0.2); color: #6EE7B7; padding: 6px 12px; }
+        .btn-save-pt:hover { background: rgba(52,211,153,0.18); border-color: rgba(52,211,153,0.35); }
+
+        .btn-add-prod-pt { background: rgba(99,102,241,0.1); border-color: rgba(99,102,241,0.25); color: #A5B4FC; padding: 6px 10px; }
+        .btn-add-prod-pt:hover { background: rgba(99,102,241,0.18); }
+
+        .btn-rem-prod-pt { background: rgba(248,113,113,0.08); border-color: rgba(248,113,113,0.2); color: #FCA5A5; padding: 6px 8px; }
+        .btn-rem-prod-pt:hover { background: rgba(248,113,113,0.15); }
+
+        .btn-primary-search-pt {
+          background: linear-gradient(135deg, #4F46E5, #6366F1);
+          box-shadow: 0 4px 16px rgba(99,102,241,0.3);
+          color: white; border: none; border-radius: 10px;
+          padding: 10px 22px; font-size: 14px; font-weight: 600;
+          cursor: pointer; transition: all .15s;
+        }
+        .btn-primary-search-pt:hover { box-shadow: 0 6px 20px rgba(99,102,241,0.4); transform: translateY(-1px); }
+        .btn-primary-search-pt:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+
+        .btn-excel-pt {
+          display: inline-flex; align-items: center; gap: 6px;
+          padding: 8px 16px; border-radius: 9px; font-size: 13px; font-weight: 500;
+          background: rgba(52,211,153,0.08); border: 1px solid rgba(52,211,153,0.2); color: #6EE7B7;
+          cursor: pointer; transition: all .15s;
+        }
+        .btn-excel-pt:hover { background: rgba(52,211,153,0.14); border-color: rgba(52,211,153,0.35); }
+
+        .btn-load-more-pt {
+          background: rgba(52,211,153,0.6); border: 1px solid rgba(52,211,153,0.35);
+          color: rgba(255,255,255,0.9); padding: 10px 30px; border-radius: 10px;
+          font-size: 14px; font-weight: 500; cursor: pointer; transition: all .15s;
+        }
+        .btn-load-more-pt:hover { background: rgba(59,130,246,0.35); color: white; }
+
+        .field-label-pt { font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: rgba(255,255,255,0.9); margin-bottom: 4px; }
+
+        .meta-chip-pt {
+          display: inline-flex; align-items: center; gap: 5px;
+          background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07);
+          border-radius: 6px; padding: 4px 10px; font-size: 12px; color: rgba(255,255,255,0.9);
+        }
+        .meta-chip-pt strong { color: rgba(255,255,255,0.9); font-weight: 500; }
+
+        .folio-badge-pt {
+          font-family: 'DM Mono', monospace;
+          font-size: 11px; letter-spacing: .08em;
+          background: rgba(99,102,241,0.12); border: 1px solid rgba(99,102,241,0.2);
+          color: #A5B4FC; border-radius: 5px; padding: 2px 8px;
+        }
+
+        .pt-card { transition: background .12s; }
+        .pt-card:hover { background: rgba(99,102,241,0.08); }
+
+        @keyframes fade-in { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        .fade-in { animation: fade-in .25s ease both; }
+      `}</style>
+
+      <div className="max-w-4xl mx-auto px-4 py-8">
+
+        {/* Back */}
+        <div className="mb-8">
+          <ArrowBackButton />
         </div>
-        <button
-          type="submit"
-          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:bg-blue-400"
-          disabled={isLoading}
-        >
-          Buscar
-        </button>
-      </form>
 
-      {/*Botón de descarga de docmuento excel con la infromación filtrada*/}
-      {productions.length > 0 && (
-        <div className="flex justify-end mb-4">
-                    <button
-            className="flex items-center gap-2 px-3 py-2 rounded text-white bg-emerald-600 hover:bg-emerald-700"
-            title="Descargar Excel de producciones filtradas"
-            aria-label="Descargar Excel"
-            onClick={async () => {
-              try {
-                const res = await api.get<ProductionSummary[]>("/productions", {
-                  params: { ...debouncedSearch, all: 1 },
-                });
-                const fullProductions = res.data;
+        {/* Header */}
+        <div className="flex items-start justify-between gap-4 mb-8 fade-in">
+          <div>
+            <h1 className="font-display text-3xl font-bold tracking-tight mb-1">
+              Producciones
+            </h1>
+            <p className="text-sm text-white/30">Registros y seguimiento de producción</p>
+          </div>
 
-                // Calcular totales por producto (agrupar por nombre, sumar cantidades)
-                const totals: Record<string, number> = {};
-                fullProductions.forEach((p) => {
-                  p.productos.forEach((pr) => {
-                    totals[pr.nombre] = (totals[pr.nombre] || 0) + pr.cantidad;
+          {productions.length > 0 && (
+            <button
+              className="btn-excel-pt flex-shrink-0"
+              title="Descargar Excel"
+              aria-label="Descargar Excel"
+              onClick={async () => {
+                try {
+                  const res = await api.get<ProductionSummary[]>("/productions", {
+                    params: { ...debouncedSearch, all: 1 },
                   });
-                });
-
-                // Datos de producciones con esquema consistente
-                const data = fullProductions.map((p) => ({
-                  "Operario": p.operator,
-                  "Ingresado por": p.created_by,
-                  "Fecha": new Date(p.fecha).toLocaleString(),
-                  "Productos": p.productos.map((pr) => `${pr.nombre}: ${pr.cantidad} ${pr.unidad}`).join("; "),
-                }));
-
-                // Agregar fila vacía y luego totales con todas las columnas
-                data.push({
-                  "Operario": "",
-                  "Ingresado por": "",
-                  "Fecha": "",
-                  "Productos": "",
-                }); // Fila vacía para separar
-                data.push({
-                  "Operario": "Totales por Producto",
-                  "Ingresado por": "",
-                  "Fecha": "",
-                  "Productos": "",
-                }); // Encabezado de totales
-                Object.entries(totals).forEach(([producto, total]) => {
-                  data.push({
-                    "Operario": producto,
-                    "Ingresado por": "",
-                    "Fecha": "",
-                    "Productos": `Total: ${total}`,
+                  const fullProductions = res.data;
+                  const totals: Record<string, number> = {};
+                  fullProductions.forEach((p) => {
+                    p.productos.forEach((pr) => {
+                      totals[pr.nombre] = (totals[pr.nombre] || 0) + pr.cantidad;
+                    });
                   });
-                });
-
-                // Crear hoja y libro
-                const ws = XLSX.utils.json_to_sheet(data);
-                const wb = XLSX.utils.book_new();
-                XLSX.utils.book_append_sheet(wb, ws, "Producciones");
-
-                // Descargar
-                XLSX.writeFile(wb, "producciones_filtradas.xlsx");
-              } catch (err) {
-                console.error("Error al cargar datos completos:", err);
-                alert("Error al cargar los datos completos para la exportación.");
-              }
-            }}
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="w-5 h-5"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
+                  const data = fullProductions.map((p) => ({
+                    "Operario": p.operator,
+                    "Ingresado por": p.created_by,
+                    "Fecha": new Date(p.fecha).toLocaleString(),
+                    "Productos": p.productos.map((pr) => `${pr.nombre}: ${pr.cantidad} ${pr.unidad}`).join("; "),
+                  }));
+                  data.push({ "Operario": "", "Ingresado por": "", "Fecha": "", "Productos": "" });
+                  data.push({ "Operario": "Totales por Producto", "Ingresado por": "", "Fecha": "", "Productos": "" });
+                  Object.entries(totals).forEach(([producto, total]) => {
+                    data.push({ "Operario": producto, "Ingresado por": "", "Fecha": "", "Productos": `Total: ${total}` });
+                  });
+                  const ws = XLSX.utils.json_to_sheet(data);
+                  const wb = XLSX.utils.book_new();
+                  XLSX.utils.book_append_sheet(wb, ws, "Producciones");
+                  XLSX.writeFile(wb, "producciones_filtradas.xlsx");
+                } catch (err) {
+                  console.error("Error al cargar datos completos:", err);
+                  alert("Error al cargar los datos completos para la exportación.");
+                }
+              }}
             >
-              <path d="M12 3v12" />
-              <path d="M7 10l5 5 5-5" />
-              <path d="M5 21h14" />
-            </svg>
-            <span className="text-xs font-medium">Descargar Excel</span>
-          </button>
+              <FiDownload size={14} />
+              Exportar Excel
+            </button>
+          )}
         </div>
-      )}
 
+        {/* Mensaje */}
+        {mensaje && (
+          <div
+            className="mb-5 px-4 py-3 rounded-xl text-sm text-emerald-300 fade-in"
+            style={{ background: "rgba(52,211,153,0.08)", border: "1px solid rgba(52,211,153,0.18)" }}
+          >
+            {mensaje}
+          </div>
+        )}
 
-      {isLoading && productions.length === 0 ? (
-        <div className="text-center py-8">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
-          <p className="mt-2 text-gray-400">Cargando producciones...</p>
+        {/* Search form */}
+        <div className="mb-6">
+          <form onSubmit={handleSearchSubmit} className="glass rounded-2xl p-5 space-y-4">
+            <div className="grid sm:grid-cols-2 gap-4">
+              {[
+                { name: "operator", placeholder: "Operario" },
+                { name: "user", placeholder: "Usuario que creó" },
+                { name: "product", placeholder: "Producto" },
+              ].map((f) => (
+                <div key={f.name} className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/20 pointer-events-none flex">
+                    <FiSearch size={12} />
+                  </span>
+                  <input
+                    name={f.name}
+                    value={(searchState as any)[f.name]}
+                    onChange={handleSearchChange}
+                    placeholder={f.placeholder}
+                    className="input-pt w-full pl-8 pr-3 py-2.5"
+                  />
+                </div>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <div className="field-label-pt">Desde</div>
+                <input
+                  name="date_from"
+                  type="date"
+                  value={searchState.date_from}
+                  onChange={handleSearchChange}
+                  className="input-pt w-full px-3 py-2.5"
+                />
+              </div>
+              <div>
+                <div className="field-label-pt">Hasta</div>
+                <input
+                  name="date_to"
+                  type="date"
+                  value={searchState.date_to}
+                  onChange={handleSearchChange}
+                  className="input-pt w-full px-3 py-2.5"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end">
+              <button type="submit" className="btn-primary-search-pt" disabled={isLoading}>
+                {isLoading ? "Buscando…" : "Buscar"}
+              </button>
+            </div>
+          </form>
         </div>
-      ) : productions.length === 0 ? (
-        <p className="text-center text-gray-400 py-8">No se encontraron producciones.</p>
-      ) : (
-        <div className="space-y-4">
-          {productions.map((p, index) => {
-            const isEditingRow = editingId === p.id;
-            const refProp = index === productions.length - 1 ? { ref: lastProductionRef } : {};
 
-            return (
-              <div key={p.id} className="border p-4 hover:bg-gray-900/20 rounded" {...refProp}>
-                <div className="flex items-start justify-between gap-4">
+        {/* Loading */}
+        {isLoading && productions.length === 0 && (
+          <div className="flex items-center gap-3 justify-center py-16 text-white/30 text-sm">
+            <div className="w-5 h-5 border-2 border-white/10 border-t-indigo-400 rounded-full animate-spin" />
+            Cargando producciones…
+          </div>
+        )}
+
+        {/* Empty */}
+        {!isLoading && productions.length === 0 && (
+          <div className="glass rounded-2xl p-14 text-center fade-in">
+            <span className="flex justify-center mb-3 text-white/15">
+              <FiFileText size={30} />
+            </span>
+            <p className="text-white/30 text-sm">No se encontraron producciones.</p>
+          </div>
+        )}
+
+        {/* Cards */}
+        {productions.length > 0 && (
+          <div className="space-y-3">
+            {productions.map((p, index) => {
+              const isEditingRow = editingId === p.id;
+              const refProp = index === productions.length - 1 ? { ref: lastProductionRef } : {};
+
+              return (
+                <div
+                  key={p.id}
+                  className="pt-card glass rounded-2xl fade-in"
+                  style={{ animationDelay: `${Math.min(index, 6) * 0.04}s` }}
+                  {...refProp}
+                >
                   {!isEditingRow ? (
-                    <div>
-                      <p><strong>Operario:</strong> {p.operator}</p>
-                      <p><strong>Ingresado por:</strong> {p.created_by}</p>
-                      <p><strong>Fecha:</strong> {new Date(p.fecha).toLocaleString()}</p>
+                    /* ── View mode ── */
+                    <div className="p-5">
+                      {/* Top row */}
+                      <div className="mb-4">
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <span className="folio-badge-pt flex-shrink-0">Folio# {p.id}</span>
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            <button className="btn-action-pt btn-edit-pt" onClick={() => startEditRow(p)} title="Editar" aria-label="Editar">
+                              <FiEdit2 size={13} />
+                            </button>
+                            <button className="btn-action-pt btn-del-pt" onClick={() => deleteRow(p.id)} title="Eliminar" aria-label="Eliminar">
+                              <FiTrash2 size={13} />
+                            </button>
+                          </div>
+                        </div>
+                        <span className="font-display font-semibold text-lg text-white/90 break-words">
+                          <span className="text-white/80 font-normal text-sm">Operario: </span>{p.operator}
+                        </span>
+                      </div>
+
+                      {/* Meta chips */}
+                      <div className="flex flex-wrap gap-2 mb-4">
+                        <span className="meta-chip-pt">
+                          <span className="text-white/90">Registrado por:</span> <strong>{p.created_by}</strong>
+                        </span>
+                        <span className="meta-chip-pt">
+                          {new Date(p.fecha).toLocaleString("es-CL", {
+                            day: "2-digit", month: "2-digit", year: "numeric",
+                            hour: "2-digit", minute: "2-digit",
+                          })}
+                        </span>
+                      </div>
+
+                      {/* Products */}
+                      <div className="border-t border-white/5 pt-3">
+                        <p className="field-label-pt mb-2">Productos</p>
+                        <div className="flex flex-col gap-1.5">
+                          {p.productos.map((pr, i) => (
+                            <span key={i} className="meta-chip-pt w-fit">
+                              <strong>{pr.nombre}</strong>
+                              <span className="text-white/30">·</span>
+                              <span>{pr.cantidad} {pr.unidad}</span>
+                            </span>
+                          ))}
+                        </div>
+                      </div>
                     </div>
                   ) : (
-                    <div className="w-full">
-                      <div className="grid sm:grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-sm mb-1">Operario</label>
+                    /* ── Edit mode ── */
+                    <div className="p-5">
+                      <div className="flex items-center justify-between mb-5">
+                        <span className="font-display font-semibold text-base">Editando #{p.id}</span>
+                        <div className="flex gap-2">
+                          <button className="btn-action-pt btn-save-pt" onClick={saveEditRow} title="Guardar" aria-label="Guardar">
+                            <FiSave size={13} /> Guardar
+                          </button>
+                          <button className="btn-action-pt btn-cancel-pt" onClick={cancelEditRow} title="Cancelar" aria-label="Cancelar">
+                            <FiX size={13} /> Cancelar
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="grid sm:grid-cols-2 gap-4 mb-4">
+                        <div className="sm:col-span-2">
+                          <div className="field-label-pt">Operario</div>
                           <OperatorSelector
                             value={draft?.operator || ""}
                             onChange={(operator) => setDraft((prev) => (prev ? { ...prev, operator } : prev))}
                           />
                         </div>
                       </div>
-                      <div className="mt-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <h4 className="font-bold">Productos</h4>
-                          <button
-                            className={`${btnIcon} hover:bg-blue-600`}
-                            onClick={addRow}
-                            title="Agregar producto"
-                            aria-label="Agregar producto"
-                          >
-                            <FiPlus size={18} />
+
+                      {/* Products edit */}
+                      <div className="border-t border-white/5 pt-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <p className="field-label-pt">Productos</p>
+                          <button className="btn-action-pt btn-add-prod-pt" onClick={addRow} title="Agregar producto" aria-label="Agregar producto">
+                            <FiPlus size={13} /> Agregar
                           </button>
                         </div>
                         <div className="space-y-2">
                           {draft?.productos.map((row, idx) => (
-                            <div key={idx} className="grid sm:grid-cols-12 gap-2 items-center">
-                              <div className="relative sm:col-span-6">
+                            <div key={idx} className="grid grid-cols-12 gap-2 items-center">
+                              <div className="relative col-span-6">
                                 <input
-                                  className="border p-2 rounded w-full"
-                                  placeholder="Nombre del producto"
+                                  ref={(el) => { inputRefs.current[idx] = el; }}
+                                  className="input-pt w-full px-3 py-2"
+                                  placeholder="Producto"
                                   value={row.nombre}
                                   onChange={(e) => {
                                     const value = e.target.value;
@@ -521,18 +676,49 @@ const ProductionTracking = () => {
                                         normalizeSearch(n).includes(normalizeSearch(value))
                                       );
                                       setSuggestions((prev) => ({ ...prev, [idx]: filtered }));
+                                      const el = inputRefs.current[idx];
+                                      if (el) {
+                                        const rect = el.getBoundingClientRect();
+                                        setDropdownPos((prev) => ({
+                                          ...prev,
+                                          [idx]: { top: rect.bottom + window.scrollY + 6, left: rect.left + window.scrollX, width: rect.width },
+                                        }));
+                                      }
                                     } else {
                                       setSuggestions((prev) => ({ ...prev, [idx]: [] }));
                                     }
                                   }}
-                                  onBlur={() => setSuggestions((prev) => ({ ...prev, [idx]: [] }))}
+                                  onBlur={() => setTimeout(() => setSuggestions((prev) => ({ ...prev, [idx]: [] })), 150)}
                                 />
-                                {suggestions[idx]?.length > 0 && (
-                                  <ul className="absolute z-10 bg-neutral-800 border border-gray-600 rounded mt-1 w-full max-h-40 overflow-auto text-white">
+                                {suggestions[idx]?.length > 0 && dropdownPos[idx] && createPortal(
+                                  <ul
+                                    style={{
+                                      position: "absolute",
+                                      top: dropdownPos[idx].top,
+                                      left: dropdownPos[idx].left,
+                                      width: dropdownPos[idx].width,
+                                      zIndex: 99999,
+                                      background: "#0F172A",
+                                      border: "2px solid #6366F1",
+                                      borderRadius: "16px",
+                                      overflow: "auto",
+                                      maxHeight: "240px",
+                                      boxShadow: "0 25px 50px -12px rgb(0 0 0 / 0.95), 0 10px 15px -3px rgb(99 102 241 / 0.5)",
+                                      fontSize: "14px",
+                                    }}
+                                  >
                                     {suggestions[idx].map((sug, i) => (
                                       <li
                                         key={i}
-                                        className="p-2 hover:bg-neutral-700 cursor-pointer"
+                                        style={{
+                                          padding: "12px 16px",
+                                          cursor: "pointer",
+                                          color: "white",
+                                          borderBottom: "1px solid rgba(255,255,255,0.1)",
+                                          transition: "background 0.15s",
+                                        }}
+                                        onMouseEnter={(e) => (e.currentTarget.style.background = "#1E40AF")}
+                                        onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                                         onMouseDown={() => {
                                           updateRow(idx, { nombre: sug });
                                           setSuggestions((prev) => ({ ...prev, [idx]: [] }));
@@ -541,18 +727,19 @@ const ProductionTracking = () => {
                                         {sug}
                                       </li>
                                     ))}
-                                  </ul>
+                                  </ul>,
+                                  document.body
                                 )}
                               </div>
                               <input
                                 type="number"
-                                className="border p-2 rounded sm:col-span-2"
-                                placeholder="Cantidad"
+                                className="input-pt col-span-2 px-2 py-2 text-right"
+                                placeholder="Cant."
                                 value={row.cantidad}
                                 onChange={(e) => updateRow(idx, { cantidad: parseFloat(e.target.value) || 0 })}
                               />
                               <select
-                                className="border p-2 rounded sm:col-span-3"
+                                className="select-pt col-span-3 px-2 py-2"
                                 value={row.unidad}
                                 onChange={(e) => updateRow(idx, { unidad: e.target.value })}
                               >
@@ -562,14 +749,9 @@ const ProductionTracking = () => {
                                 <option value="cajas">Cajas</option>
                                 <option value="PQT">Paquetes</option>
                               </select>
-                              <div className="sm:col-span-1 flex justify-end">
-                                <button
-                                  className={`${btnIcon} hover:bg-red-600`}
-                                  title="Quitar"
-                                  aria-label="Quitar"
-                                  onClick={() => removeRow(idx)}
-                                >
-                                  <FiMinus size={18} />
+                              <div className="col-span-1 flex justify-end">
+                                <button className="btn-action-pt btn-rem-prod-pt" onClick={() => removeRow(idx)} title="Quitar" aria-label="Quitar">
+                                  <FiMinus size={13} />
                                 </button>
                               </div>
                             </div>
@@ -578,82 +760,43 @@ const ProductionTracking = () => {
                       </div>
                     </div>
                   )}
-                  <div className="flex flex-wrap items-center gap-2">
-                    {!isEditingRow ? (
-                      <>
-                        <button
-                          className={`${btnIcon} hover:bg-blue-600`}
-                          title="Editar"
-                          aria-label="Editar"
-                          onClick={() => startEditRow(p)}
-                        >
-                          <FiEdit2 size={18} />
-                        </button>
-                        <button
-                          className={`${btnIcon} hover:bg-red-600`}
-                          title="Eliminar"
-                          aria-label="Eliminar"
-                          onClick={() => deleteRow(p.id)}
-                        >
-                          <FiTrash2 size={18} />
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <button
-                          className={`${btnIcon} hover:bg-emerald-600`}
-                          title="Guardar"
-                          aria-label="Guardar"
-                          onClick={saveEditRow}
-                        >
-                          <FiSave size={18} />
-                        </button>
-                        <button
-                          className={`${btnIcon} hover:bg-gray-600`}
-                          title="Cancelar"
-                          aria-label="Cancelar"
-                          onClick={cancelEditRow}
-                        >
-                          <FiX size={18} />
-                        </button>
-                      </>
-                    )}
-                  </div>
                 </div>
-                {!isEditingRow && (
-                  <>
-                    <p className="mt-3"><strong>Productos:</strong></p>
-                    <ul className="list-disc pl-5">
-                      {p.productos.map((pr, i) => (
-                        <li key={i}>
-                          {pr.nombre} - {pr.cantidad} {pr.unidad}
-                        </li>
-                      ))}
-                    </ul>
-                  </>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-      {hasMore && !isLoading && (
-        <div className="text-center mt-6">
-          <button
-            onClick={() => setPage((prev) => prev + 1)}
-            className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700"
+              );
+            })}
+          </div>
+        )}
+
+        {/* Load more */}
+        {hasMore && !isLoading && (
+          <div className="text-center mt-6">
+            <button className="btn-load-more-pt" onClick={() => setPage((prev) => prev + 1)}>
+              Cargar más
+            </button>
+          </div>
+        )}
+
+      </div>
+
+      {/* Validation error modal */}
+      {validationError && (
+        <div
+          className="fixed inset-0 flex items-center justify-center z-50 px-4"
+          style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}
+        >
+          <div
+            className="rounded-2xl p-6 max-w-md w-full fade-in"
+            style={{ background: "#111827", border: "1px solid rgba(248,113,113,0.2)" }}
           >
-            Cargar más
-          </button>
-        </div>
-      )}
-    {validationError && (
-        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
-          <div className="bg-white text-gray-900 rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
-            <h3 className="text-lg font-bold mb-3 text-red-600">Error al guardar</h3>
-            <p className="mb-5 text-sm">{validationError}</p>
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: "rgba(248,113,113,0.15)" }}>
+                <span className="text-red-400 flex"><FiX size={14} /></span>
+              </div>
+              <h3 className="font-display font-semibold text-red-400">Error al guardar</h3>
+            </div>
+            <p className="text-sm text-white/55 mb-5 leading-relaxed">{validationError}</p>
             <button
-              className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 font-medium"
+              className="w-full py-2.5 rounded-xl text-sm font-semibold text-white transition-all"
+              style={{ background: "linear-gradient(135deg, #4F46E5, #6366F1)", boxShadow: "0 4px 16px rgba(99,102,241,0.3)" }}
               onClick={() => setValidationError(null)}
             >
               Entendido, voy a corregirlo
