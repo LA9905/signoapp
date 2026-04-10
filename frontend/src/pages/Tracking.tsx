@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback, type ChangeEvent } from "react";
 import { normalizeSearch } from "../utils/normalizeSearch";
 import type { AxiosError, AxiosResponse } from "axios";
-import { FiEdit2, FiTrash2, FiSave, FiX, FiPlus, FiMinus } from "react-icons/fi";
+import { FiEdit2, FiTrash2, FiSave, FiX, FiPlus, FiMinus, FiDownload, FiSearch, FiFileText, FiPrinter, FiTruck, FiCheckCircle } from "react-icons/fi";
 import ClientSelector from "../components/ClientSelector";
 import DriverSelector from "../components/DriverSelector";
 import { useDrivers } from "../context/DriversContext";
@@ -51,8 +51,6 @@ type SearchState = {
   product: string;
 };
 
-const btnIcon = "rounded-full p-2 bg-white/10 text-white border border-white/50 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-neutral-900";
-
 const Tracking = () => {
   const [dispatches, setDispatches] = useState<DispatchSummary[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -101,11 +99,11 @@ const Tracking = () => {
     me()
       .then((res: AxiosResponse<MeResp>) => {
         setIsLimited(!!res.data.is_limited);
-        setIsLoadingUser(false); // Marcar carga completa
+        setIsLoadingUser(false);
       })
       .catch(() => {
         setIsLimited(false);
-        setIsLoadingUser(false); // Marcar carga completa incluso en caso de error
+        setIsLoadingUser(false);
       });
   }, []);
 
@@ -235,7 +233,7 @@ const Tracking = () => {
     if (scrollToId !== null) {
       const element = document.getElementById(`dispatch-${scrollToId}`);
       if (element) {
-        element.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        element.scrollIntoView({ behavior: "smooth", block: "nearest" });
       }
       setScrollToId(null);
     }
@@ -344,13 +342,12 @@ const Tracking = () => {
   const saveRow = async (id: number) => {
     if (!draft) return;
 
-    // Validaciones antes de guardar
     for (const p of draft.productos) {
       if (!p.nombre || !p.nombre.trim()) {
         setValidationError("Hay un producto sin nombre. Por favor selecciona un producto de la lista o elimina la fila vacía.");
         return;
       }
-      if (!productNames.map(n => normalizeSearch(n)).includes(normalizeSearch(p.nombre.trim()))) {
+      if (!productNames.map((n) => normalizeSearch(n)).includes(normalizeSearch(p.nombre.trim()))) {
         setValidationError(`El producto "${p.nombre}" no existe en el listado. Por favor selecciónalo desde las sugerencias o elimina esa fila.`);
         return;
       }
@@ -377,11 +374,11 @@ const Tracking = () => {
       };
 
       const formData = new FormData();
-      formData.append('data', JSON.stringify(payload));
-      newImages.forEach((img) => formData.append('new_images', img));
+      formData.append("data", JSON.stringify(payload));
+      newImages.forEach((img) => formData.append("new_images", img));
 
       const resp = await api.put<DispatchSummary>(`/dispatches/${id}`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
+        headers: { "Content-Type": "multipart/form-data" },
       });
       const updated = resp.data;
       const choferName = drivers.find((d) => d.id === parseInt(draft.chofer))?.name || updated.chofer;
@@ -417,10 +414,10 @@ const Tracking = () => {
               delete_image_ids: deleteImageIds,
             };
             const formData = new FormData();
-            formData.append('data', JSON.stringify(payload));
-            newImages.forEach((img) => formData.append('new_images', img));
+            formData.append("data", JSON.stringify(payload));
+            newImages.forEach((img) => formData.append("new_images", img));
             const resp = await api.put<DispatchSummary>(`/dispatches/${id}`, formData, {
-              headers: { 'Content-Type': 'multipart/form-data' }
+              headers: { "Content-Type": "multipart/form-data" },
             });
             const updated = resp.data;
             const choferName = drivers.find((d) => d.id === parseInt(draft.chofer))?.name || updated.chofer;
@@ -559,374 +556,568 @@ const Tracking = () => {
     });
   };
 
-  const DownloadIcon = () => (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      className="w-5 h-5"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-    >
-      <path d="M12 3v12" />
-      <path d="M7 10l5 5 5-5" />
-      <path d="M5 21h14" />
-    </svg>
-  );
-
-  const PrinterIcon = () => (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      className="w-5 h-5"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-    >
-      <path d="M6 9V2h12v7" />
-      <path d="M6 18h12v4H6z" />
-      <path d="M6 14H5a3 3 0 0 1-3-3v-1a3 3 0 0 1 3-3h14a3 3 0 0 1 3 3v1a3 3 0 0 1-3 3h-1" />
-    </svg>
-  );
-
   const humanStatus = (s: string) => {
     if (s === "entregado_chofer") return "Entregado a Chofer";
     if (s === "entregado_cliente") return "Pedido Entregado";
     return s;
   };
 
-  // Mostrar spinner mientras se carga el estado del usuario
+  const statusStyle = (s: string) => {
+    if (s === "entregado_cliente") return "status-badge-tr completado";
+    if (s === "entregado_chofer") return "status-badge-tr chofer";
+    return "status-badge-tr";
+  };
+
   if (isLoadingUser) {
     return (
-      <div className="min-h-screen bg-blue-50 flex items-center justify-center">
+      <div className="min-h-screen bg-[#080C14] flex items-center justify-center">
         <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
-          <p className="mt-2 text-neutral-900">Cargando...</p>
+          <div className="w-8 h-8 border-2 border-white/10 border-t-indigo-400 rounded-full animate-spin mx-auto" />
+          <p className="mt-3 text-white/30 text-sm">Cargando...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
-      <div className="mb-12">
-        <ArrowBackButton />
-      </div>
-      <h2 className="text-xl font-bold mb-4">Seguimiento de Despachos</h2>
-      {mensaje && <p className="mb-4 text-emerald-400">{mensaje}</p>}
+    <div className="min-h-screen bg-[#080C14] text-white" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
 
-      <form onSubmit={handleSearchSubmit} className="space-y-4 mb-6">
-        <input
-          name="client"
-          value={searchState.client}
-          onChange={handleSearchChange}
-          placeholder="Buscar por nombre del centro de costo"
-          className="w-full border p-2 rounded"
-        />
-        <input
-          name="order"
-          value={searchState.order}
-          onChange={handleSearchChange}
-          placeholder="Buscar por número de orden"
-          className="w-full border p-2 rounded"
-        />
-        <input
-          name="invoice"
-          value={searchState.invoice}
-          onChange={handleSearchChange}
-          placeholder="Buscar por número de factura"
-          className="w-full border p-2 rounded"
-        />
-        <input
-          name="user"
-          value={searchState.user}
-          onChange={handleSearchChange}
-          placeholder="Buscar por usuario que creó"
-          className="w-full border p-2 rounded"
-        />
-        <input
-          name="driver"
-          value={searchState.driver}
-          onChange={handleSearchChange}
-          placeholder="Buscar por nombre del chofer"
-          className="w-full border p-2 rounded"
-        />
+        .font-display { font-family: 'Syne', sans-serif; }
 
-        <input
-          key="product-search"
-          name="product"
-          value={searchState.product ?? ""}
-          onChange={handleSearchChange}
-          placeholder="Buscar por nombre del producto"
-          className="w-full border p-2 rounded"
-        />
+        .glass { background: rgba(30,40,80,0.35); border: 1px solid rgba(99,102,241,0.18); }
+        .glass-hover:hover { background: rgba(30,40,80,0.45); border-color: rgba(99,102,241,0.28); }
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="block text-sm text-gray-300 mb-1">Desde</label>
-            <input
-              name="date_from"
-              type="date"
-              value={searchState.date_from}
-              onChange={handleSearchChange}
-              className="w-full border p-2 rounded"
-            />
-          </div>
-          <div>
-            <label className="block text-sm text-gray-300 mb-1">Hasta</label>
-            <input
-              name="date_to"
-              type="date"
-              value={searchState.date_to}
-              onChange={handleSearchChange}
-              className="w-full border p-2 rounded"
-            />
-          </div>
+        .input-tr {
+          background: rgba(255,255,255,0.04);
+          border: 1px solid rgba(255,255,255,0.08);
+          color: white; border-radius: 10px;
+          transition: border-color .15s, box-shadow .15s;
+          font-size: 14px;
+        }
+        .input-tr::placeholder { color: rgba(255,255,255,0.2); }
+        .input-tr:focus { outline: none; border-color: rgba(99,102,241,0.6); box-shadow: 0 0 0 3px rgba(99,102,241,0.08); }
+
+        .select-tr {
+          background: rgba(255,255,255,0.04);
+          border: 1px solid rgba(255,255,255,0.08);
+          color: rgba(255,255,255,0.75); border-radius: 10px;
+          font-size: 14px; transition: border-color .15s;
+        }
+        .select-tr:focus { outline: none; border-color: rgba(99,102,241,0.5); }
+        .select-tr option { background: #111827; color: white; }
+
+        .btn-action-tr {
+          display: inline-flex; align-items: center; justify-content: center;
+          gap: 6px; padding: 6px 10px; border-radius: 8px;
+          font-size: 12px; font-weight: 500;
+          border: 1px solid transparent;
+          transition: all .15s; cursor: pointer;
+          white-space: nowrap;
+        }
+
+        .btn-pdf-tr { background: rgba(59,130,246,0.1); border-color: rgba(59,130,246,0.2); color: #93C5FD; }
+        .btn-pdf-tr:hover { background: rgba(59,130,246,0.18); border-color: rgba(59,130,246,0.35); }
+
+        .btn-print-tr { background: rgba(52,211,153,0.1); border-color: rgba(52,211,153,0.2); color: #6EE7B7; }
+        .btn-print-tr:hover { background: rgba(52,211,153,0.18); border-color: rgba(52,211,153,0.35); }
+
+        .btn-edit-tr { background: rgba(96,165,250,0.08); border-color: rgba(96,165,250,0.25); color: #60A5FA; }
+        .btn-edit-tr:hover { background: rgba(96,165,250,0.18); border-color: rgba(96,165,250,0.45); color: #93C5FD; }
+
+        .btn-del-tr { background: rgba(248,113,113,0.08); border-color: rgba(248,113,113,0.25); color: #F87171; }
+        .btn-del-tr:hover { background: rgba(248,113,113,0.18); border-color: rgba(248,113,113,0.45); color: #FCA5A5; }
+
+        .btn-save-tr { background: rgba(52,211,153,0.1); border-color: rgba(52,211,153,0.2); color: #6EE7B7; padding: 6px 12px; }
+        .btn-save-tr:hover { background: rgba(52,211,153,0.18); border-color: rgba(52,211,153,0.35); }
+
+        .btn-cancel-tr { background: rgba(99,102,241,0.1); border-color: rgba(99,102,241,0.25); color: rgba(255,255,255,0.9); padding: 6px 12px; }
+        .btn-cancel-tr:hover { background: rgba(255,255,255,0.08); color: white; }
+
+        .btn-add-prod-tr { background: rgba(99,102,241,0.1); border-color: rgba(99,102,241,0.25); color: #A5B4FC; padding: 6px 10px; }
+        .btn-add-prod-tr:hover { background: rgba(99,102,241,0.18); }
+
+        .btn-rem-prod-tr { background: rgba(248,113,113,0.08); border-color: rgba(248,113,113,0.2); color: #FCA5A5; padding: 6px 8px; }
+        .btn-rem-prod-tr:hover { background: rgba(248,113,113,0.15); }
+
+        .btn-mark-driver-tr {
+          display: inline-flex; align-items: center; gap: 6px;
+          padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 500;
+          border: 1px solid rgba(251,191,36,0.25); background: rgba(251,191,36,0.08); color: #FCD34D;
+          cursor: pointer; transition: all .15s; white-space: nowrap;
+        }
+        .btn-mark-driver-tr:hover { background: rgba(251,191,36,0.15); border-color: rgba(251,191,36,0.4); }
+        .btn-mark-driver-tr:disabled { opacity: .45; cursor: not-allowed; }
+        .btn-mark-driver-tr.done { background: rgba(52,211,153,0.08); border-color: rgba(52,211,153,0.2); color: #6EE7B7; cursor: default; }
+
+        .btn-mark-client-tr {
+          display: inline-flex; align-items: center; gap: 6px;
+          padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 500;
+          border: 1px solid rgba(52,211,153,0.25); background: rgba(52,211,153,0.08); color: #6EE7B7;
+          cursor: pointer; transition: all .15s; white-space: nowrap;
+        }
+        .btn-mark-client-tr:hover { background: rgba(52,211,153,0.15); border-color: rgba(52,211,153,0.4); }
+        .btn-mark-client-tr:disabled { opacity: .45; cursor: not-allowed; }
+        .btn-mark-client-tr.done { opacity: .6; cursor: default; }
+
+        .btn-primary-search-tr {
+          background: linear-gradient(135deg, #4F46E5, #6366F1);
+          box-shadow: 0 4px 16px rgba(99,102,241,0.3);
+          color: white; border: none; border-radius: 10px;
+          padding: 10px 22px; font-size: 14px; font-weight: 600;
+          cursor: pointer; transition: all .15s;
+        }
+        .btn-primary-search-tr:hover { box-shadow: 0 6px 20px rgba(99,102,241,0.4); transform: translateY(-1px); }
+        .btn-primary-search-tr:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+
+        .btn-excel-tr {
+          display: inline-flex; align-items: center; gap: 6px;
+          padding: 8px 16px; border-radius: 9px; font-size: 13px; font-weight: 500;
+          background: rgba(52,211,153,0.08); border: 1px solid rgba(52,211,153,0.2); color: #6EE7B7;
+          cursor: pointer; transition: all .15s;
+        }
+        .btn-excel-tr:hover { background: rgba(52,211,153,0.14); border-color: rgba(52,211,153,0.35); }
+
+        .btn-load-more-tr {
+          background: rgba(52,211,153,0.6); border: 1px solid rgba(52,211,153,0.35);
+          color: rgba(255,255,255,0.9); padding: 10px 30px; border-radius: 10px;
+          font-size: 14px; font-weight: 500; cursor: pointer; transition: all .15s;
+        }
+        .btn-load-more-tr:hover { background: rgba(59,130,246,0.35); color: white; }
+
+        .field-label-tr { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: rgba(255,255,255,0.9); margin-bottom: 4px; }
+
+        .meta-chip-tr {
+          display: inline-flex; align-items: center; gap: 5px;
+          background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07);
+          border-radius: 6px; padding: 3px 8px; font-size: 12px; color: rgba(255,255,255,0.75);
+        }
+        .meta-chip-tr strong { color: rgba(255,255,255,0.9); font-weight: 500; }
+
+        .folio-badge-tr {
+          font-family: 'DM Mono', monospace;
+          font-size: 11px; letter-spacing: .08em;
+          background: rgba(99,102,241,0.12); border: 1px solid rgba(99,102,241,0.2);
+          color: #A5B4FC; border-radius: 5px; padding: 2px 8px;
+        }
+
+        .status-badge-tr {
+          font-size: 11px; letter-spacing: .05em; text-transform: capitalize;
+          background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+          color: rgba(255,255,255,0.5); border-radius: 5px; padding: 2px 8px; font-weight: 600;
+        }
+        .status-badge-tr.chofer {
+          background: rgba(251,191,36,0.1); border-color: rgba(251,191,36,0.2); color: #FCD34D;
+        }
+        .status-badge-tr.completado {
+          background: rgba(52,211,153,0.1); border-color: rgba(52,211,153,0.2); color: #6EE7B7;
+        }
+
+        .tr-card { transition: background .12s; }
+        .tr-card:hover { background: rgba(99,102,241,0.06); }
+
+        .img-thumb-tr {
+          width: 72px; height: 72px; object-fit: cover;
+          border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);
+          cursor: pointer; transition: border-color .15s;
+        }
+        .img-thumb-tr:hover { border-color: rgba(99,102,241,0.5); }
+
+        .btn-img-del-tr {
+          font-size: 11px; color: #F87171; background: none; border: none;
+          cursor: pointer; padding: 2px 0; display: block; text-align: center;
+          transition: color .15s;
+        }
+        .btn-img-del-tr:hover { color: #FCA5A5; }
+
+        .btn-camera-tr {
+          display: inline-flex; align-items: center; gap: 6px;
+          padding: 7px 14px; border-radius: 9px; font-size: 13px; font-weight: 500;
+          background: rgba(52,211,153,0.08); border: 1px solid rgba(52,211,153,0.2); color: #6EE7B7;
+          cursor: pointer; transition: all .15s;
+        }
+        .btn-camera-tr:hover { background: rgba(52,211,153,0.14); }
+
+        .btn-capture-tr {
+          display: inline-flex; align-items: center; gap: 6px;
+          padding: 7px 14px; border-radius: 9px; font-size: 13px; font-weight: 500;
+          background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.2); color: #93C5FD;
+          cursor: pointer; transition: all .15s; margin-top: 8px;
+        }
+        .btn-capture-tr:hover { background: rgba(59,130,246,0.18); }
+
+        @keyframes fade-in { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        .fade-in { animation: fade-in .25s ease both; }
+      `}</style>
+
+      <div className="max-w-4xl mx-auto px-4 py-8">
+
+        {/* Back */}
+        <div className="mb-8">
+          <ArrowBackButton />
         </div>
 
-        <button
-          type="submit"
-          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:bg-blue-400"
-          disabled={isLoading}
-        >
-          Buscar
-        </button>
-      </form>
+        {/* Header */}
+        <div className="flex items-start justify-between gap-4 mb-8 fade-in">
+          <div>
+            <h1 className="font-display text-3xl font-bold tracking-tight mb-1">
+              Despachos
+            </h1>
+            <p className="text-sm text-white/30">Seguimiento y gestión de despachos</p>
+          </div>
 
-      {/* Botón de descarga de búsqueda filtrada */}
-      {!isLimited && dispatches.length > 0 && (
-        <div className="flex justify-end mb-4">
-          <button
-            className="flex items-center gap-2 px-3 py-2 rounded text-white bg-emerald-600 hover:bg-emerald-700"
-            title="Descargar Excel de despachos filtrados"
-            aria-label="Descargar Excel"
-            onClick={async () => {
-              try {
-                const res = await api.get<DispatchSummary[]>("/dispatches", {
-                  params: { ...debouncedSearch, all: 1 },
-                });
-                const fullDispatches = res.data;
-
-                // Calcular totales por producto (agrupado por nombre, sumando cantidades)
-                const totals: Record<string, number> = {};
-                fullDispatches.forEach((d) => {
-                  d.productos.forEach((p) => {
-                    totals[p.nombre] = (totals[p.nombre] || 0) + p.cantidad;
+          {!isLimited && dispatches.length > 0 && (
+            <button
+              className="btn-excel-tr flex-shrink-0"
+              title="Descargar Excel"
+              aria-label="Descargar Excel"
+              onClick={async () => {
+                try {
+                  const res = await api.get<DispatchSummary[]>("/dispatches", {
+                    params: { ...debouncedSearch, all: 1 },
                   });
-                });
+                  const fullDispatches = res.data;
 
-                // Calcular conteos por chofer
-                const driverCounts: Record<string, { total: number; entregados: number; pendientes: number }> = {};
-                fullDispatches.forEach((d) => {
-                  const chofer = d.chofer;
-                  if (!driverCounts[chofer]) {
-                    driverCounts[chofer] = { total: 0, entregados: 0, pendientes: 0 };
-                  }
-                  driverCounts[chofer].total++;
-                  if (d.delivered_client) {
-                    driverCounts[chofer].entregados++;
-                  } else {
-                    driverCounts[chofer].pendientes++;
-                  }
-                });
-
-                // Datos de despachos con esquema consistente
-                const data = fullDispatches.map((d) => ({
-                  "Orden de Compra": d.orden,
-                  "Número de Factura": d.factura_numero || "",
-                  "Centro de Costo": d.cliente,
-                  "Chofer": d.chofer,
-                  "Usuario que Despachó": d.created_by,
-                  "Fecha y Hora": new Date(d.fecha).toLocaleString(),
-                  "Estado": humanStatus(d.status),
-                  "Productos": d.productos.map((p) => `${p.nombre}: ${p.cantidad} ${p.unidad}`).join("; "),
-                }));
-
-                // Agregar fila vacía y luego totales por producto con todas las columnas
-                data.push({
-                  "Orden de Compra": "",
-                  "Número de Factura": "",
-                  "Centro de Costo": "",
-                  "Chofer": "",
-                  "Usuario que Despachó": "",
-                  "Fecha y Hora": "",
-                  "Estado": "",
-                  "Productos": "",
-                }); // Fila vacía para separar
-                data.push({
-                  "Orden de Compra": "Totales por producto",
-                  "Número de Factura": "",
-                  "Centro de Costo": "",
-                  "Chofer": "",
-                  "Usuario que Despachó": "",
-                  "Fecha y Hora": "",
-                  "Estado": "",
-                  "Productos": "",
-                }); // Encabezado de totales
-                Object.entries(totals).forEach(([producto, total]) => {
-                  data.push({
-                    "Orden de Compra": producto,
-                    "Número de Factura": "",
-                    "Centro de Costo": "",
-                    "Chofer": "",
-                    "Usuario que Despachó": "",
-                    "Fecha y Hora": "",
-                    "Estado": "",
-                    "Productos": `Total: ${total}`,
+                  const totals: Record<string, number> = {};
+                  fullDispatches.forEach((d) => {
+                    d.productos.forEach((p) => {
+                      totals[p.nombre] = (totals[p.nombre] || 0) + p.cantidad;
+                    });
                   });
-                });
 
-                // Agregar fila vacía y luego conteos por chofer
-                data.push({
-                  "Orden de Compra": "",
-                  "Número de Factura": "",
-                  "Centro de Costo": "",
-                  "Chofer": "",
-                  "Usuario que Despachó": "",
-                  "Fecha y Hora": "",
-                  "Estado": "",
-                  "Productos": "",
-                }); // Fila vacía para separar
-                data.push({
-                  "Orden de Compra": "Conteo por Chofer",
-                  "Número de Factura": "",
-                  "Centro de Costo": "",
-                  "Chofer": "",
-                  "Usuario que Despachó": "",
-                  "Fecha y Hora": "",
-                  "Estado": "",
-                  "Productos": "",
-                }); // Encabezado de conteos por chofer
-                Object.entries(driverCounts).forEach(([chofer, counts]) => {
-                  data.push({
-                    "Orden de Compra": chofer,
-                    "Número de Factura": "",
-                    "Centro de Costo": "",
-                    "Chofer": "",
-                    "Usuario que Despachó": "",
-                    "Fecha y Hora": "",
-                    "Estado": "",
-                    "Productos": `Total despachos: ${counts.total}, Pedido Entregado: ${counts.entregados}, Pendientes: ${counts.pendientes}`,
+                  const driverCounts: Record<string, { total: number; entregados: number; pendientes: number }> = {};
+                  fullDispatches.forEach((d) => {
+                    const chofer = d.chofer;
+                    if (!driverCounts[chofer]) {
+                      driverCounts[chofer] = { total: 0, entregados: 0, pendientes: 0 };
+                    }
+                    driverCounts[chofer].total++;
+                    if (d.delivered_client) {
+                      driverCounts[chofer].entregados++;
+                    } else {
+                      driverCounts[chofer].pendientes++;
+                    }
                   });
-                });
 
-                // Crear hoja y libro
-                const ws = XLSX.utils.json_to_sheet(data);
-                const wb = XLSX.utils.book_new();
-                XLSX.utils.book_append_sheet(wb, ws, "Despachos");
+                  const data = fullDispatches.map((d) => ({
+                    "Orden de Compra": d.orden,
+                    "Número de Factura": d.factura_numero || "",
+                    "Centro de Costo": d.cliente,
+                    "Chofer": d.chofer,
+                    "Usuario que Despachó": d.created_by,
+                    "Fecha y Hora": new Date(d.fecha).toLocaleString(),
+                    "Estado": humanStatus(d.status),
+                    "Productos": d.productos.map((p) => `${p.nombre}: ${p.cantidad} ${p.unidad}`).join("; "),
+                  }));
 
-                // Descargar
-                XLSX.writeFile(wb, "despachos_filtrados.xlsx");
-              } catch (err) {
-                console.error("Error al cargar datos completos:", err);
-                alert("Error al cargar los datos completos para la exportación.");
-              }
-            }}
+                  data.push({ "Orden de Compra": "", "Número de Factura": "", "Centro de Costo": "", "Chofer": "", "Usuario que Despachó": "", "Fecha y Hora": "", "Estado": "", "Productos": "" });
+                  data.push({ "Orden de Compra": "Totales por producto", "Número de Factura": "", "Centro de Costo": "", "Chofer": "", "Usuario que Despachó": "", "Fecha y Hora": "", "Estado": "", "Productos": "" });
+                  Object.entries(totals).forEach(([producto, total]) => {
+                    data.push({ "Orden de Compra": producto, "Número de Factura": "", "Centro de Costo": "", "Chofer": "", "Usuario que Despachó": "", "Fecha y Hora": "", "Estado": "", "Productos": `Total: ${total}` });
+                  });
+
+                  data.push({ "Orden de Compra": "", "Número de Factura": "", "Centro de Costo": "", "Chofer": "", "Usuario que Despachó": "", "Fecha y Hora": "", "Estado": "", "Productos": "" });
+                  data.push({ "Orden de Compra": "Conteo por Chofer", "Número de Factura": "", "Centro de Costo": "", "Chofer": "", "Usuario que Despachó": "", "Fecha y Hora": "", "Estado": "", "Productos": "" });
+                  Object.entries(driverCounts).forEach(([chofer, counts]) => {
+                    data.push({ "Orden de Compra": chofer, "Número de Factura": "", "Centro de Costo": "", "Chofer": "", "Usuario que Despachó": "", "Fecha y Hora": "", "Estado": "", "Productos": `Total despachos: ${counts.total}, Pedido Entregado: ${counts.entregados}, Pendientes: ${counts.pendientes}` });
+                  });
+
+                  const ws = XLSX.utils.json_to_sheet(data);
+                  const wb = XLSX.utils.book_new();
+                  XLSX.utils.book_append_sheet(wb, ws, "Despachos");
+                  XLSX.writeFile(wb, "despachos_filtrados.xlsx");
+                } catch (err) {
+                  console.error("Error al cargar datos completos:", err);
+                  alert("Error al cargar los datos completos para la exportación.");
+                }
+              }}
+            >
+              <FiDownload size={14} />
+              Exportar Excel
+            </button>
+          )}
+        </div>
+
+        {/* Mensaje */}
+        {mensaje && (
+          <div
+            className="mb-5 px-4 py-3 rounded-xl text-sm text-emerald-300 fade-in"
+            style={{ background: "rgba(52,211,153,0.08)", border: "1px solid rgba(52,211,153,0.18)" }}
           >
-            <DownloadIcon />
-            <span className="text-xs font-medium">Descargar Excel</span>
-          </button>
-        </div>
-      )}
+            {mensaje}
+          </div>
+        )}
 
-      {isLoading && dispatches.length === 0 ? (
-        <div className="text-center py-8">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
-          <p className="mt-2 text-gray-400">Cargando despachos...</p>
-        </div>
-      ) : dispatches.length === 0 ? (
-        <p className="text-center text-gray-400 py-8">No se encontraron despachos.</p>
-      ) : (
-        <div className="space-y-4">
-          {dispatches.map((d, index) => {
-            const isDriverDone = d.delivered_driver || d.delivered_client;
-            const isClientDone = d.delivered_client;
-            const isEditingRow = editingId === d.id;
-            const refProp = index === dispatches.length - 1 ? { ref: lastDispatchRef } : {};
+        {/* Search form */}
+        <div className="mb-6">
+          <form onSubmit={handleSearchSubmit} className="glass rounded-2xl p-5 space-y-4">
+            <div className="grid sm:grid-cols-2 gap-4">
+              {[
+                { name: "client", placeholder: "Centro de costo" },
+                { name: "order", placeholder: "N° Orden" },
+                { name: "invoice", placeholder: "N° Factura" },
+                { name: "user", placeholder: "Usuario que creó" },
+                { name: "driver", placeholder: "Chofer" },
+                { name: "product", placeholder: "Producto" },
+              ].map((f) => (
+                <div key={f.name} className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/20 pointer-events-none flex">
+                    <FiSearch size={12} />
+                  </span>
+                  <input
+                    name={f.name}
+                    value={(searchState as any)[f.name]}
+                    onChange={handleSearchChange}
+                    placeholder={f.placeholder}
+                    className="input-tr w-full pl-8 pr-3 py-2.5"
+                  />
+                </div>
+              ))}
+            </div>
 
-            return (
-              <div key={d.id} id={`dispatch-${d.id}`} className="border p-4 hover:bg-gray-900/20 rounded" {...refProp}>
-                <div className="flex items-start justify-between gap-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <div className="field-label-tr">Desde</div>
+                <input
+                  name="date_from"
+                  type="date"
+                  value={searchState.date_from}
+                  onChange={handleSearchChange}
+                  className="input-tr w-full px-3 py-2.5"
+                />
+              </div>
+              <div>
+                <div className="field-label-tr">Hasta</div>
+                <input
+                  name="date_to"
+                  type="date"
+                  value={searchState.date_to}
+                  onChange={handleSearchChange}
+                  className="input-tr w-full px-3 py-2.5"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end">
+              <button type="submit" className="btn-primary-search-tr" disabled={isLoading}>
+                {isLoading ? "Buscando…" : "Buscar"}
+              </button>
+            </div>
+          </form>
+        </div>
+
+        {/* Loading */}
+        {isLoading && dispatches.length === 0 && (
+          <div className="flex items-center gap-3 justify-center py-16 text-white/30 text-sm">
+            <div className="w-5 h-5 border-2 border-white/10 border-t-indigo-400 rounded-full animate-spin" />
+            Cargando despachos…
+          </div>
+        )}
+
+        {/* Empty */}
+        {!isLoading && dispatches.length === 0 && (
+          <div className="glass rounded-2xl p-14 text-center fade-in">
+            <span className="flex justify-center mb-3 text-white/15">
+              <FiFileText size={30} />
+            </span>
+            <p className="text-white/30 text-sm">No se encontraron despachos.</p>
+          </div>
+        )}
+
+        {/* Cards */}
+        {dispatches.length > 0 && (
+          <div className="space-y-3">
+            {dispatches.map((d, index) => {
+              const isDriverDone = d.delivered_driver || d.delivered_client;
+              const isClientDone = d.delivered_client;
+              const isEditingRow = editingId === d.id;
+              const refProp = index === dispatches.length - 1 ? { ref: lastDispatchRef } : {};
+
+              return (
+                <div
+                  key={d.id}
+                  id={`dispatch-${d.id}`}
+                  className="tr-card glass rounded-2xl fade-in"
+                  style={{ animationDelay: `${Math.min(index, 6) * 0.04}s` }}
+                  {...refProp}
+                >
                   {!isEditingRow ? (
-                    <div>
-                      <p><strong>Folio:</strong> {d.id}</p>
-                      <p><strong>Orden:</strong> {d.orden}</p>
-                      {d.paquete_numero ? <p><strong>Paquete N°:</strong> {d.paquete_numero}</p> : null}
-                      {d.factura_numero ? <p><strong>Factura N°:</strong> {d.factura_numero}</p> : null}
-                      <p><strong>Centro de Costo:</strong> {d.cliente}</p>
-                      <p><strong>Chofer:</strong> {d.chofer}</p>
-                      <p><strong>Despachado por:</strong> {d.created_by}</p>
-                      <p><strong>Fecha:</strong> {new Date(d.fecha).toLocaleString()}</p>
-                      <p><strong>Estado:</strong> {humanStatus(d.status)}</p>
+                    /* ── View mode ── */
+                    <div className="p-5">
+                      {/* Top row */}
+                      <div className="mb-4">
+                        <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="folio-badge-tr flex-shrink-0">Folio# {d.id}</span>
+                            <span className={statusStyle(d.status)}>{humanStatus(d.status)}</span>
+                          </div>
+                          {!isLimited && (
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <button className="btn-action-tr btn-pdf-tr" onClick={() => downloadPDF(d.id)} title="Descargar PDF" aria-label="Descargar PDF">
+                                <FiDownload size={12} /> <span className="hidden sm:inline">PDF</span>
+                              </button>
+                              <button className="btn-action-tr btn-print-tr" onClick={() => printPDF(d.id)} title="Imprimir PDF" aria-label="Imprimir PDF">
+                                <FiPrinter size={12} /> <span className="hidden sm:inline">Imprimir</span>
+                              </button>
+                              <button className="btn-action-tr btn-edit-tr" onClick={() => startEditRow(d)} title="Editar" aria-label="Editar">
+                                <FiEdit2 size={12} />
+                              </button>
+                              <button className="btn-action-tr btn-del-tr" onClick={() => deleteRow(d.id)} title="Eliminar" aria-label="Eliminar">
+                                <FiTrash2 size={12} />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                        {/* Botones de marcar */}
+                        <div className="flex flex-wrap gap-2 mb-3">
+                          {!isLimited && (
+                            <button
+                              className={`btn-mark-driver-tr ${isDriverDone ? "done" : ""}`}
+                              disabled={isDriverDone || isLoading}
+                              onClick={() => markToDriver(d.id)}
+                              title={isDriverDone ? "Entregado a Chofer (bloqueado)" : "Marcar como Entregado a Chofer"}
+                            >
+                              <FiTruck size={12} />
+                              {d.delivered_driver ? "Entregado a Chofer" : "Marcar Entregado a Chofer"}
+                            </button>
+                          )}
+                          <button
+                            className={`btn-mark-client-tr ${isClientDone ? "done" : ""}`}
+                            disabled={isClientDone || isLoading}
+                            onClick={() => markToClient(d.id)}
+                            title={isClientDone ? "Pedido Entregado (finalizado)" : "Marcar como Pedido Entregado"}
+                          >
+                            <FiCheckCircle size={12} />
+                            {d.delivered_client ? "Pedido Entregado" : "Marcar Pedido Entregado"}
+                          </button>
+                        </div>
+                        <span className="font-display font-semibold text-lg text-white/90 break-words">
+                          <span className="text-white/80 font-normal text-sm">Centro de Costo: </span>{d.cliente}
+                        </span>
+                      </div>
+
+                      {/* Meta chips */}
+                      <div className="flex flex-wrap gap-2 mb-4">
+                        {d.orden && (
+                          <span className="meta-chip-tr">
+                            <span className="text-blue-400">Orden</span> <strong>{d.orden}</strong>
+                          </span>
+                        )}
+                        {d.factura_numero && (
+                          <span className="meta-chip-tr">
+                            <span className="text-blue-400">Factura</span> <strong>{d.factura_numero}</strong>
+                          </span>
+                        )}
+                        {d.paquete_numero && (
+                          <span className="meta-chip-tr">
+                            <span className="text-white/40">Paquete</span> <strong>#{d.paquete_numero}</strong>
+                          </span>
+                        )}
+                        <span className="meta-chip-tr">
+                          <span className="text-white/90">Chofer:</span> <strong>{d.chofer}</strong>
+                        </span>
+                        <span className="meta-chip-tr">
+                          <span className="text-white/90">Despachado por:</span> <strong>{d.created_by}</strong>
+                        </span>
+                        <span className="meta-chip-tr">
+                          {new Date(d.fecha).toLocaleString("es-CL", {
+                            day: "2-digit", month: "2-digit", year: "numeric",
+                            hour: "2-digit", minute: "2-digit",
+                          })}
+                        </span>
+                      </div>
+
+                      {/* Products */}
+                      <div className="border-t border-blue-500/70 pt-3 mb-4">
+                        <p className="field-label-tr mb-2">Productos</p>
+                        <div className="flex flex-col gap-1.5">
+                          {d.productos.map((p, i) => (
+                            <span key={i} className="meta-chip-tr w-fit">
+                              <strong>{p.nombre}</strong>
+                              <span className="text-white/50">·</span>
+                              <span>{p.cantidad} {p.unidad}</span>
+                            </span>
+                          ))}
+                        </div>
+                      </div>
                     </div>
                   ) : (
-                    <div className="w-full">
-                      <div className="grid sm:grid-cols-2 gap-3">
+                    /* ── Edit mode ── */
+                    <div className="p-5">
+                      <div className="flex items-center justify-between mb-5">
+                        <span className="font-display font-semibold text-base">Editando #{d.id}</span>
+                        <div className="flex gap-2">
+                          <button className="btn-action-tr btn-save-tr" onClick={() => saveRow(d.id)} title="Guardar" aria-label="Guardar">
+                            <FiSave size={13} /> Guardar
+                          </button>
+                          <button className="btn-action-tr btn-cancel-tr" onClick={cancelEditRow} title="Cancelar" aria-label="Cancelar">
+                            <FiX size={13} /> Cancelar
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="grid sm:grid-cols-2 gap-4 mb-4">
                         <div>
-                          <label className="block text-sm mb-1">Orden</label>
+                          <div className="field-label-tr">Orden</div>
                           <input
                             value={draft?.orden || ""}
                             onChange={(e) => setDraft((prev) => (prev ? { ...prev, orden: e.target.value } : prev))}
-                            className="w-full border p-2 rounded"
+                            className="input-tr w-full px-3 py-2.5"
                           />
                         </div>
                         <div>
-                          <label className="block text-sm mb-1">Centro de Costo</label>
+                          <div className="field-label-tr">N° Factura</div>
+                          <input
+                            value={draft?.factura_numero || ""}
+                            onChange={(e) => setDraft((prev) => (prev ? { ...prev, factura_numero: e.target.value } : prev))}
+                            placeholder="Ej: 12345"
+                            className="input-tr w-full px-3 py-2.5"
+                          />
+                        </div>
+                        <div className="sm:col-span-2">
+                          <div className="field-label-tr">Centro de Costo</div>
                           <ClientSelector
                             value={draft?.cliente || ""}
                             onChange={(cliente) => setDraft((prev) => (prev ? { ...prev, cliente } : prev))}
                           />
                         </div>
                         <div>
-                          <label className="block text-sm mb-1">Chofer</label>
+                          <div className="field-label-tr">Chofer</div>
                           <DriverSelector
                             value={draft?.chofer || ""}
                             onChange={(choferId) => setDraft((prev) => (prev ? { ...prev, chofer: choferId } : prev))}
                           />
                         </div>
                         <div>
-                          <label className="block text-sm mb-1">Estado</label>
+                          <div className="field-label-tr">Estado</div>
                           <select
                             value={draft?.status || "pendiente"}
                             onChange={(e) => setDraft((prev) => (prev ? { ...prev, status: e.target.value } : prev))}
-                            className="w-full border p-2 rounded"
+                            className="select-tr w-full px-3 py-2.5"
                           >
                             <option value="pendiente">pendiente</option>
                             <option value="entregado_chofer">entregado_chofer</option>
                             <option value="entregado_cliente">entregado_cliente</option>
                           </select>
                         </div>
-                        <div>
-                          <label className="block text-sm mb-1">N° Factura asociada</label>
-                          <input
-                            className="w-full border p-2 rounded"
-                            value={draft?.factura_numero || ""}
-                            onChange={(e) =>
-                              setDraft((prev) => (prev ? { ...prev, factura_numero: e.target.value } : prev))
-                            }
-                            placeholder="Ej: 12345"
-                          />
-                        </div>
                       </div>
-                      <div className="mt-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <h4 className="font-bold">Productos</h4>
-                          <button
-                            className={`${btnIcon} hover:bg-blue-600`}
-                            onClick={addRow}
-                            title="Agregar producto"
-                            aria-label="Agregar producto"
-                          >
-                            <FiPlus size={18} />
+
+                      {/* Products edit */}
+                      <div className="border-t border-white/5 pt-4 mb-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <p className="field-label-tr">Productos</p>
+                          <button className="btn-action-tr btn-add-prod-tr" onClick={addRow} title="Agregar producto" aria-label="Agregar producto">
+                            <FiPlus size={13} /> Agregar
                           </button>
                         </div>
                         <div className="space-y-2">
                           {draft?.productos.map((row, idx) => (
-                            <div key={idx} className="grid sm:grid-cols-12 gap-2 items-center">
-                              <div className="relative sm:col-span-6">
+                            <div key={idx} className="grid grid-cols-12 gap-2 items-center">
+                              <div className="relative col-span-6">
                                 <input
-                                  className="border p-2 rounded w-full"
-                                  placeholder="Nombre del producto"
+                                  className="input-tr w-full px-3 py-2"
+                                  placeholder="Producto"
                                   value={row.nombre}
                                   onChange={(e) => {
                                     const value = e.target.value;
@@ -943,11 +1134,33 @@ const Tracking = () => {
                                   onBlur={() => setSuggestions((prev) => ({ ...prev, [idx]: [] }))}
                                 />
                                 {suggestions[idx]?.length > 0 && (
-                                  <ul className="absolute z-10 bg-neutral-800 border border-gray-600 rounded mt-1 w-full max-h-40 overflow-auto text-white">
+                                  <ul
+                                    style={{
+                                      background: "rgb(15, 23, 42)",
+                                      border: "2px solid #6366F1",
+                                      borderRadius: "12px",
+                                      overflow: "auto",
+                                      maxHeight: "200px",
+                                      width: "100%",
+                                      marginTop: "4px",
+                                      boxShadow: "0 20px 40px -8px rgb(0 0 0 / 0.9)",
+                                      fontSize: "13px",
+                                      isolation: "isolate",
+                                      backdropFilter: "none",
+                                    }}
+                                  >
                                     {suggestions[idx].map((sug, i) => (
                                       <li
                                         key={i}
-                                        className="p-2 hover:bg-neutral-700 cursor-pointer"
+                                        style={{
+                                          padding: "10px 14px",
+                                          cursor: "pointer",
+                                          color: "white",
+                                          borderBottom: "1px solid rgba(255,255,255,0.07)",
+                                          transition: "background 0.12s",
+                                        }}
+                                        onMouseEnter={(e) => (e.currentTarget.style.background = "#1E40AF")}
+                                        onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                                         onMouseDown={() => {
                                           updateRow(idx, { nombre: sug });
                                           setSuggestions((prev) => ({ ...prev, [idx]: [] }));
@@ -961,13 +1174,13 @@ const Tracking = () => {
                               </div>
                               <input
                                 type="number"
-                                className="border p-2 rounded sm:col-span-2"
-                                placeholder="Cantidad"
+                                className="input-tr col-span-2 px-2 py-2 text-right"
+                                placeholder="Cant."
                                 value={row.cantidad}
                                 onChange={(e) => updateRow(idx, { cantidad: parseFloat(e.target.value) || 0 })}
                               />
                               <select
-                                className="border p-2 rounded sm:col-span-3"
+                                className="select-tr col-span-3 px-2 py-2"
                                 value={row.unidad}
                                 onChange={(e) => updateRow(idx, { unidad: e.target.value })}
                               >
@@ -977,189 +1190,127 @@ const Tracking = () => {
                                 <option value="cajas">Cajas</option>
                                 <option value="PQT">Paquetes</option>
                               </select>
-                              <div className="sm:col-span-1 flex justify-end">
-                                <button
-                                  className={`${btnIcon} hover:bg-red-600`}
-                                  title="Quitar"
-                                  aria-label="Quitar"
-                                  onClick={() => removeRow(idx)}
-                                >
-                                  <FiMinus size={18} />
+                              <div className="col-span-1 flex justify-end">
+                                <button className="btn-action-tr btn-rem-prod-tr" onClick={() => removeRow(idx)} title="Quitar" aria-label="Quitar">
+                                  <FiMinus size={13} />
                                 </button>
                               </div>
                             </div>
                           ))}
                         </div>
                       </div>
-                      <div className="mt-4 border p-4 rounded">
-                        <h4 className="font-bold mb-2">Imágenes</h4>
-                        <div className="flex flex-wrap gap-2 mb-2">
-                          {existingImages.map((img) => (
-                            <div key={img.id}>
-                              <img 
-                                src={img.image_url} 
-                                alt="existing" 
-                                className="w-20 h-20 object-cover cursor-pointer"
-                                onClick={() => setSelectedImage(img.image_url)}
-                              />
-                              <button onClick={() => removeExistingImage(img.id)} className="text-red-500">Eliminar</button>
-                            </div>
-                          ))}
+
+                      {/* Images edit */}
+                      <div className="border-t border-white/5 pt-4">
+                        <p className="field-label-tr mb-3">Imágenes</p>
+
+                        {/* Existing images */}
+                        {existingImages.length > 0 && (
+                          <div className="flex flex-wrap gap-3 mb-4">
+                            {existingImages.map((img) => (
+                              <div key={img.id} className="flex flex-col items-center gap-1">
+                                <img
+                                  src={img.image_url}
+                                  alt="existing"
+                                  className="img-thumb-tr"
+                                  onClick={() => setSelectedImage(img.image_url)}
+                                />
+                                <button className="btn-img-del-tr" onClick={() => removeExistingImage(img.id)}>
+                                  Eliminar
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {newImages.length > 0 && (
+                          <div className="flex flex-wrap gap-3 mb-4">
+                            {newImages.map((img, idx) => (
+                              <div key={idx} className="flex flex-col items-center gap-1">
+                                <img
+                                  src={URL.createObjectURL(img)}
+                                  alt="new"
+                                  className="img-thumb-tr"
+                                  onClick={() => setSelectedImage(URL.createObjectURL(img))}
+                                />
+                                <button className="btn-img-del-tr" onClick={() => removeNewImage(idx)}>
+                                  Eliminar
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        <div className="flex flex-wrap gap-3 items-center">
+                          <label
+                            className="btn-camera-tr cursor-pointer"
+                            style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
+                          >
+                            <span style={{ display: "inline-flex", transform: "rotate(180deg)" }}>
+                              <FiDownload size={13} />
+                            </span>
+                            Subir imagen
+                            <input type="file" multiple accept="image/*" onChange={handleFileChange} className="hidden" />
+                          </label>
+                          <button type="button" className="btn-camera-tr" onClick={() => setShowCamera(!showCamera)}>
+                            {showCamera ? "Cerrar Cámara" : "Tomar Foto"}
+                          </button>
                         </div>
-                        <input type="file" multiple accept="image/*" onChange={handleFileChange} className="mb-2" />
-                        <button type="button" onClick={() => setShowCamera(!showCamera)} className="bg-green-500 text-white px-4 py-2 rounded mb-2">
-                          {showCamera ? "Cerrar Cámara" : "Tomar Foto"}
-                        </button>
+
                         {showCamera && (
-                          <div>
-                            <Webcam 
-                              audio={false} 
-                              screenshotFormat="image/jpeg" 
-                              ref={webcamRef} 
+                          <div className="mt-4">
+                            <Webcam
+                              audio={false}
+                              screenshotFormat="image/jpeg"
+                              ref={webcamRef}
                               videoConstraints={{ facingMode: "environment" }}
+                              style={{ borderRadius: "12px", width: "100%", maxWidth: "400px" }}
                             />
-                            <button type="button" onClick={capturePhoto} className="bg-blue-500 text-white px-4 py-2 rounded">
+                            <button type="button" className="btn-capture-tr" onClick={capturePhoto}>
                               Capturar
                             </button>
                           </div>
                         )}
-                        <div className="flex flex-wrap gap-2">
-                          {newImages.map((img, idx) => (
-                            <div key={idx}>
-                              <img 
-                                src={URL.createObjectURL(img)} 
-                                alt="new" 
-                                className="w-20 h-20 object-cover cursor-pointer"
-                                onClick={() => setSelectedImage(URL.createObjectURL(img))}
-                              />
-                              <button onClick={() => removeNewImage(idx)} className="text-red-500">Eliminar</button>
-                            </div>
-                          ))}
-                        </div>
                       </div>
                     </div>
                   )}
-                  <div className="flex flex-wrap items-center gap-2">
-                    {!isLimited && (
-                      <>
-                        <button
-                          className="flex items-center gap-2 px-3 py-2 rounded text-white bg-blue-600 hover:bg-blue-700"
-                          title="Descargar PDF"
-                          aria-label="Descargar PDF"
-                          onClick={() => downloadPDF(d.id)}
-                        >
-                          <DownloadIcon />
-                          <span className="text-xs font-medium">PDF</span>
-                        </button>
-                        <button
-                          className="flex items-center gap-2 px-3 py-2 rounded text-white bg-indigo-600 hover:bg-indigo-700"
-                          title="Imprimir PDF"
-                          aria-label="Imprimir PDF"
-                          onClick={() => printPDF(d.id)}
-                        >
-                          <PrinterIcon />
-                          <span className="text-xs font-medium">Imprimir</span>
-                        </button>
-                        {!isEditingRow ? (
-                          <>
-                            <button
-                              className={`${btnIcon} hover:bg-blue-600`}
-                              title="Editar"
-                              aria-label="Editar"
-                              onClick={() => startEditRow(d)}
-                            >
-                              <FiEdit2 size={18} />
-                            </button>
-                            <button
-                              className={`${btnIcon} hover:bg-red-600`}
-                              title="Eliminar"
-                              aria-label="Eliminar"
-                              onClick={() => deleteRow(d.id)}
-                            >
-                              <FiTrash2 size={18} />
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            <button
-                              className={`${btnIcon} hover:bg-emerald-600`}
-                              title="Guardar"
-                              aria-label="Guardar"
-                              onClick={() => saveRow(d.id)}
-                            >
-                              <FiSave size={18} />
-                            </button>
-                            <button
-                              className={`${btnIcon} hover:bg-gray-600`}
-                              title="Cancelar"
-                              aria-label="Cancelar"
-                              onClick={cancelEditRow}
-                            >
-                              <FiX size={18} />
-                            </button>
-                          </>
-                        )}
-                        <button
-                          className={
-                            "px-3 py-2 rounded text-white " +
-                            (isDriverDone ? "bg-emerald-600 cursor-default" : "bg-green-600 hover:bg-green-700")
-                          }
-                          disabled={isDriverDone || isLoading}
-                          onClick={() => markToDriver(d.id)}
-                          title={isDriverDone ? "Entregado a Chofer (bloqueado)" : "Marcar como Entregado a Chofer"}
-                        >
-                          {d.delivered_driver ? "Entregado a Chofer" : "Marcar como Entregado a Chofer"}
-                        </button>
-                      </>
-                    )}
-                    <button
-                      className={
-                        "px-3 py-2 rounded text-white " +
-                        (isClientDone ? "bg-emerald-600 cursor-default" : "bg-green-600 hover:bg-green-700")
-                      }
-                      disabled={isClientDone || isLoading}
-                      onClick={() => markToClient(d.id)}
-                      title={isClientDone ? "Pedido Entregado (finalizado)" : "Marcar como Pedido Entregado"}
-                    >
-                      {d.delivered_client ? "Pedido Entregado" : "Marcar como Pedido Entregado"}
-                    </button>
-                  </div>
                 </div>
-                {!isEditingRow && (
-                  <>
-                    <p className="mt-3"><strong>Productos:</strong></p>
-                    <ul className="list-disc pl-5">
-                      {d.productos.map((p, i) => (
-                        <li key={i}>
-                          {p.nombre} - {p.cantidad} {p.unidad}
-                        </li>
-                      ))}
-                    </ul>
-                  </>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-      {hasMore && !isLoading && (
-        <div className="text-center mt-6">
-          <button
-            onClick={() => setPage((prev) => prev + 1)}
-            className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700"
-          >
-            Cargar más
-          </button>
-        </div>
-      )}
+              );
+            })}
+          </div>
+        )}
 
+        {/* Load more */}
+        {hasMore && !isLoading && (
+          <div className="text-center mt-6">
+            <button className="btn-load-more-tr" onClick={() => setPage((prev) => prev + 1)}>
+              Cargar más
+            </button>
+          </div>
+        )}
+
+      </div>
+
+      {/* Validation error modal */}
       {validationError && (
-        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
-          <div className="bg-white text-gray-900 rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
-            <h3 className="text-lg font-bold mb-3 text-red-600">Error al guardar</h3>
-            <p className="mb-5 text-sm">{validationError}</p>
+        <div
+          className="fixed inset-0 flex items-center justify-center z-50 px-4"
+          style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}
+        >
+          <div
+            className="rounded-2xl p-6 max-w-md w-full fade-in"
+            style={{ background: "#111827", border: "1px solid rgba(248,113,113,0.2)" }}
+          >
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: "rgba(248,113,113,0.15)" }}>
+                <span className="text-red-400 flex"><FiX size={14} /></span>
+              </div>
+              <h3 className="font-display font-semibold text-red-400">Error al guardar</h3>
+            </div>
+            <p className="text-sm text-white/55 mb-5 leading-relaxed">{validationError}</p>
             <button
-              className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 font-medium"
+              className="w-full py-2.5 rounded-xl text-sm font-semibold text-white transition-all"
+              style={{ background: "linear-gradient(135deg, #4F46E5, #6366F1)", boxShadow: "0 4px 16px rgba(99,102,241,0.3)" }}
               onClick={() => setValidationError(null)}
             >
               Entendido, voy a corregirlo
@@ -1168,20 +1319,22 @@ const Tracking = () => {
         </div>
       )}
 
-
+      {/* Image lightbox */}
       {selectedImage && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50" 
+        <div
+          className="fixed inset-0 flex items-center justify-center z-50 px-4"
+          style={{ background: "rgba(0,0,0,0.85)", backdropFilter: "blur(6px)" }}
           onClick={() => setSelectedImage(null)}
         >
-          <div className="relative max-w-full max-h-full p-4">
-            <img 
-              src={selectedImage} 
-              alt="Imagen en grande" 
-              className="max-w-screen-lg max-h-screen object-contain"
+          <div className="relative max-w-full max-h-full">
+            <img
+              src={selectedImage}
+              alt="Imagen en grande"
+              style={{ maxWidth: "90vw", maxHeight: "90vh", objectFit: "contain", borderRadius: "16px" }}
             />
-            <button 
-              className="absolute top-2 right-2 text-white bg-red-600 p-1 rounded-full" 
+            <button
+              className="absolute top-3 right-3 flex items-center justify-center w-8 h-8 rounded-full text-white"
+              style={{ background: "rgba(248,113,113,0.8)" }}
               onClick={() => setSelectedImage(null)}
             >
               <FiX size={15} />
