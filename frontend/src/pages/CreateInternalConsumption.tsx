@@ -20,7 +20,19 @@ interface FormularioConsumo {
   productos: Producto[];
 }
 
-const areas = ["Administración", "Producción", "Almacén", "Ventas", "Mantenimiento", "Extrusión", "Impresión", "Despacho", "Otros"];
+const areas = [
+  "Administración",
+  "Producción",
+  "Extrusión",
+  "Facturación",
+  "Atención al Cliente",
+  "Recursos Humanos",
+  "Almacén",
+  "Ventas",
+  "Mantenimiento",
+  "Impresión",
+  "Despacho - Choferes",
+  "Otros",];
 
 const CreateInternalConsumption = () => {
   const navigate = useNavigate();
@@ -109,10 +121,7 @@ const CreateInternalConsumption = () => {
           const w = window.open(url, "_blank");
           // Intenta imprimir al cargar la nueva ventana; revoca el URL pasado un rato después
           if (w) {
-            // algunos navegadores no permiten .print() desde aquí si la ventana no ha terminado de cargar,
-            // este intento es lo más razonable sin control total del contenido
             w.focus();
-            // Intentamos imprimir con un pequeño delay
             setTimeout(() => {
               try {
                 w.print();
@@ -122,10 +131,8 @@ const CreateInternalConsumption = () => {
               }
             }, 500);
           } else {
-            // fallback: abrir en la misma pestaña
             window.location.href = url;
           }
-          // revocar el objectURL después de 60s para dar tiempo al usuario a visualizar/imprimir
           setTimeout(() => URL.revokeObjectURL(url), 60000);
         }
       }
@@ -133,7 +140,6 @@ const CreateInternalConsumption = () => {
       setTimeout(() => navigate("/dashboard"), 2000);
     } catch (err) {
       const axiosError = err as AxiosError;
-      // CAST controlado: muchos backends devuelven { error: "mensaje" } en response.data
       const apiMessage = (axiosError.response?.data as any)?.error || "Error al registrar consumo interno";
       setMensaje(apiMessage);
     }
