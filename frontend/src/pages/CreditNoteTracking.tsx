@@ -284,8 +284,8 @@ const CreditNoteTracking = () => {
 
         .font-display { font-family: 'Syne', sans-serif; }
 
-        .glass { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); }
-        .glass-hover:hover { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.12); }
+        .glass { background: rgba(30,40,80,0.35); border: 1px solid rgba(99,102,241,0.18); }
+        .glass-hover:hover { background: rgba(30,40,80,0.45); border-color: rgba(99,102,241,0.28); }
 
         .input-cn {
           background: rgba(255,255,255,0.04);
@@ -321,11 +321,11 @@ const CreditNoteTracking = () => {
         .btn-print { background: rgba(52,211,153,0.1); border-color: rgba(52,211,153,0.2); color: #6EE7B7; }
         .btn-print:hover { background: rgba(52,211,153,0.18); border-color: rgba(52,211,153,0.35); }
 
-        .btn-edit { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1); color: rgba(255,255,255,0.5); }
-        .btn-edit:hover { background: rgba(96,165,250,0.1); border-color: rgba(96,165,250,0.3); color: #60A5FA; }
+        .btn-edit { background: rgba(96,165,250,0.08); border-color: rgba(96,165,250,0.25); color: #60A5FA; }
+        .btn-edit:hover { background: rgba(96,165,250,0.18); border-color: rgba(96,165,250,0.45); color: #93C5FD; }
 
-        .btn-del { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1); color: rgba(255,255,255,0.5); }
-        .btn-del:hover { background: rgba(248,113,113,0.1); border-color: rgba(248,113,113,0.3); color: #F87171; }
+        .btn-del { background: rgba(248,113,113,0.08); border-color: rgba(248,113,113,0.25); color: #F87171; }
+        .btn-del:hover { background: rgba(248,113,113,0.18); border-color: rgba(248,113,113,0.45); color: #FCA5A5; }
 
         .btn-save { background: rgba(52,211,153,0.1); border-color: rgba(52,211,153,0.2); color: #6EE7B7; }
         .btn-save:hover { background: rgba(52,211,153,0.18); border-color: rgba(52,211,153,0.35); }
@@ -381,7 +381,7 @@ const CreditNoteTracking = () => {
         }
 
         .cn-card { transition: background .12s; }
-        .cn-card:hover { background: rgba(255,255,255,0.035); }
+        .cn-card:hover { background: rgba(99,102,241,0.08); }
 
         .filter-toggle {
           display: inline-flex; align-items: center; gap: 6px;
@@ -568,7 +568,9 @@ const CreditNoteTracking = () => {
                           </div>
                         </div>
                         {/* Fila 2: nombre del cliente */}
-                        <span className="font-display font-semibold text-lg text-white/90 break-words">{cn.client}</span>
+                        <span className="font-display font-semibold text-lg text-white/90 break-words">
+                          <span className="text-white/80 font-normal text-sm">Centro de Costo: </span>{cn.client}
+                        </span>
                       </div>
 
                       {/* Meta chips */}
