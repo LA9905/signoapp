@@ -1,5 +1,5 @@
 import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
-import { FiFileText, FiBox, FiShoppingCart, FiCheckCircle, FiAlertCircle } from "react-icons/fi";
+import { FiFileText, FiBox, FiShoppingCart, FiCheckCircle, FiAlertCircle, FiX } from "react-icons/fi";
 import ProductSelector from "../components/ProductSelector.tsx";
 import SupplierSelector from "../components/SupplierSelector.tsx";
 import ArrowBackButton from "../components/ArrowBackButton";
@@ -220,31 +220,6 @@ const ReceiveSupplier = () => {
         }
         .btn-submit-rs:active { transform: translateY(0); }
 
-        .mensaje-success-rs {
-          background: rgba(52,211,153,0.08);
-          border: 1px solid rgba(52,211,153,0.18);
-          border-radius: 12px;
-          padding: 12px 16px;
-          font-size: 14px;
-          color: #6EE7B7;
-          margin-bottom: 20px;
-          display: flex;
-          align-items: center;
-          gap: 10px;
-        }
-        .mensaje-error-rs {
-          background: rgba(248,113,113,0.08);
-          border: 1px solid rgba(248,113,113,0.18);
-          border-radius: 12px;
-          padding: 12px 16px;
-          font-size: 14px;
-          color: #F87171;
-          margin-bottom: 20px;
-          display: flex;
-          align-items: center;
-          gap: 10px;
-        }
-
         @keyframes fade-in {
           from { opacity: 0; transform: translateY(6px); }
           to { opacity: 1; transform: translateY(0); }
@@ -272,6 +247,77 @@ const ReceiveSupplier = () => {
           box-shadow: 0 0 0 3px rgba(99,102,241,0.08) !important;
         }
         .input-rs-wrapper select option { background: #111827 !important; color: white !important; }
+
+        /* ===== MODAL DE ERROR ==== */
+        .error-modal-overlay {
+          position: fixed;
+          inset: 0;
+          background: rgba(0, 0, 0, 0.85);
+          backdrop-filter: blur(8px);
+          z-index: 10000;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 20px;
+        }
+
+        .error-modal {
+          background: rgba(15, 23, 42, 0.98);
+          border: 1px solid rgba(248, 113, 113, 0.3);
+          border-radius: 16px;
+          padding: 24px 28px;
+          max-width: 420px;
+          width: 100%;
+          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+          animation: modal-pop .3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        @keyframes modal-pop {
+          from {
+            opacity: 0;
+            transform: scale(0.85) translateY(20px);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+          }
+        }
+
+        .error-modal-content {
+          display: flex;
+          gap: 16px;
+          align-items: flex-start;
+        }
+
+        .error-modal-icon {
+          flex-shrink: 0;
+          color: #F87171;
+          margin-top: 2px;
+        }
+
+        .error-modal-text {
+          flex: 1;
+          font-size: 15px;
+          line-height: 1.5;
+          color: #FEE2E2;
+          word-break: break-word;
+        }
+
+        .error-modal-close {
+          margin-top: 4px;
+          color: rgba(255,255,255,0.6);
+          background: none;
+          border: none;
+          padding: 4px;
+          cursor: pointer;
+          border-radius: 6px;
+          transition: all .15s;
+        }
+
+        .error-modal-close:hover {
+          color: white;
+          background: rgba(255,255,255,0.1);
+        }
       `}</style>
 
       <div className="max-w-2xl mx-auto px-4 py-8">
@@ -291,14 +337,28 @@ const ReceiveSupplier = () => {
           </p>
         </div>
 
-        {/* Mensaje */}
+        {/* Modal de Error */}
         {mensaje && (
-          <div className={isError ? "mensaje-error-rs fade-in" : "mensaje-success-rs fade-in"}>
-            {isError
-              ? <span style={{ flexShrink: 0, display: "flex" }}><FiAlertCircle size={15} /></span>
-              : <span style={{ flexShrink: 0, display: "flex" }}><FiCheckCircle size={15} /></span>
-            }
-            <span>{mensaje}</span>
+          <div className="error-modal-overlay" onClick={() => setMensaje("")}>
+            <div 
+              className="error-modal" 
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="error-modal-content">
+                <div className="error-modal-icon">
+                  {isError ? <FiAlertCircle size={26} /> : <FiCheckCircle size={26} />}
+                </div>
+                <div className="error-modal-text">
+                  {mensaje}
+                </div>
+                <button 
+                  className="error-modal-close" 
+                  onClick={() => setMensaje("")}
+                >
+                  <FiX size={20} />
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
