@@ -1,14 +1,15 @@
 import { useState, type ChangeEvent } from "react";
 import { normalizeSearch } from "../utils/normalizeSearch";
 import { FaRegEdit, FaTrashAlt, FaSave, FaTimes } from "react-icons/fa";
+import { FiSearch, FiPlus } from "react-icons/fi";
 
 interface Producto {
   id: string;
   name: string;
   cantidad: number;
   unidad: string;
-  category?: string; //opcional (si vino de la BD)
-  usage?: number;  //uso calculado (suma de cantidades despachadas)
+  category?: string;
+  usage?: number;
 }
 
 interface ProductSelectorProps {
@@ -32,7 +33,6 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
   const [searchProduct, setSearchProduct] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("Otros");
 
-  // edición en lista del formulario
   const [editingId, setEditingId] = useState<string | null>(null);
   const [tmpName, setTmpName] = useState("");
   const [tmpCantidad, setTmpCantidad] = useState<number>(0);
@@ -106,10 +106,9 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
   };
 
   const filteredProducts = existingProductos
-  .filter((p) => normalizeSearch(p.name).includes(normalizeSearch(searchProduct)))
-  .sort((a, b) => (b.usage || 0) - (a.usage || 0));  // Ordenar por uso descendente (más usados primero)
+    .filter((p) => normalizeSearch(p.name).includes(normalizeSearch(searchProduct)))
+    .sort((a, b) => (b.usage || 0) - (a.usage || 0));
 
-  // acciones sobre productos ya añadidos al formulario
   const startEdit = (p: Producto) => {
     setEditingId(p.id);
     setTmpName(p.name);
@@ -138,223 +137,408 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
   };
 
   return (
-    <div className="space-y-2">
-      {/* Lista de productos añadidos al formulario con editar/eliminar */}
-      {productos.map((p) => {
-        const isEditing = editingId === p.id;
-        return (
-          <div key={p.id} className="border p-2 rounded flex items-center justify-between gap-2">
-            {!isEditing ? (
-              <>
-                <div className="flex-1">
-                  {p.name} - {p.cantidad} {p.unidad}
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
+
+        .prd-wrap { font-family: 'DM Sans', sans-serif; display: flex; flex-direction: column; gap: 10px; }
+
+        .prd-input {
+          width: 100%;
+          background: rgba(255,255,255,0.04);
+          border: 1px solid rgba(255,255,255,0.08);
+          color: white; border-radius: 10px;
+          padding: 10px 12px 10px 36px;
+          font-size: 14px; font-family: 'DM Sans', sans-serif;
+          transition: border-color .15s, box-shadow .15s; outline: none; box-sizing: border-box;
+        }
+        .prd-input::placeholder { color: rgba(255,255,255,0.2); }
+        .prd-input:focus { border-color: rgba(99,102,241,0.6); box-shadow: 0 0 0 3px rgba(99,102,241,0.08); }
+
+        .prd-input-plain {
+          background: rgba(255,255,255,0.04);
+          border: 1px solid rgba(255,255,255,0.08);
+          color: white; border-radius: 10px;
+          padding: 10px 12px;
+          font-size: 14px; font-family: 'DM Sans', sans-serif;
+          transition: border-color .15s, box-shadow .15s; outline: none; box-sizing: border-box;
+        }
+        .prd-input-plain:focus { border-color: rgba(99,102,241,0.6); box-shadow: 0 0 0 3px rgba(99,102,241,0.08); }
+
+        .prd-select {
+          background: rgba(255,255,255,0.04);
+          border: 1px solid rgba(255,255,255,0.08);
+          color: rgba(255,255,255,0.8); border-radius: 10px;
+          padding: 10px 12px; font-size: 14px;
+          font-family: 'DM Sans', sans-serif;
+          transition: border-color .15s; outline: none;
+          appearance: none; cursor: pointer; width: 100%; box-sizing: border-box;
+        }
+        .prd-select option { background: #111827; color: white; }
+
+        /* --- ICONOS --- */
+        .prd-icon-btn {
+          display: flex; 
+          align-items: center; 
+          justify-content: center;
+          width: 34px; 
+          height: 34px; 
+          border-radius: 8px;
+          border: 1px solid transparent;
+          cursor: pointer; 
+          transition: all .15s; 
+          flex-shrink: 0;
+          padding: 0;
+          color: inherit;
+        }
+        .prd-icon-btn svg { 
+          display: block; 
+          width: 14px; 
+          height: 14px; 
+          fill: currentColor; 
+        }
+
+        .prd-icon-btn-edit { background: rgba(96,165,250,0.08); border-color: rgba(96,165,250,0.2); color: #60A5FA; }
+        .prd-icon-btn-edit:hover { background: rgba(96,165,250,0.18); border-color: rgba(96,165,250,0.4); color: #93C5FD; }
+        
+        .prd-icon-btn-del { background: rgba(248,113,113,0.08); border-color: rgba(248,113,113,0.2); color: #F87171; }
+        .prd-icon-btn-del:hover { background: rgba(248,113,113,0.18); border-color: rgba(248,113,113,0.4); color: #FCA5A5; }
+        
+        .prd-icon-btn-save { background: rgba(52,211,153,0.08); border-color: rgba(52,211,153,0.2); color: #6EE7B7; }
+        .prd-icon-btn-save:hover { background: rgba(52,211,153,0.18); border-color: rgba(52,211,153,0.4); }
+        
+        .prd-icon-btn-cancel { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.1); color: rgba(255,255,255,0.5); }
+        .prd-icon-btn-cancel:hover { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.8); }
+
+        /* Ajuste para iconos en botones con texto */
+        .prd-btn-add svg, .prd-btn-new svg {
+          display: block;
+          fill: currentColor;
+          flex-shrink: 0;
+        }
+
+        .prd-item-row {
+          display: flex; align-items: center; gap: 10px;
+          justify-content: space-between; /* Empuja los íconos al final */
+          background: rgba(255,255,255,0.03);
+          border: 1px solid rgba(255,255,255,0.06);
+          border-radius: 10px; padding: 10px 12px;
+          transition: border-color .15s;
+        }
+        .prd-item-row:hover { border-color: rgba(99,102,241,0.2); }
+
+        .prd-item-info { 
+          display: flex; align-items: flex-start; gap: 12px; flex: 1; min-width: 0; padding: 2px 0;
+        }
+
+        .prd-item-name {
+          word-break: break-word; flex: 1; line-height: 1.4;
+        }
+
+        .prd-btn-add {
+          display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+          padding: 9px 16px; border-radius: 9px; font-size: 13px; font-weight: 500;
+          background: rgba(52,211,153,0.1); border: 1px solid rgba(52,211,153,0.25); color: #6EE7B7;
+          cursor: pointer; transition: all .15s; font-family: 'DM Sans', sans-serif;
+          white-space: nowrap;
+        }
+        .prd-btn-new {
+          display: inline-flex; align-items: center; gap: 6px;
+          padding: 8px 14px; border-radius: 9px; font-size: 13px; font-weight: 500;
+          background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.25); color: #A5B4FC;
+          cursor: pointer; transition: all .15s; font-family: 'DM Sans', sans-serif;
+        }
+
+        .prd-search-wrap { position: relative; }
+        .prd-search-icon {
+          position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+          color: rgba(255,255,255,0.2); pointer-events: none; display: flex;
+        }
+        .prd-select-wrap { position: relative; }
+        .prd-select-arrow {
+          position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+          color: rgba(255,255,255,0.25); pointer-events: none; font-size: 10px;
+        }
+
+        @media (max-width: 500px) {
+          .prd-row-grid { flex-direction: column !important; }
+          .prd-row-grid > * { width: 100% !important; }
+        }
+
+        @media (max-width: 500px) {
+          .prd-row-grid { display: flex !important; flex-direction: row !important; flex-wrap: wrap !important; }
+          .prd-row-grid .prd-input-plain { width: 80px !important; flex: 0 0 80px !important; }
+          .prd-row-grid .prd-select-wrap { flex: 1 !important; }
+          .prd-row-grid .prd-btn-add { width: auto !important; }
+        }
+      `}</style>
+
+      <div className="prd-wrap">
+        {productos.length > 0 && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+            {productos.map((p) => {
+              const isEditing = editingId === p.id;
+              return (
+                <div key={p.id} className="prd-item-row">
+                  {!isEditing ? (
+                    <>
+                      <div className="prd-item-info">
+                        <span className="prd-item-name">
+                          {p.name}
+                        </span>
+                        <span 
+                          className="prd-item-meta" 
+                          style={{ whiteSpace: "nowrap", color: "rgba(99,102,241,0.8)", fontSize: "13px", fontWeight: "500" }}
+                        >
+                          {p.cantidad} {p.unidad}
+                        </span>
+                      </div>
+                      <div style={{ display: "flex", gap: "5px", flexShrink: 0, marginLeft: "10px" }}>
+                        <button
+                          type="button"
+                          className="prd-icon-btn prd-icon-btn-edit"
+                          title="Editar"
+                          aria-label="Editar"
+                          onClick={() => startEdit(p)}
+                        >
+                          <FaRegEdit size={13} />
+                        </button>
+                        <button
+                          type="button"
+                          className="prd-icon-btn prd-icon-btn-del"
+                          title="Eliminar"
+                          aria-label="Eliminar"
+                          onClick={() => removeItem(p.id)}
+                        >
+                          <FaTrashAlt size={13} />
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <div style={{ display: "flex", flex: 1, gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
+                      <span
+                        className="prd-input-plain"
+                        style={{
+                          flex: "1 1 100%",
+                          background: "rgba(255,255,255,0.02)",
+                          color: "rgba(255,255,255,0.35)",
+                          userSelect: "none",
+                          display: "block",
+                        }}
+                      >
+                        {tmpName}
+                      </span>
+                      <input
+                        type="number"
+                        value={tmpCantidad}
+                        onChange={(e) => setTmpCantidad(parseFloat(e.target.value) || 0)}
+                        className="prd-input-plain"
+                        placeholder="Cantidad"
+                        style={{ flex: "1", minWidth: "70px" }}
+                      />
+                      <select
+                        value={tmpUnidad}
+                        onChange={(e) => setTmpUnidad(e.target.value)}
+                        className="prd-select"
+                        style={{ flex: "2", minWidth: "100px" }}
+                      >
+                        <option value="unidades">Unidades</option>
+                        <option value="kg">Kilogramos</option>
+                        <option value="lt">Litros</option>
+                        <option value="cajas">Cajas</option>
+                        <option value="PQT">Paquetes</option>
+                      </select>
+                      <div style={{ display: "flex", gap: "5px", flexShrink: 0 }}>
+                        <button
+                          type="button"
+                          className="prd-icon-btn prd-icon-btn-save"
+                          title="Guardar"
+                          aria-label="Guardar"
+                          onClick={() => saveEdit(p.id)}
+                        >
+                          <FaSave size={13} />
+                        </button>
+                        <button
+                          type="button"
+                          className="prd-icon-btn prd-icon-btn-cancel"
+                          title="Cancelar"
+                          aria-label="Cancelar"
+                          onClick={cancelEdit}
+                        >
+                          <FaTimes size={13} />
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    className="px-2 py-1 rounded border border-gray-600 text-white hover:text-blue-400"
-                    title="Editar"
-                    aria-label="Editar"
-                    onClick={() => startEdit(p)}
-                  >
-                    <FaRegEdit size={16} />
-                  </button>
-                  <button
-                    type="button"
-                    className="px-2 py-1 rounded border border-gray-600 text-white hover:text-red-400"
-                    title="Eliminar"
-                    aria-label="Eliminar"
-                    onClick={() => removeItem(p.id)}
-                  >
-                    <FaTrashAlt size={16} />
-                  </button>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="flex-1 flex flex-col sm:flex-row gap-2">
-                  <span className="border p-2 rounded w-full sm:w-1/2 bg-gray-800 text-gray-400 cursor-not-allowed select-none">
-                    {tmpName}
-                  </span>
-                  <input
-                    type="number"
-                    value={tmpCantidad}
-                    onChange={(e) => setTmpCantidad(parseFloat(e.target.value) || 0)}
-                    className="border p-2 rounded w-full sm:w-1/4"
-                    placeholder="Cantidad"
-                  />
-                  <select
-                    value={tmpUnidad}
-                    onChange={(e) => setTmpUnidad(e.target.value)}
-                    className="border p-2 rounded w-full sm:w-1/4"
-                  >
-                    <option value="unidades">Unidades</option>
-                    <option value="kg">Kilogramos</option>
-                    <option value="lt">Litros</option>
-                    <option value="cajas">Cajas</option>
-                    <option value="PQT">Paquetes</option>
-                  </select>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    className="px-2 py-1 rounded border border-gray-600 text-white hover:text-emerald-300"
-                    title="Guardar"
-                    aria-label="Guardar"
-                    onClick={() => saveEdit(p.id)}
-                  >
-                    <FaSave size={16} />
-                  </button>
-                  <button
-                    type="button"
-                    className="px-2 py-1 rounded border border-gray-600 text-white hover:text-gray-300"
-                    title="Cancelar"
-                    aria-label="Cancelar"
-                    onClick={cancelEdit}
-                  >
-                    <FaTimes size={16} />
-                  </button>
-                </div>
-              </>
-            )}
+              );
+            })}
           </div>
-        );
-      })}
+        )}
 
-      {/* Buscador y selección de existentes */}
-      <input
-        type="text"
-        placeholder="Buscar producto..."
-        value={searchProduct}
-        onChange={(e) => {
-          const value = e.target.value;
-          setSearchProduct(value);
+        {productos.length > 0 && <div className="prd-divider" />}
 
-          // 🔹 Nuevo: autoseleccionar el primer producto que coincida
-          const match = existingProductos.find((p) =>
-            normalizeSearch(p.name).includes(normalizeSearch(value))
-          );
-          if (match) {
-            setNewProduct({
-              ...match,
-              cantidad: newProduct.cantidad, // mantiene cantidad actual
-            });
-            if (match.category) setSelectedCategory(match.category);
-          } else {
-            // si no hay coincidencia, limpiar id y nombre
-            setNewProduct((prev) => ({ ...prev, id: "", name: value }));
-          }
-        }}
-        className="w-full border p-2"
-      />
-
-      <select
-        value={newProduct.id}
-        onChange={(e) => handleSelectProduct(e.target.value)}
-        className="w-full border p-2"
-      >
-        <option value="">Selecciona producto existente</option>
-        {filteredProducts.map((p) => (
-          <option key={p.id} value={p.id}>
-            {p.name}
-          </option>
-        ))}
-      </select>
-
-      <div className="flex gap-2">
-        <input
-          type="number"
-          name="cantidad"
-          placeholder="Cantidad"
-          value={newProduct.cantidad}
-          onChange={handleChangeProduct}
-          className="w-1/3 border p-2"
-        />
-        <select
-          name="unidad"
-          value={newProduct.unidad}
-          onChange={handleChangeProduct}
-          className="w-1/3 border p-2"
-        >
-          <option value="unidades">Unidades</option>
-          <option value="kg">Kilogramos</option>
-          <option value="lt">Litros</option>
-          <option value="cajas">Cajas</option>
-          <option value="PQT">Paquetes</option>
-        </select>
-        <button
-          type="button"
-          onClick={handleAddProduct}
-          className="bg-green-500 text-white px-2 py-1"
-          disabled={!newProduct.name || newProduct.cantidad <= 0}
-        >
-          Agregar
-        </button>
-      </div>
-
-      {!showNewProduct && (
-        <button
-          type="button"
-          onClick={() => setShowNewProduct(true)}
-          className="bg-blue-500 text-white px-2 py-1"
-        >
-          Nuevo Producto
-        </button>
-      )}
-
-      {showNewProduct && (
-        <div className="flex gap-2">
+        {/* Search existing */}
+        <div className="prd-search-wrap">
+          <span className="prd-search-icon"><FiSearch size={13} /></span>
           <input
             type="text"
-            placeholder="Nombre del producto"
-            value={newProduct.name}
-            onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
-            className="w-1/4 border p-2"
+            placeholder="Buscar producto..."
+            value={searchProduct}
+            onChange={(e) => {
+              const value = e.target.value;
+              setSearchProduct(value);
+              const match = existingProductos.find((p) =>
+                normalizeSearch(p.name).includes(normalizeSearch(value))
+              );
+              if (match) {
+                setNewProduct({
+                  ...match,
+                  cantidad: newProduct.cantidad,
+                });
+                if (match.category) setSelectedCategory(match.category);
+              } else {
+                setNewProduct((prev) => ({ ...prev, id: "", name: value }));
+              }
+            }}
+            className="prd-input"
           />
+        </div>
+
+        {/* Select existing product */}
+        <div className="prd-select-wrap">
           <select
-            name="category"
-            value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
-            className="w-1/4 border p-2"
+            value={newProduct.id}
+            onChange={(e) => handleSelectProduct(e.target.value)}
+            className="prd-select"
           >
-            {categories.map((c) => (
-              <option key={c} value={c}>
-                {c}
+            <option value="">Selecciona producto existente</option>
+            {filteredProducts.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
               </option>
             ))}
           </select>
+          <span className="prd-select-arrow">▼</span>
+        </div>
+
+        {/* Quantity + unit + add button */}
+        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }} className="prd-row-grid">
           <input
             type="number"
             name="cantidad"
             placeholder="Cantidad"
             value={newProduct.cantidad}
-            onChange={(e) =>
-              setNewProduct({ ...newProduct, cantidad: parseFloat(e.target.value) || 0 })
-            }
-            className="w-1/4 border p-2"
+            onChange={handleChangeProduct}
+            className="prd-input-plain"
+            style={{ flex: "0 0 110px", width: "110px" }}
           />
-          <select
-            name="unidad"
-            value={newProduct.unidad}
-            onChange={(e) => setNewProduct({ ...newProduct, unidad: e.target.value })}
-            className="w-1/4 border p-2"
-          >
-            <option value="unidades">Unidades</option>
-            <option value="kg">Kilogramos</option>
-            <option value="lt">Litros</option>
-            <option value="cajas">Cajas</option>
-            <option value="PQT">Paquetes</option>
-          </select>
+          <div className="prd-select-wrap" style={{ flex: "1 1 120px", minWidth: "110px" }}>
+            <select
+              name="unidad"
+              value={newProduct.unidad}
+              onChange={handleChangeProduct}
+              className="prd-select"
+            >
+              <option value="unidades">Unidades</option>
+              <option value="kg">Kilogramos</option>
+              <option value="lt">Litros</option>
+              <option value="cajas">Cajas</option>
+              <option value="PQT">Paquetes</option>
+            </select>
+            <span className="prd-select-arrow">▼</span>
+          </div>
           <button
             type="button"
             onClick={handleAddProduct}
-            className="bg-green-500 text-white px-2 py-1"
+            className="prd-btn-add"
+            disabled={!newProduct.name || newProduct.cantidad <= 0}
+            style={{ flex: "0 0 auto" }}
           >
-            Agregar
+            <FiPlus size={13} /> Agregar
           </button>
         </div>
-      )}
-    </div>
+
+        {/* New product creation form */}
+        {!showNewProduct ? (
+          <div>
+            <button
+              type="button"
+              onClick={() => setShowNewProduct(true)}
+              className="prd-btn-new"
+            >
+              <FiPlus size={13} /> Nuevo Producto
+            </button>
+          </div>
+        ) : (
+          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+            <input
+              type="text"
+              placeholder="Nombre del producto"
+              value={newProduct.name}
+              onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
+              className="prd-input-plain"
+              style={{ flex: "1 1 150px", minWidth: "130px" }}
+            />
+            <div className="prd-select-wrap" style={{ flex: "1 1 150px", minWidth: "130px" }}>
+              <select
+                name="category"
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                className="prd-select"
+              >
+                {categories.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+              <span className="prd-select-arrow">▼</span>
+            </div>
+            <input
+              type="number"
+              name="cantidad"
+              placeholder="Cantidad"
+              value={newProduct.cantidad}
+              onChange={(e) =>
+                setNewProduct({ ...newProduct, cantidad: parseFloat(e.target.value) || 0 })
+              }
+              className="prd-input-plain"
+              style={{ flex: "0 0 100px", width: "100px" }}
+            />
+            <div className="prd-select-wrap" style={{ flex: "0 0 120px", minWidth: "110px" }}>
+              <select
+                name="unidad"
+                value={newProduct.unidad}
+                onChange={(e) => setNewProduct({ ...newProduct, unidad: e.target.value })}
+                className="prd-select"
+              >
+                <option value="unidades">Unidades</option>
+                <option value="kg">Kilogramos</option>
+                <option value="lt">Litros</option>
+                <option value="cajas">Cajas</option>
+                <option value="PQT">Paquetes</option>
+              </select>
+              <span className="prd-select-arrow">▼</span>
+            </div>
+            <button
+              type="button"
+              onClick={handleAddProduct}
+              className="prd-btn-add"
+              style={{ flex: "0 0 auto" }}
+            >
+              <FiPlus size={13} /> Agregar
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowNewProduct(false)}
+              className="prd-icon-btn prd-icon-btn-cancel"
+              style={{ width: "auto", padding: "9px 12px", borderRadius: "9px" }}
+            >
+              <FaTimes size={13} />
+            </button>
+          </div>
+        )}
+      </div>
+    </>
   );
 };
 
