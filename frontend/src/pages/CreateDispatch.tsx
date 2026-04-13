@@ -418,7 +418,6 @@ const CreateDispatch = () => {
 
         .error-modal {
           background: rgba(15, 23, 42, 0.98);
-          border: 1px solid rgba(248, 113, 113, 0.3);
           border-radius: 16px;
           padding: 24px 28px;
           max-width: 420px;
@@ -492,7 +491,7 @@ const CreateDispatch = () => {
           </p>
         </div>
 
-        {/* Modal de Error */}
+        {/* Modal de Error / Éxito */}
         {mensaje && (
           <div className="error-modal-overlay" onClick={() => setMensaje("")}>
             <div 
@@ -502,11 +501,11 @@ const CreateDispatch = () => {
               <div className="error-modal-content">
                 <div className="error-modal-icon">
                   {mensaje.toLowerCase().includes("error") || 
-                   mensaje.toLowerCase().includes("requerido") || 
-                   mensaje.toLowerCase().includes("existe") ? (
-                    <FiAlertCircle size={26} />
+                  mensaje.toLowerCase().includes("requerido") || 
+                  mensaje.toLowerCase().includes("existe") ? (
+                    <FiAlertCircle size={26} color="#F87171" />
                   ) : (
-                    <FiCheckCircle size={26} />
+                    <FiCheckCircle size={26} color="#4ADE80" />
                   )}
                 </div>
                 <div className="error-modal-text">
@@ -739,11 +738,13 @@ const CreateDispatch = () => {
               }}
             />
             <button
-              className="absolute top-3 right-3 flex items-center justify-center w-8 h-8 rounded-full text-white"
-              style={{ background: "rgba(248,113,113,0.8)" }}
+              className="absolute top-3 right-3 flex items-center justify-center w-8 h-8 rounded-full"
+              style={{ background: "rgba(248,113,113,0.9)", minWidth: "32px", minHeight: "32px" }}
               onClick={() => setSelectedImage(null)}
             >
-              <FiX size={15} />
+              <span style={{ display: "flex", alignItems: "center", justifyContent: "center", color: "white", lineHeight: 0 }}>
+                <FiX size={18} color="white" />
+              </span>
             </button>
           </div>
         </div>
