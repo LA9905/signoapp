@@ -224,7 +224,6 @@ const CreateProduction = () => {
 
         .error-modal {
           background: rgba(15, 23, 42, 0.98);
-          border: 1px solid rgba(248, 113, 113, 0.3);
           border-radius: 16px;
           padding: 24px 28px;
           max-width: 420px;
@@ -260,7 +259,6 @@ const CreateProduction = () => {
           flex: 1;
           font-size: 15px;
           line-height: 1.5;
-          color: #FEE2E2;
           word-break: break-word;
         }
 
@@ -303,13 +301,13 @@ const CreateProduction = () => {
           <div className="error-modal-overlay" onClick={() => setMensaje("")}>
             <div 
               className="error-modal" 
-              onClick={e => e.stopPropagation()}
+              onClick={e => e.stopPropagation()} style={{ borderColor: isError ? "rgba(248, 113, 113, 0.3)" : "rgba(96, 165, 250, 0.4)" }}
             >
               <div className="error-modal-content">
-                <div className="error-modal-icon">
+                <div className="error-modal-icon" style={{ color: isError ? "#F87171" : "#4ADE80" }}>
                   {isError ? <FiAlertCircle size={26} /> : <FiCheckCircle size={26} />}
                 </div>
-                <div className="error-modal-text">
+                <div className="error-modal-text" style={{ color: isError ? "#FEE2E2" : "#BFDBFE" }}>
                   {mensaje}
                 </div>
                 <button 
