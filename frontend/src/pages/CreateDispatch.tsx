@@ -738,11 +738,13 @@ const CreateDispatch = () => {
               }}
             />
             <button
-              className="absolute top-3 right-3 flex items-center justify-center w-8 h-8 rounded-full text-white"
-              style={{ background: "rgba(248,113,113,0.8)" }}
+              className="absolute top-3 right-3 flex items-center justify-center w-8 h-8 rounded-full"
+              style={{ background: "rgba(248,113,113,0.9)", minWidth: "32px", minHeight: "32px" }}
               onClick={() => setSelectedImage(null)}
             >
-              <FiX size={15} />
+              <span style={{ display: "flex", alignItems: "center", justifyContent: "center", color: "white", lineHeight: 0 }}>
+                <FiX size={18} color="white" />
+              </span>
             </button>
           </div>
         </div>
