@@ -47,6 +47,7 @@ const ProductionTracking = () => {
     productos: ProductoRow[];
   } | null>(null);
   const [productNames, setProductNames] = useState<string[]>([]);
+  const [productList, setProductList] = useState<{ name: string; usage: number }[]>([]);
   const [suggestions, setSuggestions] = useState<Record<number, string[]>>({});
   const [validationError, setValidationError] = useState<string | null>(null);
   const [dropdownPos, setDropdownPos] = useState<Record<number, { top: number; left: number; width: number }>>({});
@@ -75,6 +76,7 @@ const ProductionTracking = () => {
     try {
       const res = await api.get<Product[]>("/products");
       setProductNames(res.data.map((p) => p.name));
+      setProductList(res.data.map((p) => ({ name: p.name, usage: (p as any).usage || 0 })));
     } catch (err) {
       console.error("Error fetching products:", err);
       setMensaje("Error al cargar lista de productos");
@@ -672,9 +674,10 @@ const ProductionTracking = () => {
                                     const value = e.target.value;
                                     updateRow(idx, { nombre: value });
                                     if (value) {
-                                      const filtered = productNames.filter((n) =>
-                                        normalizeSearch(n).includes(normalizeSearch(value))
-                                      );
+                                      const filtered = productList
+                                        .filter((p) => normalizeSearch(p.name).includes(normalizeSearch(value)))
+                                        .sort((a, b) => b.usage - a.usage)
+                                        .map((p) => p.name);
                                       setSuggestions((prev) => ({ ...prev, [idx]: filtered }));
                                       const el = inputRefs.current[idx];
                                       if (el) {
