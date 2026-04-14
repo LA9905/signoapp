@@ -89,11 +89,13 @@ const ProductList = () => {
     me().then(res => setCanEditStock(!!res.data.can_edit_stock)).catch(() => setCanEditStock(false));
   }, []);
 
-  const filtered = products.filter((p) => {
-    const matchName = normalizeSearch(p.name).includes(normalizeSearch(search));
-    const matchCategory = !categoryFilter || p.category === categoryFilter;
-    return matchName && matchCategory;
-  });
+  const filtered = products
+    .filter((p) => {
+      const matchName = normalizeSearch(p.name).includes(normalizeSearch(search));
+      const matchCategory = !categoryFilter || p.category === categoryFilter;
+      return matchName && matchCategory;
+    })
+  .sort((a, b) => (b.usage || 0) - (a.usage || 0));
 
   const groupedProducts = filtered.reduce((acc, product) => {
     if (!acc[product.category]) acc[product.category] = [];
