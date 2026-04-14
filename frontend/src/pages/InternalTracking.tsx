@@ -785,7 +785,7 @@ const InternalTracking = () => {
                         </div>
                       </div>
 
-                      {/* Products edit */}
+                      {/* Products edit. */}
                       <div className="border-t border-blue-500/70 pt-3 mb-4">
                         <div className="flex items-center justify-between mb-3">
                           <p className="field-label-it">Productos</p>
