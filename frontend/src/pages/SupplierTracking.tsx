@@ -660,7 +660,7 @@ const SupplierTracking = () => {
                       </div>
 
                       {/* Products */}
-                      <div className="border-t border-white/5 pt-3">
+                      <div className="border-t border-blue-500/70 pt-3 mb-4">
                         <p className="field-label-st mb-2">Productos</p>
                         <div className="flex flex-col gap-1.5">
                           {r.productos.map((p, i) => (
@@ -707,7 +707,7 @@ const SupplierTracking = () => {
                       </div>
 
                       {/* Products edit */}
-                      <div className="border-t border-white/5 pt-4">
+                      <div className="border-t border-blue-500/70 pt-3 mb-4">
                         <div className="flex items-center justify-between mb-3">
                           <p className="field-label-st">Productos</p>
                           <button className="btn-action-st btn-add-prod-st" onClick={addRow} title="Agregar producto" aria-label="Agregar producto">

@@ -1106,7 +1106,7 @@ const Tracking = () => {
                       </div>
 
                       {/* Products edit */}
-                      <div className="border-t border-white/5 pt-4 mb-4">
+                      <div className="border-t border-blue-500/70 pt-3 mb-4">
                         <div className="flex items-center justify-between mb-3">
                           <p className="field-label-tr">Productos</p>
                           <button className="btn-action-tr btn-add-prod-tr" onClick={addRow} title="Agregar producto" aria-label="Agregar producto">
@@ -1204,7 +1204,7 @@ const Tracking = () => {
                       </div>
 
                       {/* Images edit */}
-                      <div className="border-t border-white/5 pt-4">
+                      <div className="border-t border-blue-500/70 pt-3 mb-4">
                         <p className="field-label-tr mb-3">Imágenes</p>
 
                         {/* Existing images */}
