@@ -615,7 +615,7 @@ const ProductionTracking = () => {
                       </div>
 
                       {/* Products */}
-                      <div className="border-t border-white/5 pt-3">
+                      <div className="border-t border-blue-500/70 pt-3 mb-4">
                         <p className="field-label-pt mb-2">Productos</p>
                         <div className="flex flex-col gap-1.5">
                           {p.productos.map((pr, i) => (
@@ -654,7 +654,7 @@ const ProductionTracking = () => {
                       </div>
 
                       {/* Products edit */}
-                      <div className="border-t border-white/5 pt-4">
+                      <div className="border-t border-blue-500/70 pt-3 mb-4">
                         <div className="flex items-center justify-between mb-3">
                           <p className="field-label-pt">Productos</p>
                           <button className="btn-action-pt btn-add-prod-pt" onClick={addRow} title="Agregar producto" aria-label="Agregar producto">

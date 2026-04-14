@@ -725,7 +725,7 @@ const InternalTracking = () => {
                     )}
 
                       {/* Products */}
-                      <div className="border-t border-white/5 pt-3">
+                      <div className="border-t border-blue-500/70 pt-3 mb-4">
                         <p className="field-label-it mb-2">Productos</p>
                         <div className="flex flex-col gap-1.5">
                           {int.productos.map((p, i) => (
@@ -786,7 +786,7 @@ const InternalTracking = () => {
                       </div>
 
                       {/* Products edit */}
-                      <div className="border-t border-white/5 pt-4">
+                      <div className="border-t border-blue-500/70 pt-3 mb-4">
                         <div className="flex items-center justify-between mb-3">
                           <p className="field-label-it">Productos</p>
                           <button className="btn-action-it btn-add-prod-it" onClick={addRow} title="Agregar producto" aria-label="Agregar producto">
