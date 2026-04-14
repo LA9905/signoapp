@@ -55,12 +55,13 @@ const CreateCreditNote = () => {
         if (Array.isArray(res.data)) {
           setProductos(
             res.data.map((p: any) => ({
-              id: String(p.id),
-              name: p.name,
-              cantidad: 0,
-              unidad: "unidades",
-              category: p.category,
-            }))
+            id: String(p.id),
+            name: p.name,
+            cantidad: 0,
+            unidad: "unidades",
+            category: p.category,
+            usage: p.usage || 0,
+          }))
           );
         } else {
           setProductos([]);

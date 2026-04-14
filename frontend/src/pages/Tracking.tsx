@@ -69,8 +69,8 @@ const Tracking = () => {
   } | null>(null);
   const [isLimited, setIsLimited] = useState(false);
 
+  const [productList, setProductList] = useState<{ name: string; usage: number }[]>([]);
   const [productNames, setProductNames] = useState<string[]>([]);
-  const [suggestions, setSuggestions] = useState<Record<number, string[]>>({});
 
   const { drivers } = useDrivers();
   const observer = useRef<IntersectionObserver | null>(null);
@@ -118,16 +118,18 @@ const Tracking = () => {
   const [scrollToId, setScrollToId] = useState<number | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [suggestions, setSuggestions] = useState<Record<number, string[]>>({});
 
   const fetchProducts = async () => {
-    try {
-      const res = await api.get<Product[]>("/products");
-      setProductNames(res.data.map((p) => p.name));
-    } catch (err) {
-      console.error("Error fetching products:", err);
-      setMensaje("Error al cargar lista de productos");
-    }
-  };
+  try {
+    const res = await api.get<Product[]>("/products");
+    setProductNames(res.data.map((p) => p.name));
+    setProductList(res.data.map((p) => ({ name: p.name, usage: (p as any).usage || 0 })));
+  } catch (err) {
+    console.error("Error fetching products:", err);
+    setMensaje("Error al cargar lista de productos");
+  }
+};
 
   const fetchDispatches = useCallback(
     async (params: SearchState, pageNum: number, append: boolean = false, signal?: AbortSignal) => {
@@ -1123,16 +1125,17 @@ const Tracking = () => {
                                     const value = e.target.value;
                                     updateRow(idx, { nombre: value });
                                     if (value) {
-                                      const filtered = productNames.filter((n) =>
-                                        normalizeSearch(n).includes(normalizeSearch(value))
-                                      );
+                                      const filtered = productList
+                                        .filter((p) => normalizeSearch(p.name).includes(normalizeSearch(value)))
+                                        .sort((a, b) => b.usage - a.usage)
+                                        .map((p) => p.name);
                                       setSuggestions((prev) => ({ ...prev, [idx]: filtered }));
                                     } else {
                                       setSuggestions((prev) => ({ ...prev, [idx]: [] }));
                                     }
                                   }}
                                   onBlur={() => setSuggestions((prev) => ({ ...prev, [idx]: [] }))}
-                                />
+                                  />
                                 {suggestions[idx]?.length > 0 && (
                                   <ul
                                     style={{

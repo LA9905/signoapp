@@ -388,9 +388,10 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
             onChange={(e) => {
               const value = e.target.value;
               setSearchProduct(value);
-              const match = existingProductos.find((p) =>
-                normalizeSearch(p.name).includes(normalizeSearch(value))
-              );
+              const matches = existingProductos
+                .filter((p) => normalizeSearch(p.name).includes(normalizeSearch(value)))
+                .sort((a, b) => (b.usage || 0) - (a.usage || 0));
+              const match = matches[0];
               if (match) {
                 setNewProduct({
                   ...match,

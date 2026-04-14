@@ -74,9 +74,9 @@ const StockMovements = () => {
       .catch(() => {});
   }, []);
 
-  const filteredProducts = products.filter((p) =>
-    normalizeSearch(p.name).includes(normalizeSearch(productSearch))
-  );
+  const filteredProducts = products
+  .filter((p) => normalizeSearch(p.name).includes(normalizeSearch(productSearch)))
+  .sort((a, b) => ((b as any).usage || 0) - ((a as any).usage || 0));
 
   const handleSelectProduct = (name: string) => {
     setSelectedProduct(name);
