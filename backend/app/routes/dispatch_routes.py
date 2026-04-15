@@ -179,6 +179,8 @@ def get_dispatches():
         search_driver = normalize_search(request.args.get("driver") or "")
         search_invoice = normalize_search(request.args.get("invoice") or "")
         search_product = normalize_search(request.args.get("product") or "")
+
+        pending_only = request.args.get("pending") == "1"
         
         page = int(request.args.get("page", 1))
         limit = int(request.args.get("limit", 10))
@@ -219,6 +221,9 @@ def get_dispatches():
                 normalize_db_column(DispatchProduct.nombre).like(f"%{search_product}%")
             )
             query = query.filter(subq)
+
+        if pending_only:
+            query = query.filter(Dispatch.delivered_client == False)
 
         apply_local_window_check = False
         win_start_local = None

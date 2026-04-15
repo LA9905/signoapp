@@ -50,6 +50,7 @@ type SearchState = {
   date_from: string;
   date_to: string;
   product: string;
+  pending: string;
 };
 
 const Tracking = () => {
@@ -87,6 +88,7 @@ const Tracking = () => {
     date_from: "",
     date_to: "",
     product: "",
+    pending: "0",
   });
 
   const [debouncedSearch, setDebouncedSearch] = useState<SearchState>(searchState);
@@ -900,6 +902,25 @@ const Tracking = () => {
                   className="input-tr w-full px-3 py-2.5"
                 />
               </div>
+            </div>
+
+            {/* filtro despachos Pendientes */}
+            <div className="flex items-center gap-2 pt-2">
+              <input
+                type="checkbox"
+                id="pending"
+                checked={searchState.pending === "1"}
+                onChange={(e) => 
+                  setSearchState(prev => ({ 
+                    ...prev, 
+                    pending: e.target.checked ? "1" : "0" 
+                  }))
+                }
+                className="w-4 h-4 accent-indigo-500 bg-transparent border-white/30 rounded focus:ring-indigo-500"
+              />
+              <label htmlFor="pending" className="text-sm text-white/90 cursor-pointer select-none">
+                Mostrar solo despachos Pendientes de entrega.
+              </label>
             </div>
 
             <div className="flex justify-end">

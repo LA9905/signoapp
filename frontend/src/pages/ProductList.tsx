@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
+import { flushSync } from "react-dom";
 import { normalizeSearch } from "../utils/normalizeSearch";
 import { FaRegEdit, FaTrashAlt, FaSave, FaTimes } from "react-icons/fa";
 import { FiDownload, FiPackage, FiSearch, FiFilter } from "react-icons/fi";
@@ -65,6 +66,10 @@ const ProductList = () => {
   const [categoryFilter, setCategoryFilter] = useState<string>("");
   const [adjust, setAdjust] = useState<AdjustState>({});
   const [stockDrafts, setStockDrafts] = useState<StockDraftState>({});
+  const scrollPositionRef = useRef<number>(0);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const stableOrderRef = useRef<number[]>([]);
+  const justSavedRef = useRef(false);
 
   const fetchProducts = async () => {
     try {
@@ -80,7 +85,11 @@ const ProductList = () => {
 
   useEffect(() => {
     fetchProducts();
-    const onFocus = () => fetchProducts();
+    const onFocus = () => {
+      if (containerRef.current) {
+        scrollPositionRef.current = containerRef.current.scrollTop;
+      }
+    };
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
   }, []);
@@ -89,13 +98,26 @@ const ProductList = () => {
     me().then(res => setCanEditStock(!!res.data.can_edit_stock)).catch(() => setCanEditStock(false));
   }, []);
 
-  const filtered = products
+    const filteredAndSorted = products
     .filter((p) => {
       const matchName = normalizeSearch(p.name).includes(normalizeSearch(search));
       const matchCategory = !categoryFilter || p.category === categoryFilter;
       return matchName && matchCategory;
     })
-  .sort((a, b) => (b.usage || 0) - (a.usage || 0));
+    .sort((a, b) => (b.usage || 0) - (a.usage || 0));
+
+    if (!editingId && !justSavedRef.current) {
+      stableOrderRef.current = filteredAndSorted.map((p) => p.id);
+    }
+
+    const filtered = [...filteredAndSorted].sort((a, b) => {
+      const ai = stableOrderRef.current.indexOf(a.id);
+      const bi = stableOrderRef.current.indexOf(b.id);
+      if (ai === -1 && bi === -1) return 0;
+      if (ai === -1) return 1;
+      if (bi === -1) return -1;
+      return ai - bi;
+    });
 
   const groupedProducts = filtered.reduce((acc, product) => {
     if (!acc[product.category]) acc[product.category] = [];
@@ -107,6 +129,7 @@ const ProductList = () => {
     setEditingId(p.id);
     setEditName(p.name);
     setEditCategory(p.category);
+    saveScrollPosition();
   };
 
   const cancelEdit = () => {
@@ -115,15 +138,54 @@ const ProductList = () => {
     setEditCategory("");
   };
 
-  const saveEdit = async (id: number) => {
+  const saveScrollPosition = () => {
+    if (containerRef.current) {
+      scrollPositionRef.current = containerRef.current.scrollTop;
+    }
+  };
+
+        const saveEdit = async (id: number) => {
     const name = editName.trim();
-    if (!name || !editCategory) { alert("Nombre y categoría son requeridos"); return; }
+    if (!name || !editCategory) {
+      alert("Nombre y categoría son requeridos");
+      return;
+    }
+
+    const scrollBefore = containerRef.current?.scrollTop ?? 0;
+
     try {
       const resp = await api.put<Product>(`/products/${id}`, { name, category: editCategory });
       const updated = resp.data;
-      setProducts((prev) => prev.map((p) => (p.id === id ? updated : p)));
-      setStockDrafts((prev) => ({ ...prev, [id]: undefined }));
-      cancelEdit();
+      justSavedRef.current = true;
+
+      flushSync(() => {
+        setProducts((prev) => prev.map((p) => (p.id === id ? updated : p)));
+        setStockDrafts((prev) => ({ ...prev, [id]: undefined }));
+        setEditingId(null);
+        setEditName("");
+        setEditCategory("");
+      });
+
+      justSavedRef.current = false;
+
+      if (containerRef.current) {
+        containerRef.current.scrollTop = scrollBefore;
+      }
+      
+      const el = document.querySelector<HTMLElement>(`[data-product-id="${id}"]`);
+      if (el) {
+        const container = containerRef.current;
+        if (container) {
+          const elTop = el.offsetTop;
+          const elBottom = elTop + el.offsetHeight;
+          const viewTop = container.scrollTop;
+          const viewBottom = viewTop + container.clientHeight;
+          if (elTop < viewTop || elBottom > viewBottom) {
+            el.scrollIntoView({ block: "center" });
+          }
+        }
+      }
+
     } catch (err: any) {
       console.error("Error updating product:", err?.response?.data || err?.message);
       alert(err?.response?.data?.error || "No se pudo actualizar el producto");
@@ -318,9 +380,9 @@ const ProductList = () => {
         }
         .fade-in { animation: fade-in 0.3s ease both; }
 
-        .scrollbar-thin::-webkit-scrollbar { width: 4px; height: 4px; }
+        .scrollbar-thin::-webkit-scrollbar { width: 8px; height: 8px; }
         .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
-        .scrollbar-thin::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+        .scrollbar-thin::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.3); border-radius: 2px; }
 
         .product-name {
           word-break: break-word;
@@ -341,7 +403,11 @@ const ProductList = () => {
 
       `}</style>
 
-      <div className="max-w-5xl mx-auto px-4 pt-4 pb-20">
+            <div 
+              ref={containerRef}
+              className="max-w-5xl mx-auto px-4 pt-4 pb-20 scrollbar-thin"
+              style={{ height: "calc(100dvh - 50px)", overflowY: "auto" }}
+            >
 
         <div className="mb-8">
           <ArrowBackButton />
@@ -468,6 +534,7 @@ const ProductList = () => {
                 return (
                   <div
                     key={product.id}
+                    data-product-id={product.id}
                     className={`row-product px-4 py-3 ${pi < groupedProducts[category].length - 1 ? "border-b border-white/[0.045]" : ""}`}
                   >
                     {!isEditing ? (
