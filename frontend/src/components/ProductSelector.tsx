@@ -1,5 +1,6 @@
 import { useState, type ChangeEvent } from "react";
 import { normalizeSearch } from "../utils/normalizeSearch";
+import { detectUnit } from "../utils/detectUnit";
 import { FaRegEdit, FaTrashAlt, FaSave, FaTimes } from "react-icons/fa";
 import { FiSearch, FiPlus } from "react-icons/fi";
 
@@ -73,18 +74,19 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
   ];
 
   const handleAddProduct = () => {
-    if (newProduct.name && newProduct.cantidad > 0) {
-      const updatedProduct: Producto = {
-        ...newProduct,
-        id: newProduct.id || Date.now().toString(),
-        category: selectedCategory,
-      };
-      setProductos([...productos, updatedProduct]);
-      setNewProduct({ id: "", name: "", cantidad: 0, unidad: "unidades" });
-      setSelectedCategory("Otros");
-      setShowNewProduct(false);
-    }
-  };
+      if (newProduct.name && newProduct.cantidad > 0) {
+        const updatedProduct: Producto = {
+          ...newProduct,
+          id: newProduct.id || Date.now().toString(),
+          category: selectedCategory,
+          unidad: detectUnit(newProduct.name),
+        };
+        setProductos([...productos, updatedProduct]);
+        setNewProduct({ id: "", name: "", cantidad: 0, unidad: "unidades" });
+        setSelectedCategory("Otros");
+        setShowNewProduct(false);
+      }
+    };
 
   const handleSelectProduct = (selectedId: string) => {
     const selectedProduct = existingProductos.find((p) => p.id === selectedId);
@@ -92,6 +94,7 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
       setNewProduct({
         ...selectedProduct,
         cantidad: selectedProduct.cantidad,
+        unidad: detectUnit(selectedProduct.name),
       });
       if (selectedProduct.category) setSelectedCategory(selectedProduct.category);
     }
@@ -396,6 +399,7 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
                 setNewProduct({
                   ...match,
                   cantidad: newProduct.cantidad,
+                  unidad: detectUnit(match.name),
                 });
                 if (match.category) setSelectedCategory(match.category);
               } else {

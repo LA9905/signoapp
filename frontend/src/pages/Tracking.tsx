@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback, type ChangeEvent } from "react";
 import { normalizeSearch } from "../utils/normalizeSearch";
+import { detectUnit } from "../utils/detectUnit";
 import type { AxiosError, AxiosResponse } from "axios";
 import { FiEdit2, FiTrash2, FiSave, FiX, FiPlus, FiMinus, FiDownload, FiSearch, FiFileText, FiPrinter, FiTruck, FiCheckCircle } from "react-icons/fi";
 import ClientSelector from "../components/ClientSelector";
@@ -1164,11 +1165,11 @@ const Tracking = () => {
                                         }}
                                         onMouseEnter={(e) => (e.currentTarget.style.background = "#1E40AF")}
                                         onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                                        onMouseDown={() => {
-                                          updateRow(idx, { nombre: sug });
-                                          setSuggestions((prev) => ({ ...prev, [idx]: [] }));
-                                        }}
-                                      >
+                                          onMouseDown={() => {
+                                            updateRow(idx, { nombre: sug, unidad: detectUnit(sug) });
+                                            setSuggestions((prev) => ({ ...prev, [idx]: [] }));
+                                          }}
+                                        >
                                         {sug}
                                       </li>
                                     ))}
