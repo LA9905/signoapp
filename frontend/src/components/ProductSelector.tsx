@@ -291,7 +291,7 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
                         </span>
                         <span 
                           className="prd-item-meta" 
-                          style={{ whiteSpace: "nowrap", color: "rgba(99,102,241,0.8)", fontSize: "13px", fontWeight: "500" }}
+                          style={{ whiteSpace: "nowrap", color: "rgba(251, 191, 36, 0.95)", fontSize: "13px", fontWeight: "500" }}
                         >
                           {p.cantidad} {p.unidad}
                         </span>
