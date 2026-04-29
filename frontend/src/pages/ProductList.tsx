@@ -1,9 +1,9 @@
 import { useEffect, useState, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { flushSync } from "react-dom";
 import { normalizeSearch } from "../utils/normalizeSearch";
 import { FaRegEdit, FaTrashAlt, FaSave, FaTimes } from "react-icons/fa";
-import { FiDownload, FiPackage, FiSearch, FiFilter } from "react-icons/fi";
-import ArrowBackButton from "../components/ArrowBackButton";
+import { FiDownload, FiPackage, FiSearch, FiFilter, FiArrowLeft } from "react-icons/fi";
 import { api } from "../services/http";
 import { me } from "../services/authService";
 import * as XLSX from "xlsx";
@@ -66,6 +66,7 @@ const ProductList = () => {
   const [categoryFilter, setCategoryFilter] = useState<string>("");
   const [adjust, setAdjust] = useState<AdjustState>({});
   const [stockDrafts, setStockDrafts] = useState<StockDraftState>({});
+  const navigate = useNavigate();
   const scrollPositionRef = useRef<number>(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const stableOrderRef = useRef<number[]>([]);
@@ -410,7 +411,13 @@ const ProductList = () => {
             >
 
         <div className="mb-8">
-          <ArrowBackButton />
+          <button
+            onClick={() => navigate("/dashboard")}
+            className="p-2 rounded-full bg-white/10 text-white border border-white/50 hover:bg-white/20 transition-colors"
+            aria-label="Volver"
+          >
+            <FiArrowLeft size={20} />
+          </button>
         </div>
 
         {/* Header */}
