@@ -6,9 +6,11 @@ import { NavBar, Footer } from "./Home";
 
 const Register: React.FC = () => {
   const navigate = useNavigate();
-  const [form, setForm] = useState({ name: "", email: "", password: "", gender: "" });
+  const [form, setForm] = useState({ name: "", email: "", password: "", confirm: "", gender: "" });
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -17,6 +19,10 @@ const Register: React.FC = () => {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
+    if (form.password !== form.confirm) {
+      setError("Las contraseñas no coinciden");
+      return;
+    }
     setSubmitting(true);
     try {
       await api.post("/auth/register", form);
@@ -174,15 +180,66 @@ const Register: React.FC = () => {
 
               <div>
                 <label className="block text-xs font-medium text-white/50 mb-1.5">Contraseña</label>
-                <input
-                  type="password"
-                  name="password"
-                  placeholder="••••••••"
-                  value={form.password}
-                  onChange={handleChange}
-                  required
-                  className="input-field w-full px-4 py-2.5 rounded-xl text-sm text-white placeholder-white/20"
-                />
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    name="password"
+                    placeholder="••••••••"
+                    value={form.password}
+                    onChange={handleChange}
+                    required
+                    className="input-field w-full px-4 py-2.5 rounded-xl text-sm text-white placeholder-white/20 pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-white/25 hover:text-white/45 transition-colors focus:outline-none bg-transparent border-0 p-0"
+                  >
+                    {showPassword ? (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5 16.477 5 20.268 7.943 21.542 12 20.268 16.057 16.477 19 12 19 7.523 19 3.732 16.057 2.458 12z" />
+                      </svg>
+                    ) : (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908l3.42 3.42m-3.42-3.42l3.42-3.42" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 3l18 18" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              </div>
+                  
+              <div>
+                <label className="block text-xs font-medium text-white/50 mb-1.5">Confirmar contraseña</label>
+                <div className="relative">
+                  <input
+                    type={showConfirm ? "text" : "password"}
+                    name="confirm"
+                    placeholder="••••••••"
+                    value={form.confirm}
+                    onChange={handleChange}
+                    required
+                    className="input-field w-full px-4 py-2.5 rounded-xl text-sm text-white placeholder-white/20 pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirm(!showConfirm)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-white/25 hover:text-white/45 transition-colors focus:outline-none bg-transparent border-0 p-0"
+                  >
+                    {showConfirm ? (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5 16.477 5 20.268 7.943 21.542 12 20.268 16.057 16.477 19 12 19 7.523 19 3.732 16.057 2.458 12z" />
+                      </svg>
+                    ) : (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908l3.42 3.42m-3.42-3.42l3.42-3.42" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 3l18 18" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
               </div>
 
               <button

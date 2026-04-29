@@ -113,11 +113,13 @@ def get_internal_consumptions():
         if date_from_str:
             date_from = datetime.strptime(date_from_str, "%Y-%m-%d")
             query = query.filter(InternalConsumption.fecha >= to_utc_naive(date_from.replace(tzinfo=CL_TZ)))
+            if not date_to_str:
+                query = query.filter(InternalConsumption.fecha < to_utc_naive((date_from + timedelta(days=1)).replace(tzinfo=CL_TZ)))
 
         if date_to_str:
             date_to = datetime.strptime(date_to_str, "%Y-%m-%d")
             query = query.filter(InternalConsumption.fecha < to_utc_naive((date_to + timedelta(days=1)).replace(tzinfo=CL_TZ)))
-
+        
         query = query.order_by(InternalConsumption.fecha.asc())
 
         # Aplicar paginación o fetching completo según parámetro 'all'
