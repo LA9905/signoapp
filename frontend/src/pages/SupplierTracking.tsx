@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback, type ChangeEvent } from "react";
 import { createPortal } from "react-dom";
 import { normalizeSearch } from "../utils/normalizeSearch";
+import { detectUnit } from "../utils/detectUnit";
 import type { AxiosError } from "axios";
 import { FiEdit2, FiTrash2, FiSave, FiX, FiPlus, FiMinus, FiDownload, FiSearch, FiFileText } from "react-icons/fi";
 import SupplierSelector from "../components/SupplierSelector";
@@ -776,7 +777,7 @@ const SupplierTracking = () => {
                                         onMouseEnter={(e) => (e.currentTarget.style.background = "#1E40AF")}
                                         onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                                         onMouseDown={() => {
-                                          updateRow(idx, { nombre: sug });
+                                          updateRow(idx, { nombre: sug, unidad: detectUnit(sug) });
                                           setSuggestions((prev) => ({ ...prev, [idx]: [] }));
                                         }}
                                       >

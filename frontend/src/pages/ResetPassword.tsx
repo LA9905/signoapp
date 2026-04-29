@@ -4,13 +4,16 @@ import { api } from "../services/http";
 
 const ResetPassword: React.FC = () => {
   const navigate = useNavigate();
-  const [form, setForm] = useState<{ email: string; code: string; new_password: string }>({
+  const [form, setForm] = useState<{ email: string; code: string; new_password: string; confirm_password: string }>({
     email: "",
     code: "",
     new_password: "",
+    confirm_password: "",
   });
   const [msg, setMsg] = useState<string>("");
   const [error, setError] = useState<string>("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -19,6 +22,10 @@ const ResetPassword: React.FC = () => {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError(""); setMsg("");
+    if (form.new_password !== form.confirm_password) {
+      setError("Las contraseñas no coinciden");
+      return;
+    }
     try {
       await api.post("/auth/reset-password", form);
       setMsg("Contraseña actualizada");
@@ -213,15 +220,71 @@ const ResetPassword: React.FC = () => {
               {/* Nueva contraseña */}
               <div>
                 <label className="rp-field-label">Nueva contraseña</label>
-                <input
-                  className="rp-input"
-                  type="password"
-                  name="new_password"
-                  placeholder="Mínimo 8 caracteres"
-                  value={form.new_password}
-                  onChange={handleChange}
-                  required
-                />
+                <div style={{ position: "relative" }}>
+                  <input
+                    className="rp-input"
+                    type={showPassword ? "text" : "password"}
+                    name="new_password"
+                    placeholder="Mínimo 8 caracteres"
+                    value={form.new_password}
+                    onChange={handleChange}
+                    required
+                    style={{ paddingRight: "36px" }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    style={{ position: "absolute", right: "10px", top: "50%", transform: "translateY(-50%)", background: "transparent", border: "none", padding: 0, cursor: "pointer" }}
+                    className="text-white/25 hover:text-white/45 transition-colors focus:outline-none"
+                  >
+                    {showPassword ? (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5 16.477 5 20.268 7.943 21.542 12 20.268 16.057 16.477 19 12 19 7.523 19 3.732 16.057 2.458 12z" />
+                      </svg>
+                    ) : (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908l3.42 3.42m-3.42-3.42l3.42-3.42" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 3l18 18" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Confirmar contraseña */}
+              <div>
+                <label className="rp-field-label">Confirmar contraseña</label>
+                <div style={{ position: "relative" }}>
+                  <input
+                    className="rp-input"
+                    type={showConfirm ? "text" : "password"}
+                    name="confirm_password"
+                    placeholder="Repite la contraseña"
+                    value={form.confirm_password}
+                    onChange={handleChange}
+                    required
+                    style={{ paddingRight: "36px" }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirm(!showConfirm)}
+                    style={{ position: "absolute", right: "10px", top: "50%", transform: "translateY(-50%)", background: "transparent", border: "none", padding: 0, cursor: "pointer" }}
+                    className="text-white/25 hover:text-white/45 transition-colors focus:outline-none"
+                  >
+                    {showConfirm ? (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5 16.477 5 20.268 7.943 21.542 12 20.268 16.057 16.477 19 12 19 7.523 19 3.732 16.057 2.458 12z" />
+                      </svg>
+                    ) : (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908l3.42 3.42m-3.42-3.42l3.42-3.42" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 3l18 18" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
               </div>
 
               <hr className="rp-divider" style={{ margin: "4px 0" }} />

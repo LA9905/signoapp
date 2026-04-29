@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { normalizeSearch } from "../utils/normalizeSearch";
+import { detectUnit } from "../utils/detectUnit";
 import type { AxiosError } from "axios";
 import { FiEdit2, FiTrash2, FiSave, FiX, FiPlus, FiMinus, FiDownload, FiPrinter, FiSearch, FiFileText } from "react-icons/fi";
 import ArrowBackButton from "../components/ArrowBackButton";
@@ -785,7 +786,7 @@ const InternalTracking = () => {
                         </div>
                       </div>
 
-                      {/* Products edit */}
+                      {/* Products edit. */}
                       <div className="border-t border-blue-500/70 pt-3 mb-4">
                         <div className="flex items-center justify-between mb-3">
                           <p className="field-label-it">Productos</p>
@@ -856,7 +857,7 @@ const InternalTracking = () => {
                                         onMouseEnter={(e) => (e.currentTarget.style.background = "#1E40AF")}
                                         onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                                         onMouseDown={() => {
-                                          updateRow(idx, { nombre: sug });
+                                          updateRow(idx, { nombre: sug, unidad: detectUnit(sug) });
                                           setSuggestions((prev) => ({ ...prev, [idx]: [] }));
                                         }}
                                       >
