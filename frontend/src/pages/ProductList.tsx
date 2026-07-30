@@ -48,6 +48,7 @@ const categories = [
   "Envases contenedores de aluminio",
   "Blondas redondas, rectangulares y capsulas",
   "Servilletas",
+  "Productos estancados y que no se venden",
   "Otros",
 ];
 

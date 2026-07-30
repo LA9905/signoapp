@@ -3,6 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { api } from "../services/http";
 import { NavBar, Footer } from "./Home";
+import AnniversaryBanner from "./AnniversaryBanner";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -108,6 +109,8 @@ const Login = () => {
       `}</style>
 
       <NavBar hideLogin />
+
+      <AnniversaryBanner />
 
       <div className="flex-1 flex items-center justify-center px-4 py-16 relative">
         {/* Background glow */}

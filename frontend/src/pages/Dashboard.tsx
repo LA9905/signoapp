@@ -180,6 +180,7 @@
 import { useEffect, useState } from "react";
 import type { AxiosResponse } from "axios";
 import NavbarUser from "../components/NavbarUser";
+import DashboardAnniversaryBanner from "../components/DashboardAnniversaryBanner";
 import ChartMonthlyOrders from "../components/ChartMonthlyOrders";
 import { useNavigate } from "react-router-dom";
 import { api } from "../services/http";
@@ -404,6 +405,8 @@ const Dashboard: React.FC = () => {
       `}</style>
 
       <NavbarUser avatarUrl={avatarUrl} />
+
+      <DashboardAnniversaryBanner />
 
       <div className="max-w-5xl mx-auto px-4 py-8">
 
