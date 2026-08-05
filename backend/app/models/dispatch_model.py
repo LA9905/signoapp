@@ -24,6 +24,10 @@ class Dispatch(db.Model):
     delivered_client = db.Column(db.Boolean, nullable=False, default=False)
     delivered_driver_at = db.Column(db.DateTime, nullable=True)
     delivered_client_at = db.Column(db.DateTime, nullable=True)
+    # True si el estado "entregado" actual fue puesto por la lógica automática
+    # de chofer (no por una acción manual). Se usa para saber si al cambiar
+    # el chofer en una edición corresponde revertir a "pendiente" o no.
+    auto_delivered = db.Column(db.Boolean, nullable=False, default=False)
 
     # Relaciones
     productos = db.relationship('DispatchProduct', backref='dispatch', lazy=True, cascade="all, delete-orphan")

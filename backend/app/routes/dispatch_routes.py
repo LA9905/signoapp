@@ -33,6 +33,25 @@ def get_public_id(url):
         pass
     return None
 
+# === CHOFERES QUE MARCAN EL DESPACHO COMO "PEDIDO ENTREGADO" AUTOMÁTICAMENTE === #
+AUTO_DELIVER_DRIVERS = {
+    "Andri Alvarez",
+    "Don César Méndez",
+    "Don Luis Méndez",
+    "Encomienda",
+    "Fernando Chalbaud",
+    "Frank Flores",
+    "Luis Miguel Méndez",
+    "PELICANO",
+    "Retira Cliente",
+}
+_AUTO_DELIVER_DRIVERS_NORM = {n.strip().lower() for n in AUTO_DELIVER_DRIVERS}
+
+def is_auto_deliver_driver(name):
+    if not name:
+        return False
+    return name.strip().lower() in _AUTO_DELIVER_DRIVERS_NORM
+
 from flask_cors import CORS, cross_origin
 
 dispatch_bp = Blueprint("dispatches", __name__)
@@ -120,6 +139,15 @@ def create_dispatch():
             client_name=cliente.name, 
         )
         new_dispatch.fecha = to_utc_naive(datetime.now(CL_TZ))
+
+        if is_auto_deliver_driver(chofer.name):
+            now_auto = to_utc_naive(datetime.now(CL_TZ))
+            new_dispatch.delivered_driver = True
+            new_dispatch.delivered_driver_at = now_auto
+            new_dispatch.delivered_client = True
+            new_dispatch.delivered_client_at = now_auto
+            new_dispatch.status = "entregado_cliente"
+            new_dispatch.auto_delivered = True
 
         db.session.add(new_dispatch)
         db.session.flush()
@@ -346,6 +374,12 @@ def update_dispatch(dispatch_id):
             return jsonify({"error": "Faltan datos"}), 400
         data = json.loads(request.form['data'])
 
+        # Estado original antes de aplicar cualquier cambio de esta edición.
+        # Sirve para detectar si el usuario cambió el status manualmente
+        # (vía el selector) o si sigue igual (y por lo tanto puede aplicarse
+        # la lógica automática de chofer).
+        orig_status = d.status
+
         # Verificar duplicados de orden y factura en edición
         new_orden = data.get("orden") or d.orden
         new_factura = (data.get("factura_numero") or "").strip() or None
@@ -389,6 +423,8 @@ def update_dispatch(dispatch_id):
                 db.session.flush()
             d.cliente_id = cliente.id
             d.client_name = cliente.name
+
+        old_chofer_name = d.chofer_name
         if "chofer" in data and data["chofer"]:
             chofer = Driver.query.get(int(data["chofer"]))
             if chofer:
@@ -398,7 +434,13 @@ def update_dispatch(dispatch_id):
         if "paquete_numero" in data: d.paquete_numero = data.get("paquete_numero") or None
         if "factura_numero" in data: d.factura_numero = (data.get("factura_numero") or "").strip() or None
 
-        if "status" in data and data["status"]:
+        status_changed_explicitly = (
+            "status" in data and data["status"] and data["status"] != orig_status
+        )
+
+        if status_changed_explicitly:
+            # El usuario cambió el status manualmente (selector) en esta edición.
+            # Esto tiene prioridad absoluta sobre la lógica automática de chofer.
             new_status = data["status"]
             if new_status == "entregado_cliente":
                 d.delivered_client = True
@@ -406,18 +448,45 @@ def update_dispatch(dispatch_id):
                 d.status = "entregado_cliente"
                 d.delivered_driver = True
                 d.delivered_driver_at = datetime.utcnow()
+                d.auto_delivered = False
             elif new_status == "entregado_chofer":
                 d.delivered_driver = True
                 d.delivered_driver_at = datetime.utcnow()
                 d.delivered_client = False
                 d.delivered_client_at = None
                 d.status = "entregado_chofer"
+                d.auto_delivered = False
             elif new_status == "pendiente":
                 d.delivered_driver = False
                 d.delivered_driver_at = None
                 d.delivered_client = False
                 d.delivered_client_at = None
                 d.status = "pendiente"
+                d.auto_delivered = False
+        elif d.chofer_name != old_chofer_name:
+            # El status no fue tocado manualmente en esta edición, pero el
+            # chofer sí cambió: aplicar la lógica automática según el listado.
+            was_auto_driver = is_auto_deliver_driver(old_chofer_name)
+            is_auto_driver = is_auto_deliver_driver(d.chofer_name)
+
+            if is_auto_driver and not was_auto_driver:
+                now_auto = datetime.utcnow()
+                d.delivered_driver = True
+                d.delivered_driver_at = now_auto
+                d.delivered_client = True
+                d.delivered_client_at = now_auto
+                d.status = "entregado_cliente"
+                d.auto_delivered = True
+            elif was_auto_driver and not is_auto_driver and d.auto_delivered:
+                # Solo revertir a pendiente si el estado de entrega actual fue
+                # puesto por la lógica automática, no si alguien lo confirmó
+                # manualmente (en ese caso se respeta y no se toca).
+                d.delivered_driver = False
+                d.delivered_driver_at = None
+                d.delivered_client = False
+                d.delivered_client_at = None
+                d.status = "pendiente"
+                d.auto_delivered = False
 
         if "productos" in data and isinstance(data["productos"], list):
             old_qty = {item.nombre: float(item.cantidad or 0) for item in d.productos}
@@ -510,6 +579,7 @@ def mark_driver_delivered(dispatch_id):
             d.delivered_driver = True
             d.delivered_driver_at = datetime.utcnow()
             d.status = "entregado_chofer"
+            d.auto_delivered = False
             db.session.commit()
         creator = User.query.get(d.created_by)
         result = d.to_dict()
@@ -530,6 +600,7 @@ def mark_client_delivered(dispatch_id):
         d.status = "entregado_cliente"
         d.delivered_driver = True
         d.delivered_driver_at = datetime.utcnow()
+        d.auto_delivered = False
         db.session.commit()
         creator = User.query.get(d.created_by)
         result = d.to_dict()
