@@ -105,6 +105,7 @@ def create_app():
             supplier_model,
             receipt_model,
             operator_model,
+            operator_activity_model,
             production_model,
             credit_note_model,
         )
@@ -126,6 +127,7 @@ def create_app():
     from .routes.internal_consumption_routes import internal_bp
     from .routes.operator_routes import operator_bp
     from .routes.production_routes import production_bp
+    from .routes.operator_performance_routes import performance_bp
     from .routes.credit_note_routes import credit_note_bp
     from .routes.stock_movement_routes import stock_movement_bp
     from .routes.survey_routes import survey_api_bp, survey_public_bp
@@ -143,6 +145,7 @@ def create_app():
     app.register_blueprint(internal_bp, url_prefix="/api")
     app.register_blueprint(operator_bp, url_prefix="/api")
     app.register_blueprint(production_bp, url_prefix="/api")
+    app.register_blueprint(performance_bp, url_prefix="/api")
     app.register_blueprint(credit_note_bp, url_prefix="/api")
     app.register_blueprint(stock_movement_bp, url_prefix="/api")
     app.register_blueprint(survey_api_bp)        # → /api/survey/submit
