@@ -101,12 +101,14 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { FiMenu } from "react-icons/fi";
 
 interface NavbarUserProps {
   avatarUrl: string | null;
+  onMenuClick: () => void;
 }
 
-const NavbarUser: React.FC<NavbarUserProps> = ({ avatarUrl }) => {
+const NavbarUser: React.FC<NavbarUserProps> = ({ avatarUrl, onMenuClick }) => {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const name = localStorage.getItem("name") || "Usuario";
@@ -129,6 +131,7 @@ const NavbarUser: React.FC<NavbarUserProps> = ({ avatarUrl }) => {
   }, []);
 
   return (
+   
     <div
       style={{
         display: "flex",
@@ -137,7 +140,7 @@ const NavbarUser: React.FC<NavbarUserProps> = ({ avatarUrl }) => {
         background: "rgba(8,12,20,0.95)",
         borderBottom: "1px solid rgba(99,102,241,0.18)",
         padding: "10px 16px",
-        gap: "16px",
+        gap: "10px",
         width: "100%",
         position: "sticky",
         top: 0,
@@ -146,13 +149,49 @@ const NavbarUser: React.FC<NavbarUserProps> = ({ avatarUrl }) => {
         fontFamily: "'DM Sans', sans-serif",
       }}
     >
-      {/* Logo + nombre */}
-      <div style={{ display: "flex", alignItems: "center", gap: "12px", flexShrink: 0 }}>
+      {/* Menú + Logo + nombre */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "10px",
+          minWidth: 0,
+          flexShrink: 1,
+        }}
+      >
+        <button
+          onClick={onMenuClick}
+          aria-label="Abrir menú"
+          type="button"
+          style={{
+            width: "34px",
+            height: "34px",
+            minWidth: "34px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            borderRadius: "9px",
+            background: "rgba(99,102,241,0.12)",
+            border: "1px solid rgba(129,140,248,0.3)",
+            color: "#A5B4FC",
+            cursor: "pointer",
+            padding: 0,
+            flexShrink: 0,
+          }}
+        >
+          <FiMenu size={19} />
+        </button>
+
         <img
           src="/SignoApp.svg"
           alt="Logo SignoApp"
-          style={{ height: "40px", width: "auto" }}
+          style={{
+            height: "40px",
+            width: "auto",
+            flexShrink: 0,
+          }}
         />
+
         <span
           style={{
             fontSize: "clamp(16px, 3vw, 20px)",
@@ -168,17 +207,24 @@ const NavbarUser: React.FC<NavbarUserProps> = ({ avatarUrl }) => {
       </div>
 
       {/* Botón de perfil */}
-      <div style={{ position: "relative" }} ref={dropdownRef}>
+      <div
+        style={{
+          position: "relative",
+          minWidth: 0,
+          flexShrink: 1,
+        }}
+        ref={dropdownRef}
+      >
         <button
           onClick={() => setOpen(!open)}
           style={{
             display: "flex",
             alignItems: "center",
-            gap: "10px",
+            gap: "8px",
             background: "rgba(255,255,255,0.05)",
             border: "1px solid rgba(255,255,255,0.1)",
             borderRadius: "40px",
-            padding: "6px 14px 6px 6px",
+            padding: "5px 10px 5px 5px",
             cursor: "pointer",
             transition: "background .15s, border-color .15s",
             outline: "none",
@@ -196,8 +242,8 @@ const NavbarUser: React.FC<NavbarUserProps> = ({ avatarUrl }) => {
             src={avatarUrl || "/avatar3.png"}
             alt="Perfil"
             style={{
-              width: "32px",
-              height: "32px",
+              width: "30px",
+              height: "30px",
               borderRadius: "50%",
               objectFit: "cover",
               border: "2px solid rgba(99,102,241,0.4)",
@@ -212,10 +258,12 @@ const NavbarUser: React.FC<NavbarUserProps> = ({ avatarUrl }) => {
               fontWeight: 500,
               fontSize: "14px",
               color: "rgba(255,255,255,0.85)",
-              maxWidth: "140px",
+              maxWidth: "clamp(90px, 18vw, 180px)",
               overflow: "hidden",
               textOverflow: "ellipsis",
               whiteSpace: "nowrap",
+              flex: "1 1 auto",
+              minWidth: 0,
               fontFamily: "'DM Sans', sans-serif",
             }}
           >
@@ -223,8 +271,8 @@ const NavbarUser: React.FC<NavbarUserProps> = ({ avatarUrl }) => {
           </span>
           <svg
             style={{
-              width: "14px",
-              height: "14px",
+              width: "13px",
+              height: "13px",
               flexShrink: 0,
               transition: "transform .2s",
               transform: open ? "rotate(180deg)" : "rotate(0deg)",

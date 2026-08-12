@@ -186,6 +186,7 @@ import { useNavigate } from "react-router-dom";
 import { api } from "../services/http";
 import { me } from "../services/authService";
 import type { MeResp } from "../types";
+import Sidebar from "../components/Sidebar";
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -199,6 +200,7 @@ const Dashboard: React.FC = () => {
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const handleStart = () => navigate("/CreateDispatch");
 
@@ -404,8 +406,9 @@ const Dashboard: React.FC = () => {
         .fade-in { animation: fade-in .3s ease both; }
       `}</style>
 
-      <NavbarUser avatarUrl={avatarUrl} />
+      <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
 
+      <NavbarUser avatarUrl={avatarUrl} onMenuClick={() => setIsSidebarOpen(true)} />
       <DashboardAnniversaryBanner />
 
       <div className="max-w-5xl mx-auto px-4 py-8">
