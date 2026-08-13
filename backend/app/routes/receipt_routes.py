@@ -292,7 +292,19 @@ def update_receipt(receipt_id):
             )
 
         db.session.commit()
-        return jsonify(receipt.to_dict()), 200
+
+        creator = User.query.get(receipt.created_by)
+        return jsonify({
+            "id": receipt.id,
+            "orden": receipt.orden,
+            "supplier": supplier.name,
+            "created_by": creator.name if creator else receipt.created_by,
+            "fecha": to_local(receipt.fecha).isoformat(timespec="seconds"),
+            "status": receipt.status or "pendiente",
+            "productos": [
+                {"nombre": p.nombre, "cantidad": p.cantidad, "unidad": p.unidad} for p in receipt.productos
+            ],
+        }), 200
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": "No se pudo actualizar la recepción", "details": str(e)}), 500
