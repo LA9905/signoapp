@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify, current_app
 from app import db
 from app.models.dispatch_model import Dispatch, DispatchProduct, DispatchImage
+from app.models.dispatch_edit_model import DispatchEditLog
 from app.models.client_model import Client
 from app.models.driver_model import Driver
 from app.models.user_model import User
@@ -388,6 +389,16 @@ def update_dispatch(dispatch_id):
         # lógica automática de chofer sin que este bloque la sobrescriba.
         orig_status = d.status
 
+        # Estado original adicional, para el historial de ediciones (rendimiento
+        # del equipo de logística): qué se corrigió respecto a como se creó
+        # originalmente el despacho (orden, chofer o productos).
+        orig_orden = d.orden
+        orig_chofer_id = d.chofer_id
+        orig_productos_set = {
+            (p.nombre.strip(), round(float(p.cantidad or 0), 4), p.unidad)
+            for p in d.productos
+        }
+
         # Verificar duplicados de orden y factura en edición
         new_orden = data.get("orden") or d.orden
         new_factura = (data.get("factura_numero") or "").strip() or None
@@ -524,6 +535,32 @@ def update_dispatch(dispatch_id):
             if img:
                 res = cloudinary.uploader.upload(img, folder="dispatches")
                 db.session.add(DispatchImage(dispatch_id=d.id, image_url=res['secure_url']))
+
+        # Registrar la edición para el rendimiento del equipo de logística:
+        # qué se tuvo que corregir en este despacho respecto a como fue
+        # creado originalmente.
+        motivos_edicion = []
+        if "orden" in data and data["orden"] and data["orden"] != orig_orden:
+            motivos_edicion.append("orden")
+        if "chofer" in data and data["chofer"] and int(data["chofer"]) != orig_chofer_id:
+            motivos_edicion.append("chofer")
+        if "productos" in data and isinstance(data["productos"], list):
+            nuevo_productos_set = {
+                ((p["nombre"] or "").strip(), round(float(p["cantidad"] or 0), 4), p["unidad"])
+                for p in data["productos"]
+            }
+            if nuevo_productos_set != orig_productos_set:
+                motivos_edicion.append("productos")
+
+        if motivos_edicion:
+            db.session.add(
+                DispatchEditLog(
+                    dispatch_id=d.id,
+                    created_by=d.created_by,
+                    edited_by=user_id,
+                    motivos=";".join(motivos_edicion),
+                )
+            )
 
         db.session.commit()
         

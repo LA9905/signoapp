@@ -1,8 +1,9 @@
 import { useEffect, useState, useCallback } from "react";
-import { FiX, FiMoon, FiSun, FiVideo, FiBarChart2, FiTruck, FiChevronLeft, FiChevronRight, FiPlayCircle, FiMaximize2, FiMinimize2 } from "react-icons/fi";
+import { FiX, FiMoon, FiSun, FiVideo, FiBarChart2, FiTruck, FiUsers, FiChevronLeft, FiChevronRight, FiPlayCircle, FiMaximize2, FiMinimize2 } from "react-icons/fi";
 import { api } from "../services/http";
 import OperatorPerformanceCard, { type OperatorPerformance } from "./OperatorPerformanceCard";
 import DriverPerformanceCard, { type DriverPerformance } from "./DriverPerformanceCard";
+import UserPerformanceCard, { type UserPerformance } from "./UserPerformanceCard";
 
 const MESES = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -33,6 +34,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const [loading, setLoading] = useState(false);
   const [drivers, setDrivers] = useState<DriverPerformance[]>([]);
   const [loadingDrivers, setLoadingDrivers] = useState(false);
+  const [logisticsUsers, setLogisticsUsers] = useState<UserPerformance[]>([]);
+  const [loadingLogistics, setLoadingLogistics] = useState(false);
 
   const fetchPerformance = useCallback(async () => {
     setLoading(true);
@@ -60,16 +63,31 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     }
   }, [year, month]);
 
+  const fetchLogisticsPerformance = useCallback(async () => {
+    setLoadingLogistics(true);
+    try {
+      const monthParam = `${year}-${String(month).padStart(2, "0")}`;
+      const res = await api.get("/users/performance", { params: { month: monthParam } });
+      setLogisticsUsers(res.data.users || []);
+    } catch (err) {
+      console.error("Error cargando rendimiento de logística:", err);
+    } finally {
+      setLoadingLogistics(false);
+    }
+  }, [year, month]);
+
   useEffect(() => {
     if (!isOpen) return;
     fetchPerformance();
     fetchDriverPerformance();
+    fetchLogisticsPerformance();
     const id = setInterval(() => {
       fetchPerformance();
       fetchDriverPerformance();
+      fetchLogisticsPerformance();
     }, REFRESH_MS);
     return () => clearInterval(id);
-  }, [isOpen, fetchPerformance, fetchDriverPerformance]);
+  }, [isOpen, fetchPerformance, fetchDriverPerformance, fetchLogisticsPerformance]);
 
   const changeMonth = (delta: number) => {
     let newMonth = month + delta;
@@ -435,6 +453,22 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                   {!loadingDrivers &&
                     drivers.map((dr) => (
                       <DriverPerformanceCard key={dr.driver_id} dr={dr} monthLabel={monthLabel} />
+                    ))}
+                </div>
+              </div>
+
+              <div className="sb-section">
+                <div className="sb-section-title"><FiUsers size={13} /> Rendimiento de Logística</div>
+
+                {loadingLogistics && <div className="sb-loading">Cargando rendimiento…</div>}
+                {!loadingLogistics && logisticsUsers.length === 0 && (
+                  <div className="sb-empty">Sin datos para este mes.</div>
+                )}
+
+                <div className="sb-operators-grid">
+                  {!loadingLogistics &&
+                    logisticsUsers.map((u) => (
+                      <UserPerformanceCard key={u.user_id} u={u} monthLabel={monthLabel} />
                     ))}
                 </div>
               </div>
