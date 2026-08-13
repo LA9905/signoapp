@@ -261,7 +261,17 @@ def update_production(production_id):
             )
 
         db.session.commit()
-        return jsonify(production.to_dict()), 200
+
+        creator = User.query.get(production.created_by)
+        return jsonify({
+            "id": production.id,
+            "operator": operator.name,
+            "created_by": creator.name if creator else production.created_by,
+            "fecha": to_local(production.fecha).isoformat(timespec="seconds"),
+            "productos": [
+                {"nombre": pr.nombre, "cantidad": pr.cantidad, "unidad": pr.unidad} for pr in production.productos
+            ],
+        }), 200
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": "No se pudo actualizar la producción", "details": str(e)}), 500
