@@ -781,6 +781,7 @@ const Tracking = () => {
                 try {
                   const res = await api.get<DispatchSummary[]>("/dispatches", {
                     params: { ...debouncedSearch, all: 1 },
+                    timeout: 60000,
                   });
                   const fullDispatches = res.data;
 

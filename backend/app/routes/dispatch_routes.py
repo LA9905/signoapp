@@ -299,9 +299,10 @@ def get_dispatches():
         query = query.order_by(Dispatch.fecha.asc())
 
         if all_param:
+            
             dispatches = (
                 query
-                .options(joinedload(Dispatch.productos), joinedload(Dispatch.images))
+                .options(joinedload(Dispatch.productos))
                 .all()
             )
         else:
@@ -381,6 +382,12 @@ def update_dispatch(dispatch_id):
             return jsonify({"error": "Faltan datos"}), 400
         data = json.loads(request.form['data'])
 
+        # Estado original antes de aplicar cualquier cambio de esta edición.
+        # Sirve para distinguir si el usuario cambió el status manualmente
+        # (selector) o si sigue igual y por lo tanto puede aplicarse la
+        # lógica automática de chofer sin que este bloque la sobrescriba.
+        orig_status = d.status
+
         # Verificar duplicados de orden y factura en edición
         new_orden = data.get("orden") or d.orden
         new_factura = (data.get("factura_numero") or "").strip() or None
@@ -452,7 +459,14 @@ def update_dispatch(dispatch_id):
         if "paquete_numero" in data: d.paquete_numero = data.get("paquete_numero") or None
         if "factura_numero" in data: d.factura_numero = (data.get("factura_numero") or "").strip() or None
 
-        if "status" in data and data["status"]:
+        status_changed_explicitly = (
+            "status" in data and data["status"] and data["status"] != orig_status
+        )
+
+        if status_changed_explicitly:
+            # El usuario cambió el status manualmente (selector) en esta
+            # edición. Tiene prioridad absoluta sobre la lógica automática
+            # de chofer aplicada más arriba.
             new_status = data["status"]
             if new_status == "entregado_cliente":
                 d.delivered_client = True
@@ -460,18 +474,21 @@ def update_dispatch(dispatch_id):
                 d.status = "entregado_cliente"
                 d.delivered_driver = True
                 d.delivered_driver_at = datetime.utcnow()
+                d.auto_delivered = False
             elif new_status == "entregado_chofer":
                 d.delivered_driver = True
                 d.delivered_driver_at = datetime.utcnow()
                 d.delivered_client = False
                 d.delivered_client_at = None
                 d.status = "entregado_chofer"
+                d.auto_delivered = False
             elif new_status == "pendiente":
                 d.delivered_driver = False
                 d.delivered_driver_at = None
                 d.delivered_client = False
                 d.delivered_client_at = None
                 d.status = "pendiente"
+                d.auto_delivered = False
 
         if "productos" in data and isinstance(data["productos"], list):
             old_qty = {item.nombre: float(item.cantidad or 0) for item in d.productos}
@@ -564,6 +581,7 @@ def mark_driver_delivered(dispatch_id):
             d.delivered_driver = True
             d.delivered_driver_at = datetime.utcnow()
             d.status = "entregado_chofer"
+            d.auto_delivered = False
             db.session.commit()
         creator = User.query.get(d.created_by)
         result = d.to_dict()
@@ -584,6 +602,7 @@ def mark_client_delivered(dispatch_id):
         d.status = "entregado_cliente"
         d.delivered_driver = True
         d.delivered_driver_at = datetime.utcnow()
+        d.auto_delivered = False
         db.session.commit()
         creator = User.query.get(d.created_by)
         result = d.to_dict()
