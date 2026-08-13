@@ -8,6 +8,7 @@ from app.models.product_model import Product
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from datetime import datetime, timedelta
 from sqlalchemy import cast, String, func, exists
+from sqlalchemy.orm import joinedload
 import traceback
 from app.utils.timezone import (
     to_local,
@@ -34,6 +35,27 @@ def get_public_id(url):
     return None
 
 from flask_cors import CORS, cross_origin
+
+# Choferes cuyos despachos se marcan automáticamente como "entregados" al
+# crearse — no requieren seguimiento manual (retiros de cliente, encomiendas,
+# transportistas externos, etc.).
+AUTO_DELIVERY_DRIVER_NAMES = {
+    "retira cliente",
+    "encomienda",
+    "pelicano",
+    "don luis mendez",
+    "don cesar mendez",
+    "luis miguel mendez",
+    "andri alvarez",
+    "frank flores",
+    "encomienda",
+    "fernando chalbaud"
+}
+
+
+def is_auto_delivery_driver(name: str) -> bool:
+    return " ".join((name or "").strip().split()).lower() in AUTO_DELIVERY_DRIVER_NAMES
+
 
 dispatch_bp = Blueprint("dispatches", __name__)
 CORS(
@@ -120,6 +142,15 @@ def create_dispatch():
             client_name=cliente.name, 
         )
         new_dispatch.fecha = to_utc_naive(datetime.now(CL_TZ))
+
+        if is_auto_delivery_driver(chofer.name):
+            ahora = datetime.utcnow()
+            new_dispatch.delivered_driver = True
+            new_dispatch.delivered_driver_at = ahora
+            new_dispatch.delivered_client = True
+            new_dispatch.delivered_client_at = ahora
+            new_dispatch.status = "entregado_cliente"
+            new_dispatch.auto_delivered = True
 
         db.session.add(new_dispatch)
         db.session.flush()
@@ -268,7 +299,11 @@ def get_dispatches():
         query = query.order_by(Dispatch.fecha.asc())
 
         if all_param:
-            dispatches = query.all()
+            dispatches = (
+                query
+                .options(joinedload(Dispatch.productos), joinedload(Dispatch.images))
+                .all()
+            )
         else:
             dispatches = query.paginate(page=page, per_page=limit, error_out=False).items
 
@@ -394,6 +429,25 @@ def update_dispatch(dispatch_id):
             if chofer:
                 d.chofer_id = chofer.id
                 d.chofer_name = chofer.name
+                if is_auto_delivery_driver(chofer.name):
+                    if not d.delivered_client:
+                        ahora = datetime.utcnow()
+                        d.delivered_driver = True
+                        d.delivered_driver_at = d.delivered_driver_at or ahora
+                        d.delivered_client = True
+                        d.delivered_client_at = ahora
+                        d.status = "entregado_cliente"
+                        d.auto_delivered = True
+                elif d.auto_delivered:
+                    # El chofer cambió a uno que no es de entrega automática:
+                    # revertir el estado que se puso automáticamente (no una
+                    # entrega manual), para que vuelva a requerir seguimiento.
+                    d.delivered_driver = False
+                    d.delivered_driver_at = None
+                    d.delivered_client = False
+                    d.delivered_client_at = None
+                    d.status = "pendiente"
+                    d.auto_delivered = False
 
         if "paquete_numero" in data: d.paquete_numero = data.get("paquete_numero") or None
         if "factura_numero" in data: d.factura_numero = (data.get("factura_numero") or "").strip() or None
