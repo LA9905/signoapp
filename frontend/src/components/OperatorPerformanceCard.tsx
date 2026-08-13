@@ -31,6 +31,25 @@ const CLASIFICACION_INFO: Record<string, { label: string; color: string }> = {
   sin_datos: { label: "Sin datos", color: "rgba(255,255,255,0.25)" },
 };
 
+const BANDAS_SIN_BONO: Record<string, [number, number, number, number]> = {
+  // clasificacion: [ratioMin, ratioMax, scoreMin, scoreMax]
+  regular: [0.85, 1.0, 70, 84],
+  baja: [0.65, 0.85, 50, 70],
+  muy_baja: [0, 0.65, 0, 50],
+};
+
+function calcularPorcentajeVisual(ratio: number, clasificacion: string): number {
+  if (ratio >= 1.0) {
+    // Zona de bono: se muestra el porcentaje real, siempre >= 100.
+    return Math.round(ratio * 100);
+  }
+  const banda = BANDAS_SIN_BONO[clasificacion];
+  if (!banda) return Math.round(ratio * 100);
+  const [rMin, rMax, sMin, sMax] = banda;
+  const t = rMax > rMin ? Math.min(Math.max((ratio - rMin) / (rMax - rMin), 0), 1) : 0;
+  return Math.round(sMin + t * (sMax - sMin));
+}
+
 interface Props {
   op: OperatorPerformance;
   monthLabel: string;
@@ -47,10 +66,11 @@ const OperatorPerformanceCard: React.FC<Props> = ({ op, monthLabel, onChanged })
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   const info = CLASIFICACION_INFO[op.clasificacion] || CLASIFICACION_INFO.sin_datos;
-  // El texto del centro muestra el porcentaje REAL (puede superar 100%).
-  const pctDisplay = op.ratio !== null ? Math.round(op.ratio * 100) : null;
-  // El relleno del anillo se calcula sobre una escala de 0%-100%: 
-  const pctRing = op.ratio !== null ? Math.min(op.ratio * 100, 100) : 0;
+
+  // Número mostrado: coherente con la clasificación final (ver función arriba).
+  const pctDisplay = op.ratio !== null ? calcularPorcentajeVisual(op.ratio, op.clasificacion) : null;
+  // El anillo se llena sobre una escala de 0-100 del número YA visual (no del ratio crudo).
+  const pctRing = pctDisplay !== null ? Math.min(pctDisplay, 100) : 0;
 
   const data = {
     labels: ["Rendimiento", "Restante"],
