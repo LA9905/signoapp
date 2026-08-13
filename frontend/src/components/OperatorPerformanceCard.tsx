@@ -14,7 +14,7 @@ export interface OperatorPerformance {
   horas_efectivas: number;
   produccion_por_hora: number | null;
   linea_base_historica: number | null;
-  linea_base_fuente: "historica" | "equipo" | "inicial" | null;
+  linea_base_fuente: "historica" | "producto" | "inicial" | null;
   ratio: number | null;
   clasificacion: "muy_alta" | "alta" | "regular" | "baja" | "muy_baja" | "sin_datos";
   bono: boolean;
@@ -47,13 +47,16 @@ const OperatorPerformanceCard: React.FC<Props> = ({ op, monthLabel, onChanged })
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   const info = CLASIFICACION_INFO[op.clasificacion] || CLASIFICACION_INFO.sin_datos;
-  const pct = op.ratio !== null ? Math.min(op.ratio * 100, 150) : 0;
+  // El texto del centro muestra el porcentaje REAL (puede superar 100%).
+  const pctDisplay = op.ratio !== null ? Math.round(op.ratio * 100) : null;
+  // El relleno del anillo se calcula sobre una escala de 0%-100%: 
+  const pctRing = op.ratio !== null ? Math.min(op.ratio * 100, 100) : 0;
 
   const data = {
     labels: ["Rendimiento", "Restante"],
     datasets: [
       {
-        data: [pct, Math.max(150 - pct, 0)],
+        data: [pctRing, Math.max(100 - pctRing, 0)],
         backgroundColor: [info.color, "rgba(255,255,255,0.06)"],
         borderWidth: 0,
         cutout: "72%",
@@ -138,7 +141,7 @@ const OperatorPerformanceCard: React.FC<Props> = ({ op, monthLabel, onChanged })
           <Doughnut data={data} options={options} />
           <div className="opc-chart-center">
             <span style={{ color: info.color }}>
-              {op.ratio !== null ? `${Math.round(op.ratio * 100)}%` : "—"}
+              {pctDisplay !== null ? `${pctDisplay}%` : "—"}
             </span>
           </div>
         </div>
@@ -157,9 +160,9 @@ const OperatorPerformanceCard: React.FC<Props> = ({ op, monthLabel, onChanged })
 
       {op.linea_base_fuente && op.linea_base_fuente !== "historica" && (
         <div className="opc-source">
-          {op.linea_base_fuente === "equipo"
-            ? "Comparado con el equipo (sin historial propio aún)"
-            : "Primer registro — línea base inicial"}
+          {op.linea_base_fuente === "producto"
+            ? "Comparado con el histórico de este producto (sin historial propio aún)"
+            : "Primer registro de este producto — línea base inicial"}
         </div>
       )}
       {op.mes_en_curso && (

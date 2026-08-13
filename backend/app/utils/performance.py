@@ -1,11 +1,14 @@
-from datetime import date
+from datetime import date, datetime, timedelta
+from calendar import monthrange
 from collections import defaultdict
+from functools import lru_cache
 from sqlalchemy import extract
+from sqlalchemy.orm import joinedload
 from app import db
 from app.models.production_model import Production, ProductionProduct
 from app.models.operator_activity_model import OperatorActivity
 from app.models.operator_model import Operator
-from app.utils.timezone import to_local
+from app.utils.timezone import to_local, to_utc_naive, CL_TZ
 
 # ── Horario laboral efectivo (ya descontada 1h de colación) ─────────────────
 def horas_programadas(d: date) -> float:
@@ -15,6 +18,32 @@ def horas_programadas(d: date) -> float:
     elif wd == 4:       # Viernes: 7:00-15:00 (8h) - 1h colación
         return 7.0
     return 0.0
+
+
+# ── Normalización de unidades y nombres de producto ──────────────────────────
+_UNIDAD_MAP = {
+    "unidades": "unidades", "unidad": "unidades", "und": "unidades", "un": "unidades", "u": "unidades",
+    "kg": "kg", "kgs": "kg", "kilogramo": "kg", "kilogramos": "kg", "kilo": "kg", "kilos": "kg",
+    "pqt": "pqt", "pqts": "pqt", "paquete": "pqt", "paquetes": "pqt", "paq": "pqt",
+    "lt": "lt", "lts": "lt", "litro": "lt", "litros": "lt", "l": "lt",
+    "cajas": "cajas", "caja": "cajas",
+}
+
+
+def normalizar_unidad(u: str) -> str:
+    if not u:
+        return u
+    key = str(u).strip().lower()
+    return _UNIDAD_MAP.get(key, key)
+
+
+def normalizar_nombre(n: str) -> str:
+    """Normaliza espacios (colapsa dobles espacios) preservando mayúsculas,
+    para agrupar por producto exacto sin perder coincidencias por detalles
+    de tipeo."""
+    if not n:
+        return n
+    return " ".join(str(n).strip().split())
 
 
 def _otras_horas_por_dia(operator_id: int, year: int, month: int):
@@ -31,69 +60,108 @@ def _otras_horas_por_dia(operator_id: int, year: int, month: int):
     return horas_otras
 
 
-def _entries_por_dia_y_unidad(operator_id: int, year: int, month: int):
+def _month_utc_bounds(year: int, month: int):
+    """Límites del mes (hora de Chile) convertidos a UTC naive, para filtrar en la BD."""
+    first_local = datetime(year, month, 1, 0, 0, 0, tzinfo=CL_TZ)
+    last_day = monthrange(year, month)[1]
+    next_month_local = datetime(year, month, last_day, 0, 0, 0, tzinfo=CL_TZ) + timedelta(days=1)
+    return to_utc_naive(first_local), to_utc_naive(next_month_local)
+
+
+def _entries_por_dia_y_producto(operator_id: int, year: int, month: int):
     """
-    Recorre las producciones del mes y arma, por día, cuántas líneas de
-    producto hay por unidad (para repartir las horas proporcionalmente),
-    más la cantidad total y los días trabajados por cada unidad.
+    Recorre las producciones del mes de UN operario y arma, por día, cuántas
+    líneas de producto hay por NOMBRE EXACTO de producto (para repartir las
+    horas proporcionalmente), más la cantidad total, la unidad y los días
+    trabajados por cada producto.
+
+    Se agrupa por nombre exacto de producto (no solo por unidad genérica
+    kg/unidades/pqt), porque dos productos distintos en la misma unidad
+    pueden tener velocidades de fabricación muy distintas (ej. bolsas
+    pequeñas vs. bolsas grandes, ambas en "kg").
     """
-    productions = Production.query.filter(Production.operator_id == operator_id).all()
+    start_utc, end_utc = _month_utc_bounds(year, month)
+    productions = (
+        Production.query
+        .options(joinedload(Production.productos))
+        .filter(Production.operator_id == operator_id)
+        .filter(Production.fecha >= start_utc, Production.fecha < end_utc)
+        .all()
+    )
     entries_por_dia = defaultdict(lambda: defaultdict(int))
-    qty_por_unidad = defaultdict(float)
-    dias_por_unidad = defaultdict(set)
+    qty_por_producto = defaultdict(float)
+    dias_por_producto = defaultdict(set)
+    unidad_por_producto = {}
     for p in productions:
         local_dt = to_local(p.fecha)
-        if local_dt.year != year or local_dt.month != month:
-            continue
         d = local_dt.date()
         for prod in p.productos:
-            u = prod.unidad
-            entries_por_dia[d][u] += 1
-            qty_por_unidad[u] += float(prod.cantidad or 0)
-            dias_por_unidad[u].add(d)
-    return entries_por_dia, qty_por_unidad, dias_por_unidad
+            nombre = normalizar_nombre(prod.nombre)
+            entries_por_dia[d][nombre] += 1
+            qty_por_producto[nombre] += float(prod.cantidad or 0)
+            dias_por_producto[nombre].add(d)
+            unidad_por_producto[nombre] = normalizar_unidad(prod.unidad)
+    return entries_por_dia, qty_por_producto, dias_por_producto, unidad_por_producto
 
 
-def rate_by_unit_for_month(operator_id: int, year: int, month: int):
-    """
-    Tasa de producción por hora, calculada POR UNIDAD (no una sola para
-    todo el mes). Las horas efectivas de cada día se reparten entre las
-    unidades que el operario trabajó ese día, proporcional a cuántas
-    líneas de producto registró de cada una.
-    Devuelve {unidad: {"qty", "dias", "horas", "rate"}}.
-    """
-    entries_por_dia, qty_por_unidad, dias_por_unidad = _entries_por_dia_y_unidad(operator_id, year, month)
+def _compute_rate_by_product_for_month(operator_id: int, year: int, month: int):
+    entries_por_dia, qty_por_producto, dias_por_producto, unidad_por_producto = _entries_por_dia_y_producto(
+        operator_id, year, month
+    )
     if not entries_por_dia:
         return {}
 
     horas_otras_por_dia = _otras_horas_por_dia(operator_id, year, month)
 
-    horas_por_unidad = defaultdict(float)
-    for d, unidades_dia in entries_por_dia.items():
+    horas_por_producto = defaultdict(float)
+    for d, productos_dia in entries_por_dia.items():
         base = horas_programadas(d)
         otras = horas_otras_por_dia.get(d, 0.0)
         horas_efectivas_dia = max(base - otras, 0.0)
-        total_entries_dia = sum(unidades_dia.values())
+        total_entries_dia = sum(productos_dia.values())
         if total_entries_dia == 0:
             continue
-        for u, n in unidades_dia.items():
-            horas_por_unidad[u] += horas_efectivas_dia * (n / total_entries_dia)
+        for nombre, n in productos_dia.items():
+            horas_por_producto[nombre] += horas_efectivas_dia * (n / total_entries_dia)
 
     resultado = {}
-    for u in qty_por_unidad:
-        horas = horas_por_unidad.get(u, 0.0)
-        qty = qty_por_unidad[u]
-        dias = len(dias_por_unidad[u])
+    for nombre in qty_por_producto:
+        horas = horas_por_producto.get(nombre, 0.0)
+        qty = qty_por_producto[nombre]
+        dias = len(dias_por_producto[nombre])
         rate = (qty / horas) if horas > 0 else None
-        resultado[u] = {"qty": qty, "dias": dias, "horas": horas, "rate": rate}
+        resultado[nombre] = {
+            "qty": qty, "dias": dias, "horas": horas, "rate": rate,
+            "unidad": unidad_por_producto.get(nombre),
+        }
     return resultado
 
 
-def baseline_for_operator_unit(operator_id: int, year: int, month: int, unidad: str, n_meses: int = 6):
+@lru_cache(maxsize=8192)
+def _rate_by_product_for_month_cached(operator_id: int, year: int, month: int):
+    return _compute_rate_by_product_for_month(operator_id, year, month)
+
+
+def rate_by_product_for_month(operator_id: int, year: int, month: int):
     """
-    Mediana de la tasa de esa unidad específica en los últimos n_meses
-    meses COMPLETOS anteriores al mes evaluado (>=10 días trabajados
-    en esa unidad).
+    Tasa de producción por hora, calculada POR PRODUCTO EXACTO (no por
+    unidad genérica). Los meses YA CERRADOS se cachean en memoria del
+    proceso, porque tanto la línea base propia como la línea base global
+    de producto piden estos mismos meses repetidamente. El mes EN CURSO
+    nunca se cachea.
+    """
+    hoy = date.today()
+    if year == hoy.year and month == hoy.month:
+        return _compute_rate_by_product_for_month(operator_id, year, month)
+    return _rate_by_product_for_month_cached(operator_id, year, month)
+
+
+def baseline_for_operator_product(operator_id: int, year: int, month: int, nombre: str, n_meses: int = 12, min_dias: int = 10):
+    """
+    Mediana de la tasa de ESTE operario para ESTE producto exacto, en los
+    últimos n_meses meses completos anteriores (>=min_dias días
+    trabajados en ese producto). Es la referencia preferida cuando existe,
+    porque respeta el ritmo natural de cada persona.
     """
     rates = []
     y, m = year, month
@@ -103,8 +171,8 @@ def baseline_for_operator_unit(operator_id: int, year: int, month: int, unidad: 
         if m == 0:
             m, y = 12, y - 1
         checked += 1
-        data = rate_by_unit_for_month(operator_id, y, m).get(unidad)
-        if data and data["rate"] is not None and data["dias"] >= 10:
+        data = rate_by_product_for_month(operator_id, y, m).get(nombre)
+        if data and data["rate"] is not None and data["dias"] >= min_dias:
             rates.append(data["rate"])
     if not rates:
         return None
@@ -115,18 +183,36 @@ def baseline_for_operator_unit(operator_id: int, year: int, month: int, unidad: 
     return (rates[mid - 1] + rates[mid]) / 2
 
 
-def baseline_equipo_unit(year: int, month: int, unidad: str, exclude_operator_id: int = None, min_dias: int = 1):
+@lru_cache(maxsize=8192)
+def baseline_global_product(nombre: str, year: int, month: int, n_meses: int = 6, min_dias: int = 10):
     """
-    Fallback: mediana de la tasa del resto del equipo en esa misma unidad
-    y mes, para operarios sin 6 meses de historial propio en esa unidad.
+    Mediana histórica de TODOS los operarios que hayan fabricado este
+    producto exacto, en los últimos n_meses meses completos anteriores.
+
+    Esta es la referencia que se usa cuando un operario NO tiene
+    historial propio en este producto (por ejemplo: es nuevo en la
+    empresa, o nuevo en esta tarea). Sin esto, un operario nuevo que
+    siempre rinde bajo terminaría autocalificándose "Regular" contra sí
+    mismo, aunque el producto objetivamente permita mucho más — como
+    quedó demostrado por operarios anteriores que sí lo fabricaron a
+    mayor ritmo. Al comparar contra el histórico real del PRODUCTO (no
+    contra otro operario con un producto distinto), la comparación sigue
+    siendo justa: es la misma tarea física, la haga quien la haga.
     """
     rates = []
-    for op in Operator.query.all():
-        if exclude_operator_id and op.id == exclude_operator_id:
-            continue
-        data = rate_by_unit_for_month(op.id, year, month).get(unidad)
-        if data and data["rate"] is not None and data["dias"] >= min_dias:
-            rates.append(data["rate"])
+    y, m = year, month
+    checked = 0
+    while checked < 12 and len(rates) < n_meses * 3:  # margen: puede haber varios operarios por mes
+        m -= 1
+        if m == 0:
+            m, y = 12, y - 1
+        checked += 1
+        for op in Operator.query.all():
+            data = rate_by_product_for_month(op.id, y, m).get(nombre)
+            if data and data["rate"] is not None and data["dias"] >= min_dias:
+                rates.append(data["rate"])
+        if checked >= n_meses and rates:
+            break
     if not rates:
         return None
     rates.sort()
@@ -144,6 +230,13 @@ UMBRALES = [
     (0.0,  "muy_baja", False),
 ]
 
+# Techo razonable para el ratio mostrado: evita que un mes con muy pocas
+# horas registradas dispare un porcentaje sin sentido en el gráfico.
+RATIO_MAX = 3.0
+# Días mínimos trabajados en el mes EN CURSO antes de confiar en su
+# clasificación (evita mostrar una nota engañosa a inicios de mes).
+MIN_DIAS_MES_ACTUAL = 1
+
 
 def clasificar(ratio):
     if ratio is None:
@@ -155,61 +248,74 @@ def clasificar(ratio):
 
 
 def evaluar_operador(operator_id: int, year: int, month: int):
-    por_unidad = rate_by_unit_for_month(operator_id, year, month)
+    por_producto = rate_by_product_for_month(operator_id, year, month)
 
     detalle = []
     suma_ratio_ponderada = 0.0
     peso_total = 0.0
     horas_totales = 0.0
 
-    for unidad, data in por_unidad.items():
+    for nombre, data in por_producto.items():
         if data["rate"] is None:
             continue
 
-        baseline = baseline_for_operator_unit(operator_id, year, month, unidad)
-        fuente = "historica"
-        if baseline is None:
-            baseline = baseline_equipo_unit(year, month, unidad, exclude_operator_id=operator_id)
-            fuente = "equipo"
-        if baseline is None:
-            baseline = data["rate"]
-            fuente = "inicial"
+        baseline = baseline_for_operator_product(operator_id, year, month, nombre)
+        if baseline is not None:
+            fuente = "historica"
+        else:
+            baseline = baseline_global_product(nombre, year, month)
+            if baseline is not None:
+                fuente = "producto"  # comparado contra el histórico de este producto (otros operarios)
+            else:
+                # Nadie ha registrado este producto antes: usa la propia
+                # tasa como punto de partida (ratio 1.0), sin comparar
+                # contra nada externo porque no existe referencia alguna.
+                baseline = data["rate"]
+                fuente = "inicial"
 
-        ratio_unidad = (data["rate"] / baseline) if baseline else None
+        ratio_producto = (data["rate"] / baseline) if baseline else None
         detalle.append({
-            "unidad": unidad,
+            "nombre": nombre,
+            "unidad": data["unidad"],
             "cantidad": round(data["qty"], 2),
             "horas": round(data["horas"], 2),
             "produccion_por_hora": round(data["rate"], 3),
             "linea_base": round(baseline, 3) if baseline else None,
             "linea_base_fuente": fuente,
-            "ratio": round(ratio_unidad, 3) if ratio_unidad is not None else None,
+            "ratio": round(ratio_producto, 3) if ratio_producto is not None else None,
         })
 
-        if ratio_unidad is not None:
+        if ratio_producto is not None:
             peso = data["horas"] or 0.0001  # evita división por peso cero en casos límite
-            suma_ratio_ponderada += ratio_unidad * peso
+            suma_ratio_ponderada += ratio_producto * peso
             peso_total += peso
 
         horas_totales += data["horas"]
 
-    _, _, dias_por_unidad = _entries_por_dia_y_unidad(operator_id, year, month)
+    _, _, dias_por_producto, _ = _entries_por_dia_y_producto(operator_id, year, month)
     dias_totales = set()
-    for dias_u in dias_por_unidad.values():
-        dias_totales |= dias_u
+    for dias_p in dias_por_producto.values():
+        dias_totales |= dias_p
 
     ratio = (suma_ratio_ponderada / peso_total) if peso_total > 0 else None
-    etiqueta, bono = clasificar(ratio)
 
     hoy = date.today()
     mes_en_curso = (year == hoy.year and month == hoy.month)
 
-    principal = max(por_unidad.items(), key=lambda kv: kv[1]["horas"])[0] if por_unidad else None
-    principal_data = por_unidad.get(principal) if principal else None
-    principal_detalle = next((d for d in detalle if d["unidad"] == principal), None)
+    if mes_en_curso and len(dias_totales) < MIN_DIAS_MES_ACTUAL:
+        ratio = None
+    elif ratio is not None:
+        ratio = max(0.0, min(ratio, RATIO_MAX))
+
+    etiqueta, bono = clasificar(ratio)
+
+    principal = max(por_producto.items(), key=lambda kv: kv[1]["horas"])[0] if por_producto else None
+    principal_data = por_producto.get(principal) if principal else None
+    principal_detalle = next((d for d in detalle if d["nombre"] == principal), None)
 
     return {
-        "unidad": principal,
+        "unidad": principal_data["unidad"] if principal_data else None,
+        "producto_principal": principal,
         "cantidad_mes": principal_data["qty"] if principal_data else 0.0,
         "dias_trabajados": len(dias_totales),
         "horas_efectivas": round(horas_totales, 1),
