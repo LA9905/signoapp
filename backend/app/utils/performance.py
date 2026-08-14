@@ -222,6 +222,36 @@ def baseline_global_product(nombre: str, year: int, month: int, n_meses: int = 6
     return (rates[mid - 1] + rates[mid]) / 2
 
 
+def baseline_peers_current_month(nombre: str, year: int, month: int, exclude_operator_id: int, min_dias: int = 1):
+    """
+    Mediana de la tasa de OTROS operarios que hayan fabricado este mismo
+    producto en el MISMO mes que se está evaluando (comparación entre
+    compañeros en tiempo real, dentro del mes actual).
+
+    Se usa como respaldo cuando todavía no existe historial de meses
+    ANTERIORES para este producto (por ejemplo: es un producto nuevo en
+    el sistema, o es el primer día que se registra). Sin este respaldo,
+    el primer registro de un producto nuevo siempre daría ratio = 1.0
+    (100%) para cualquier operario que lo fabrique, sin importar cuánto
+    produjo comparado con un compañero que registró el mismo producto
+    ese mismo día — que es exactamente lo que se necesita distinguir
+    cuando dos operarios cargan el mismo producto por primera vez.
+    """
+    rates = []
+    for op in Operator.query.all():
+        if op.id == exclude_operator_id:
+            continue
+        data = rate_by_product_for_month(op.id, year, month).get(nombre)
+        if data and data["rate"] is not None and data["dias"] >= min_dias:
+            rates.append(data["rate"])
+    if not rates:
+        return None
+    rates.sort()
+    mid = len(rates) // 2
+    if len(rates) % 2 == 1:
+        return rates[mid]
+    return (rates[mid - 1] + rates[mid]) / 2
+
 UMBRALES = [
     (1.15, "muy_alta", True),
     (1.00, "alta", True),
@@ -259,19 +289,32 @@ def evaluar_operador(operator_id: int, year: int, month: int):
         if data["rate"] is None:
             continue
 
-        baseline = baseline_for_operator_product(operator_id, year, month, nombre)
+        # Prioridad de comparación, de más a menos confiable:
+        #   1. Histórico GLOBAL del producto en meses ANTERIORES (todos los
+        #      operarios que lo hayan fabricado) — la referencia más sólida.
+        #   2. Compañeros que fabrican el MISMO producto en el MISMO mes
+        #      actual — cuando el producto es nuevo y aún no hay meses
+        #      anteriores, esto permite distinguir en tiempo real a un
+        #      operario que produjo mucho de otro que produjo poco del
+        #      mismo producto el mismo día, en vez de darles a ambos 100%
+        #      por falta de referencia.
+        #   3. Historial propio del operario en meses anteriores.
+        #   4. Su propia tasa actual (solo si es literalmente el primer
+        #      registro de este producto en todo el sistema).
+        baseline = baseline_global_product(nombre, year, month)
         if baseline is not None:
-            fuente = "historica"
+            fuente = "producto"
         else:
-            baseline = baseline_global_product(nombre, year, month)
+            baseline = baseline_peers_current_month(nombre, year, month, operator_id)
             if baseline is not None:
-                fuente = "producto"  # comparado contra el histórico de este producto (otros operarios)
+                fuente = "pares_mes"
             else:
-                # Nadie ha registrado este producto antes: usa la propia
-                # tasa como punto de partida (ratio 1.0), sin comparar
-                # contra nada externo porque no existe referencia alguna.
-                baseline = data["rate"]
-                fuente = "inicial"
+                baseline = baseline_for_operator_product(operator_id, year, month, nombre)
+                if baseline is not None:
+                    fuente = "historica"
+                else:
+                    baseline = data["rate"]
+                    fuente = "inicial"
 
         ratio_producto = (data["rate"] / baseline) if baseline else None
         detalle.append({
@@ -306,6 +349,8 @@ def evaluar_operador(operator_id: int, year: int, month: int):
         ratio = None
     elif ratio is not None:
         ratio = max(0.0, min(ratio, RATIO_MAX))
+        # Redondear a 2 decimales ANTES de clasificar. Esto evita que un ratio de 0.8499999 se clasifique como "baja" en vez de "regular".
+        ratio = round(ratio, 2)
 
     etiqueta, bono = clasificar(ratio)
 
@@ -328,3 +373,53 @@ def evaluar_operador(operator_id: int, year: int, month: int):
         "mes_en_curso": mes_en_curso,
         "detalle_unidades": detalle,
     }
+
+
+def daily_detail_for_operator(operator_id: int, year: int, month: int):
+    """
+    Desglose día a día del mes: cantidad producida del producto principal,
+    horas programadas, horas de otras actividades y horas efectivas
+    resultantes. Usado por la sección de detalle del operario (picos de
+    producción por fecha).
+    """
+    entries_por_dia, qty_por_producto, dias_por_producto, unidad_por_producto = _entries_por_dia_y_producto(
+        operator_id, year, month
+    )
+
+    qty_por_dia_producto = defaultdict(lambda: defaultdict(float))
+    for d, productos_dia in entries_por_dia.items():
+        pass  # entries_por_dia solo cuenta líneas, no cantidad; se recalcula abajo
+
+    start_utc, end_utc = _month_utc_bounds(year, month)
+    productions = (
+        Production.query
+        .options(joinedload(Production.productos))
+        .filter(Production.operator_id == operator_id)
+        .filter(Production.fecha >= start_utc, Production.fecha < end_utc)
+        .all()
+    )
+    for p in productions:
+        d = to_local(p.fecha).date()
+        for prod in p.productos:
+            nombre = normalizar_nombre(prod.nombre)
+            qty_por_dia_producto[d][nombre] += float(prod.cantidad or 0)
+
+    horas_otras_por_dia = _otras_horas_por_dia(operator_id, year, month)
+    por_producto = rate_by_product_for_month(operator_id, year, month)
+    principal = max(por_producto.items(), key=lambda kv: kv[1]["horas"])[0] if por_producto else None
+
+    resultado = []
+    for d in sorted(qty_por_dia_producto.keys()):
+        base = horas_programadas(d)
+        otras = horas_otras_por_dia.get(d, 0.0)
+        horas_efectivas_dia = max(base - otras, 0.0)
+        cantidad_principal = qty_por_dia_producto[d].get(principal, 0.0) if principal else 0.0
+        resultado.append({
+            "fecha": d.isoformat(),
+            "cantidad_producto_principal": round(cantidad_principal, 2),
+            "cantidad_total_dia": round(sum(qty_por_dia_producto[d].values()), 2),
+            "horas_programadas": base,
+            "horas_otras_actividades": round(otras, 2),
+            "horas_efectivas": round(horas_efectivas_dia, 2),
+        })
+    return resultado, principal

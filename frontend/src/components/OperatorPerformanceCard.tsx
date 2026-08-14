@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { Doughnut } from "react-chartjs-2";
 import "chart.js/auto";
-import { FiCamera, FiClock } from "react-icons/fi";
+import { FiCamera, FiClock, FiEye } from "react-icons/fi";
 import { api } from "../services/http";
 
 export interface OperatorPerformance {
@@ -14,7 +14,7 @@ export interface OperatorPerformance {
   horas_efectivas: number;
   produccion_por_hora: number | null;
   linea_base_historica: number | null;
-  linea_base_fuente: "historica" | "producto" | "inicial" | null;
+  linea_base_fuente: "historica" | "producto" | "pares_mes" | "inicial" | null;
   ratio: number | null;
   clasificacion: "muy_alta" | "alta" | "regular" | "baja" | "muy_baja" | "sin_datos";
   bono: boolean;
@@ -50,16 +50,25 @@ function calcularPorcentajeVisual(ratio: number, clasificacion: string): number 
   return Math.round(sMin + t * (sMax - sMin));
 }
 
+// new Date().toISOString() devuelve la fecha en UTC
+function getLocalDateString(): string {
+  const now = new Date();
+  const offsetMs = now.getTimezoneOffset() * 60000;
+  const local = new Date(now.getTime() - offsetMs);
+  return local.toISOString().slice(0, 10);
+}
+
 interface Props {
   op: OperatorPerformance;
   monthLabel: string;
   onChanged?: () => void;
+  onViewDetail?: (operatorId: number) => void;
 }
 
-const OperatorPerformanceCard: React.FC<Props> = ({ op, monthLabel, onChanged }) => {
+const OperatorPerformanceCard: React.FC<Props> = ({ op, monthLabel, onChanged, onViewDetail }) => {
   const [uploading, setUploading] = useState(false);
   const [showActivityForm, setShowActivityForm] = useState(false);
-  const [actDate, setActDate] = useState<string>(new Date().toISOString().slice(0, 10));
+  const [actDate, setActDate] = useState<string>(getLocalDateString());
   const [actHours, setActHours] = useState<string>("");
   const [actNote, setActNote] = useState<string>("");
   const [savingActivity, setSavingActivity] = useState(false);
@@ -178,10 +187,12 @@ const OperatorPerformanceCard: React.FC<Props> = ({ op, monthLabel, onChanged })
         {op.bono ? "✓ Merece bono de producción" : "Sin bono este mes"}
       </div>
 
-      {op.linea_base_fuente && op.linea_base_fuente !== "historica" && (
+      {op.linea_base_fuente && op.linea_base_fuente !== "producto" && (
         <div className="opc-source">
-          {op.linea_base_fuente === "producto"
-            ? "Comparado con el histórico de este producto (sin historial propio aún)"
+          {op.linea_base_fuente === "pares_mes"
+            ? "Producto nuevo — comparado con compañeros que lo fabrican este mes"
+            : op.linea_base_fuente === "historica"
+            ? "Sin histórico de otros operarios en este producto — comparado con su propio historial"
             : "Primer registro de este producto — línea base inicial"}
         </div>
       )}
@@ -191,9 +202,16 @@ const OperatorPerformanceCard: React.FC<Props> = ({ op, monthLabel, onChanged })
 
       {uploading && <div className="opc-uploading">Subiendo foto…</div>}
 
-      <button className="opc-activity-btn" onClick={() => setShowActivityForm((s) => !s)} type="button">
-        <FiClock size={12} /> Registrar otra actividad
-      </button>
+      <div style={{ display: "flex", gap: 6, width: "100%" }}>
+        <button className="opc-activity-btn" onClick={() => setShowActivityForm((s) => !s)} type="button" style={{ flex: 1 }}>
+          <FiClock size={12} /> Otra actividad
+        </button>
+        {onViewDetail && (
+          <button className="opc-activity-btn" onClick={() => onViewDetail(op.operator_id)} type="button" style={{ flex: 1 }}>
+            <FiEye size={12} /> Ver detalle
+          </button>
+        )}
+      </div>
 
       {showActivityForm && (
         <div className="opc-activity-form">

@@ -4,6 +4,7 @@ import { api } from "../services/http";
 import OperatorPerformanceCard, { type OperatorPerformance } from "./OperatorPerformanceCard";
 import DriverPerformanceCard, { type DriverPerformance } from "./DriverPerformanceCard";
 import UserPerformanceCard, { type UserPerformance } from "./UserPerformanceCard";
+import OperatorDetailModal from "./OperatorDetailModal";
 
 const MESES = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -42,6 +43,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
 
   const [operators, setOperators] = useState<OperatorPerformance[]>([]);
   const [loading, setLoading] = useState(false);
+  const [detailOperatorId, setDetailOperatorId] = useState<number | null>(null);
   const [drivers, setDrivers] = useState<DriverPerformance[]>([]);
   const [loadingDrivers, setLoadingDrivers] = useState(false);
   const [logisticsUsers, setLogisticsUsers] = useState<UserPerformance[]>([]);
@@ -516,6 +518,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                             op={op}
                             monthLabel={monthLabel}
                             onChanged={fetchPerformance}
+                            onViewDetail={setDetailOperatorId}
                           />
                         ))}
                     </div>
@@ -584,6 +587,17 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                 {isDark ? "Modo oscuro" : "Modo claro"}
               </button>
             </div>
+
+            {detailOperatorId !== null && (
+              <OperatorDetailModal
+                operatorId={detailOperatorId}
+                year={year}
+                month={month}
+                monthLabel={monthLabel}
+                onClose={() => setDetailOperatorId(null)}
+                onActivityChanged={fetchPerformance}
+              />
+            )}
           </aside>
         </>
       )}
