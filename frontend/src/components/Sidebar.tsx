@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { FiX, FiMoon, FiSun, FiVideo, FiBarChart2, FiTruck, FiUsers, FiChevronLeft, FiChevronRight, FiPlayCircle, FiMaximize2, FiMinimize2 } from "react-icons/fi";
+import { FiX, FiMoon, FiSun, FiVideo, FiBarChart2, FiTruck, FiUsers, FiChevronLeft, FiChevronRight, FiChevronDown, FiPlayCircle, FiMaximize2, FiMinimize2 } from "react-icons/fi";
 import { api } from "../services/http";
 import OperatorPerformanceCard, { type OperatorPerformance } from "./OperatorPerformanceCard";
 import DriverPerformanceCard, { type DriverPerformance } from "./DriverPerformanceCard";
@@ -18,7 +18,9 @@ const TUTORIALES = [
   "Cómo crear una nota de crédito",
 ];
 
-const REFRESH_MS = 3 * 60 * 1000; // refresco automático mientras está abierto
+const REFRESH_MS = 3 * 60 * 1000; // refresco automático, solo para secciones abiertas
+
+type SectionKey = "production" | "drivers" | "logistics";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -30,6 +32,14 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const [isDark, setIsDark] = useState(true);
   const [year, setYear] = useState(new Date().getFullYear());
   const [month, setMonth] = useState(new Date().getMonth() + 1);
+
+  // Cada sección arranca CERRADA: nada se pide hasta que el usuario la abre.
+  const [openSections, setOpenSections] = useState<Record<SectionKey, boolean>>({
+    production: false,
+    drivers: false,
+    logistics: false,
+  });
+
   const [operators, setOperators] = useState<OperatorPerformance[]>([]);
   const [loading, setLoading] = useState(false);
   const [drivers, setDrivers] = useState<DriverPerformance[]>([]);
@@ -76,18 +86,41 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     }
   }, [year, month]);
 
+  const toggleSection = (key: SectionKey) => {
+    setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  // Al abrir una sección (o cambiar el mes mientras está abierta), pide sus
+  // datos. Al cerrarla, simplemente deja de pedirse — no se borra lo ya
+  // cargado, así que si el usuario la vuelve a abrir sin cambiar de mes ve
+  // los datos de inmediato mientras se refresca en segundo plano.
+  useEffect(() => {
+    if (!isOpen || !openSections.production) return;
+    fetchPerformance();
+  }, [isOpen, openSections.production, fetchPerformance]);
+
+  useEffect(() => {
+    if (!isOpen || !openSections.drivers) return;
+    fetchDriverPerformance();
+  }, [isOpen, openSections.drivers, fetchDriverPerformance]);
+
+  useEffect(() => {
+    if (!isOpen || !openSections.logistics) return;
+    fetchLogisticsPerformance();
+  }, [isOpen, openSections.logistics, fetchLogisticsPerformance]);
+
+  // Refresco automático: cada tick solo pide las secciones que estén
+  // abiertas en ese momento — nunca las tres a la vez si el usuario no
+  // las abrió todas.
   useEffect(() => {
     if (!isOpen) return;
-    fetchPerformance();
-    fetchDriverPerformance();
-    fetchLogisticsPerformance();
     const id = setInterval(() => {
-      fetchPerformance();
-      fetchDriverPerformance();
-      fetchLogisticsPerformance();
+      if (openSections.production) fetchPerformance();
+      if (openSections.drivers) fetchDriverPerformance();
+      if (openSections.logistics) fetchLogisticsPerformance();
     }, REFRESH_MS);
     return () => clearInterval(id);
-  }, [isOpen, fetchPerformance, fetchDriverPerformance, fetchLogisticsPerformance]);
+  }, [isOpen, openSections, fetchPerformance, fetchDriverPerformance, fetchLogisticsPerformance]);
 
   const changeMonth = (delta: number) => {
     let newMonth = month + delta;
@@ -197,11 +230,48 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         .sb-body { flex: 1; overflow-y: auto; padding: 16px; }
         .sb-panel.expanded .sb-body { padding: 24px 32px; }
 
-        .sb-section { margin-bottom: 26px; }
-        .sb-section-title {
+        .sb-section { margin-bottom: 14px; }
+
+        .sb-section-btn {
+          width: 100%;
+          display: flex; align-items: center; justify-content: space-between;
+          gap: 8px;
+          background: rgba(255,255,255,0.03);
+          border: 1px solid rgba(255,255,255,0.08);
+          border-radius: 12px;
+          padding: 12px 14px;
+          cursor: pointer;
+          transition: all .15s;
+        }
+        .sb-section-btn:hover {
+          background: rgba(99,102,241,0.1);
+          border-color: rgba(99,102,241,0.3);
+        }
+        .sb-section-btn.open {
+          background: rgba(99,102,241,0.12);
+          border-color: rgba(99,102,241,0.35);
+          border-bottom-left-radius: 0;
+          border-bottom-right-radius: 0;
+        }
+        .sb-section-btn-label {
           display: flex; align-items: center; gap: 8px;
           font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
-          color: rgba(165,180,252,0.85); margin-bottom: 12px;
+          color: rgba(165,180,252,0.85);
+        }
+        .sb-section-chevron {
+          color: rgba(165,180,252,0.6);
+          transition: transform .15s;
+          display: flex;
+        }
+        .sb-section-chevron.open { transform: rotate(180deg); }
+
+        .sb-section-content {
+          border: 1px solid rgba(99,102,241,0.35);
+          border-top: none;
+          border-bottom-left-radius: 12px;
+          border-bottom-right-radius: 12px;
+          padding: 14px;
+          background: rgba(255,255,255,0.015);
         }
 
         .sb-tuto-item {
@@ -383,7 +453,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
 
             <div className="sb-body">
               <div className="sb-section">
-                <div className="sb-section-title"><FiVideo size={13} /> Tutoriales</div>
+                <div className="sb-section-title" style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                  <FiVideo size={13} /> Tutoriales
+                </div>
                 <div className="sb-tutoriales-grid">
                   {TUTORIALES.map((t) => (
                     <div className="sb-tuto-item" key={t}>
@@ -395,82 +467,114 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                 </div>
               </div>
 
-              <div className="sb-section">
-                <div className="sb-section-title"><FiBarChart2 size={13} /> Rendimiento de Producción</div>
+              {/* Selector de mes compartido por las 3 secciones de rendimiento */}
+              <div className="sb-month-nav">
+                <button onClick={() => changeMonth(-1)} type="button" aria-label="Mes anterior">
+                  <FiChevronLeft size={14} />
+                </button>
 
-                <div className="sb-month-nav">
-                  <button onClick={() => changeMonth(-1)} type="button" aria-label="Mes anterior">
-                    <FiChevronLeft size={14} />
-                  </button>
+                <input
+                  type="month"
+                  className="sb-month-picker"
+                  value={`${year}-${String(month).padStart(2, "0")}`}
+                  onChange={(e) => {
+                    if (!e.target.value) return;
+                    const [selectedYear, selectedMonth] = e.target.value.split("-");
+                    setYear(Number(selectedYear));
+                    setMonth(Number(selectedMonth));
+                  }}
+                  aria-label="Seleccionar mes y año"
+                />
 
-                  <input
-                    type="month"
-                    className="sb-month-picker"
-                    value={`${year}-${String(month).padStart(2, "0")}`}
-                    onChange={(e) => {
-                      if (!e.target.value) return;
-
-                      const [selectedYear, selectedMonth] = e.target.value.split("-");
-
-                      setYear(Number(selectedYear));
-                      setMonth(Number(selectedMonth));
-                    }}
-                    aria-label="Seleccionar mes y año"
-                  />
-
-                  <button onClick={() => changeMonth(1)} type="button" aria-label="Mes siguiente">
-                    <FiChevronRight size={14} />
-                  </button>
-                </div>
-
-                {loading && <div className="sb-loading">Cargando rendimiento…</div>}
-                {!loading && operators.length === 0 && (
-                  <div className="sb-empty">Sin datos para este mes.</div>
-                )}
-
-                <div className="sb-operators-grid">
-                  {!loading &&
-                    operators.map((op) => (
-                      <OperatorPerformanceCard
-                        key={op.operator_id}
-                        op={op}
-                        monthLabel={monthLabel}
-                        onChanged={fetchPerformance}
-                      />
-                    ))}
-                </div>
+                <button onClick={() => changeMonth(1)} type="button" aria-label="Mes siguiente">
+                  <FiChevronRight size={14} />
+                </button>
               </div>
 
+              {/* ── Producción ── */}
               <div className="sb-section">
-                <div className="sb-section-title"><FiTruck size={13} /> Rendimiento de Choferes</div>
+                <button
+                  className={`sb-section-btn ${openSections.production ? "open" : ""}`}
+                  onClick={() => toggleSection("production")}
+                  type="button"
+                >
+                  <span className="sb-section-btn-label"><FiBarChart2 size={13} /> Rendimiento de Producción</span>
+                  <span className={`sb-section-chevron ${openSections.production ? "open" : ""}`}><FiChevronDown size={16} /></span>
+                </button>
 
-                {loadingDrivers && <div className="sb-loading">Cargando rendimiento…</div>}
-                {!loadingDrivers && drivers.length === 0 && (
-                  <div className="sb-empty">Sin datos para este mes.</div>
+                {openSections.production && (
+                  <div className="sb-section-content">
+                    {loading && <div className="sb-loading">Cargando rendimiento…</div>}
+                    {!loading && operators.length === 0 && (
+                      <div className="sb-empty">Sin datos para este mes.</div>
+                    )}
+                    <div className="sb-operators-grid">
+                      {!loading &&
+                        operators.map((op) => (
+                          <OperatorPerformanceCard
+                            key={op.operator_id}
+                            op={op}
+                            monthLabel={monthLabel}
+                            onChanged={fetchPerformance}
+                          />
+                        ))}
+                    </div>
+                  </div>
                 )}
-
-                <div className="sb-operators-grid">
-                  {!loadingDrivers &&
-                    drivers.map((dr) => (
-                      <DriverPerformanceCard key={dr.driver_id} dr={dr} monthLabel={monthLabel} />
-                    ))}
-                </div>
               </div>
 
+              {/* ── Choferes ── */}
               <div className="sb-section">
-                <div className="sb-section-title"><FiUsers size={13} /> Rendimiento de Logística</div>
+                <button
+                  className={`sb-section-btn ${openSections.drivers ? "open" : ""}`}
+                  onClick={() => toggleSection("drivers")}
+                  type="button"
+                >
+                  <span className="sb-section-btn-label"><FiTruck size={13} /> Rendimiento de Choferes</span>
+                  <span className={`sb-section-chevron ${openSections.drivers ? "open" : ""}`}><FiChevronDown size={16} /></span>
+                </button>
 
-                {loadingLogistics && <div className="sb-loading">Cargando rendimiento…</div>}
-                {!loadingLogistics && logisticsUsers.length === 0 && (
-                  <div className="sb-empty">Sin datos para este mes.</div>
+                {openSections.drivers && (
+                  <div className="sb-section-content">
+                    {loadingDrivers && <div className="sb-loading">Cargando rendimiento…</div>}
+                    {!loadingDrivers && drivers.length === 0 && (
+                      <div className="sb-empty">Sin datos para este mes.</div>
+                    )}
+                    <div className="sb-operators-grid">
+                      {!loadingDrivers &&
+                        drivers.map((dr) => (
+                          <DriverPerformanceCard key={dr.driver_id} dr={dr} monthLabel={monthLabel} />
+                        ))}
+                    </div>
+                  </div>
                 )}
+              </div>
 
-                <div className="sb-operators-grid">
-                  {!loadingLogistics &&
-                    logisticsUsers.map((u) => (
-                      <UserPerformanceCard key={u.user_id} u={u} monthLabel={monthLabel} />
-                    ))}
-                </div>
+              {/* ── Logística ── */}
+              <div className="sb-section">
+                <button
+                  className={`sb-section-btn ${openSections.logistics ? "open" : ""}`}
+                  onClick={() => toggleSection("logistics")}
+                  type="button"
+                >
+                  <span className="sb-section-btn-label"><FiUsers size={13} /> Rendimiento de Logística</span>
+                  <span className={`sb-section-chevron ${openSections.logistics ? "open" : ""}`}><FiChevronDown size={16} /></span>
+                </button>
+
+                {openSections.logistics && (
+                  <div className="sb-section-content">
+                    {loadingLogistics && <div className="sb-loading">Cargando rendimiento…</div>}
+                    {!loadingLogistics && logisticsUsers.length === 0 && (
+                      <div className="sb-empty">Sin datos para este mes.</div>
+                    )}
+                    <div className="sb-operators-grid">
+                      {!loadingLogistics &&
+                        logisticsUsers.map((u) => (
+                          <UserPerformanceCard key={u.user_id} u={u} monthLabel={monthLabel} />
+                        ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
