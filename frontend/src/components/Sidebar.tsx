@@ -5,6 +5,7 @@ import OperatorPerformanceCard, { type OperatorPerformance } from "./OperatorPer
 import DriverPerformanceCard, { type DriverPerformance } from "./DriverPerformanceCard";
 import UserPerformanceCard, { type UserPerformance } from "./UserPerformanceCard";
 import OperatorDetailModal from "./OperatorDetailModal";
+import DriverDetailModal from "./DriverDetailModal";
 
 const MESES = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -44,6 +45,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const [operators, setOperators] = useState<OperatorPerformance[]>([]);
   const [loading, setLoading] = useState(false);
   const [detailOperatorId, setDetailOperatorId] = useState<number | null>(null);
+  const [detailDriverId, setDetailDriverId] = useState<number | null>(null);
   const [drivers, setDrivers] = useState<DriverPerformance[]>([]);
   const [loadingDrivers, setLoadingDrivers] = useState(false);
   const [logisticsUsers, setLogisticsUsers] = useState<UserPerformance[]>([]);
@@ -546,7 +548,13 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                     <div className="sb-operators-grid">
                       {!loadingDrivers &&
                         drivers.map((dr) => (
-                          <DriverPerformanceCard key={dr.driver_id} dr={dr} monthLabel={monthLabel} />
+                          <DriverPerformanceCard
+                            key={dr.driver_id}
+                            dr={dr}
+                            monthLabel={monthLabel}
+                            onChanged={fetchDriverPerformance}
+                            onViewDetail={setDetailDriverId}
+                          />
                         ))}
                     </div>
                   </div>
@@ -596,6 +604,16 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                 monthLabel={monthLabel}
                 onClose={() => setDetailOperatorId(null)}
                 onActivityChanged={fetchPerformance}
+              />
+            )}
+
+            {detailDriverId !== null && (
+              <DriverDetailModal
+                driverId={detailDriverId}
+                year={year}
+                month={month}
+                monthLabel={monthLabel}
+                onClose={() => setDetailDriverId(null)}
               />
             )}
           </aside>

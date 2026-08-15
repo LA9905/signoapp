@@ -1,9 +1,13 @@
+import { useState, useRef } from "react";
 import { Doughnut } from "react-chartjs-2";
 import "chart.js/auto";
+import { FiCamera, FiEye } from "react-icons/fi";
+import { api } from "../services/http";
 
 export interface DriverPerformance {
   driver_id: number;
   name: string;
+  photo_url: string | null;
   total_despachos: number;
   entregados: number;
   pendientes: number;
@@ -25,12 +29,39 @@ const CLASIFICACION_INFO: Record<string, { label: string; color: string }> = {
 interface Props {
   dr: DriverPerformance;
   monthLabel: string;
+  onChanged?: () => void;
+  onViewDetail?: (driverId: number) => void;
 }
 
-const DriverPerformanceCard: React.FC<Props> = ({ dr, monthLabel }) => {
+const DriverPerformanceCard: React.FC<Props> = ({ dr, monthLabel, onChanged, onViewDetail }) => {
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement | null>(null);
+
   const info = CLASIFICACION_INFO[dr.clasificacion] || CLASIFICACION_INFO.sin_datos;
   const pct = dr.ratio !== null ? Math.round(dr.ratio * 100) : null;
   const pctRing = pct !== null ? Math.min(pct, 100) : 0;
+
+  const handlePhotoClick = () => fileRef.current?.click();
+
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const formData = new FormData();
+    formData.append("photo", file);
+    setUploading(true);
+    try {
+      await api.post(`/drivers/${dr.driver_id}/photo`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      onChanged?.();
+    } catch (err) {
+      console.error("Error subiendo foto:", err);
+      alert("No se pudo subir la foto");
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
 
   const data = {
     labels: ["Entregados", "Pendientes"],
@@ -52,7 +83,25 @@ const DriverPerformanceCard: React.FC<Props> = ({ dr, monthLabel }) => {
 
   return (
     <div className="opc-card">
-      <div className="opc-top" style={{ justifyContent: "center" }}>
+      <div className="opc-top">
+        <div className="opc-avatar-wrap" onClick={handlePhotoClick} title="Cambiar foto">
+          {dr.photo_url ? (
+            <img src={dr.photo_url} alt={dr.name} className="opc-avatar-img" />
+          ) : (
+            <div className="opc-avatar-placeholder">{dr.name.charAt(0).toUpperCase()}</div>
+          )}
+          <div className="opc-avatar-edit">
+            <FiCamera size={11} />
+          </div>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            style={{ display: "none" }}
+            onChange={handlePhotoChange}
+          />
+        </div>
+
         <div className="opc-chart-wrap">
           <Doughnut data={data} options={options} />
           <div className="opc-chart-center">
@@ -81,6 +130,16 @@ const DriverPerformanceCard: React.FC<Props> = ({ dr, monthLabel }) => {
       )}
       {dr.mes_en_curso && (
         <div className="opc-source">Mes en curso — puede variar</div>
+      )}
+
+      {uploading && <div className="opc-uploading">Subiendo foto…</div>}
+
+      {onViewDetail && (
+        <div style={{ display: "flex", gap: 6, width: "100%", marginTop: 4 }}>
+          <button className="opc-activity-btn" onClick={() => onViewDetail(dr.driver_id)} type="button" style={{ flex: 1 }}>
+            <FiEye size={12} /> Ver detalle
+          </button>
+        </div>
       )}
     </div>
   );

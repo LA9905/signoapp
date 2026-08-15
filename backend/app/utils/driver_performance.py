@@ -1,8 +1,9 @@
 from datetime import date, datetime, timedelta
 from calendar import monthrange
+from collections import defaultdict
 from app.models.dispatch_model import Dispatch
 from app.models.driver_model import Driver
-from app.utils.timezone import to_utc_naive, CL_TZ
+from app.utils.timezone import to_utc_naive, to_local, CL_TZ
 
 # Choferes que NO se evalúan (retiros de cliente, encomiendas, transportistas
 # externos, etc. — no siguen una ruta propia de la empresa que se pueda medir).
@@ -78,3 +79,39 @@ def evaluar_chofer(driver_id: int, year: int, month: int):
         "sujeto_sancion": etiqueta in ("baja", "muy_baja"),
         "mes_en_curso": mes_en_curso,
     }
+
+def daily_detail_for_driver(driver_id: int, year: int, month: int):
+    """
+    Desglose día a día del mes: cuántos despachos fueron asignados al chofer
+    cada día y cuántos de esos quedaron marcados como entregados al cliente
+    (vs. cuántos siguen sin marcar). Usado por el detalle del chofer para
+    mostrar los picos de despachos por fecha, distinguiendo marcados de
+    sin marcar.
+    """
+    start_utc, end_utc = _month_utc_bounds(year, month)
+    dispatches = (
+        Dispatch.query
+        .filter(Dispatch.chofer_id == driver_id)
+        .filter(Dispatch.fecha >= start_utc, Dispatch.fecha < end_utc)
+        .all()
+    )
+
+    por_dia = defaultdict(lambda: {"total": 0, "marcados": 0, "sin_marcar": 0})
+    for d in dispatches:
+        fecha = to_local(d.fecha).date()
+        por_dia[fecha]["total"] += 1
+        if d.delivered_client:
+            por_dia[fecha]["marcados"] += 1
+        else:
+            por_dia[fecha]["sin_marcar"] += 1
+
+    resultado = []
+    for fecha in sorted(por_dia.keys()):
+        v = por_dia[fecha]
+        resultado.append({
+            "fecha": fecha.isoformat(),
+            "total_despachos": v["total"],
+            "marcados": v["marcados"],
+            "sin_marcar": v["sin_marcar"],
+        })
+    return resultado
