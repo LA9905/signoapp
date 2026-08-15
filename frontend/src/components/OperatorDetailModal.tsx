@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
 import { Bar } from "react-chartjs-2";
 import "chart.js/auto";
-import { FiX, FiTrash2 } from "react-icons/fi";
+import { FiX, FiTrash2, FiEdit2 } from "react-icons/fi";
 import { api } from "../services/http";
 
 interface DiaDetalle {
   fecha: string;
   cantidad_producto_principal: number;
   cantidad_total_dia: number;
+  productos_dia: { nombre: string; cantidad: number }[];
   horas_programadas: number;
   horas_otras_actividades: number;
   horas_efectivas: number;
@@ -56,7 +57,11 @@ const OperatorDetailModal: React.FC<Props> = ({ operatorId, year, month, monthLa
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
-
+  const [editingActivityId, setEditingActivityId] = useState<number | null>(null);
+  const [editFecha, setEditFecha] = useState<string>("");
+  const [editHoras, setEditHoras] = useState<string>("");
+  const [editNota, setEditNota] = useState<string>("");
+  const [savingEdit, setSavingEdit] = useState(false);
   const monthParam = `${year}-${String(month).padStart(2, "0")}`;
 
   const fetchDetail = () => {
@@ -112,27 +117,95 @@ const OperatorDetailModal: React.FC<Props> = ({ operatorId, year, month, monthLa
     }
   };
 
-  const chartData = data
-    ? {
-        labels: data.diario.map((d) => d.fecha.slice(8, 10)),
-        datasets: [
-          {
-            label: "Producción diaria",
-            data: data.diario.map((d) => d.cantidad_producto_principal),
-            backgroundColor: "rgba(99,102,241,0.5)",
-            borderRadius: 4,
-          },
-        ],
-      }
-    : null;
+  const startEditActivity = (a: Actividad) => {
+    setEditingActivityId(a.id);
+    setEditFecha(a.fecha);
+    setEditHoras(String(a.horas));
+    setEditNota(a.nota || "");
+  };
+
+  const cancelEditActivity = () => {
+    setEditingActivityId(null);
+    setEditFecha("");
+    setEditHoras("");
+    setEditNota("");
+  };
+
+  const saveEditActivity = async () => {
+    if (!editingActivityId) return;
+    if (!editHoras || Number(editHoras) <= 0) {
+      alert("Ingresa una cantidad de horas válida");
+      return;
+    }
+    setSavingEdit(true);
+    try {
+      await api.put(`/operators/activities/${editingActivityId}`, {
+        fecha: editFecha,
+        horas: Number(editHoras),
+        nota: editNota,
+      });
+      cancelEditActivity();
+      await fetchDetail();
+      onActivityChanged?.();
+    } catch (err) {
+      console.error("Error actualizando actividad:", err);
+      alert("No se pudo actualizar la actividad");
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const CHART_PALETTE = [
+    "rgba(99,102,241,0.8)",   // índigo — reservado para el producto principal
+    "rgba(52,211,153,0.75)",  // verde
+    "rgba(96,165,250,0.75)",  // azul
+    "rgba(251,191,36,0.75)",  // amarillo
+    "rgba(248,113,113,0.75)", // rojo
+    "rgba(232,121,249,0.75)", // fucsia
+    "rgba(45,212,191,0.75)",  // teal
+    "rgba(251,146,60,0.75)",  // naranjo
+  ];
+
+  const chartData = (() => {
+    if (!data || data.diario.length === 0) return null;
+
+    // Nombres únicos de producto que aparecen en el mes; el principal va primero
+    // para que siempre tenga el mismo color índigo.
+    const nombresSet = new Set<string>();
+    data.diario.forEach((d) => d.productos_dia.forEach((p) => nombresSet.add(p.nombre)));
+    const otrosNombres = Array.from(nombresSet)
+      .filter((n) => n !== data.producto_principal)
+      .sort();
+    const ordenNombres = data.producto_principal
+      ? [data.producto_principal, ...otrosNombres]
+      : otrosNombres;
+
+    return {
+      labels: data.diario.map((d) => d.fecha.slice(8, 10)),
+      datasets: ordenNombres.map((nombre, i) => ({
+        label: nombre,
+        data: data.diario.map(
+          (d) => d.productos_dia.find((p) => p.nombre === nombre)?.cantidad || 0
+        ),
+        backgroundColor: CHART_PALETTE[i % CHART_PALETTE.length],
+        borderRadius: 4,
+        stack: "total",
+      })),
+    };
+  })();
 
   const chartOptions = {
     responsive: true,
     maintainAspectRatio: false,
-    plugins: { legend: { display: false } },
+    plugins: {
+      legend: {
+        display: true,
+        labels: { color: "rgba(255,255,255,0.6)", font: { size: 10 }, boxWidth: 10 },
+      },
+    },
     scales: {
-      x: { grid: { display: false }, ticks: { color: "rgba(255,255,255,0.35)", font: { size: 10 } } },
-      y: { grid: { color: "rgba(255,255,255,0.05)" }, ticks: { color: "rgba(255,255,255,0.35)", font: { size: 10 } } },
+      x: { stacked: true, grid: { display: false }, ticks: { color: "rgba(255,255,255,0.35)", font: { size: 10 } } },
+      y: { stacked: true, grid: { color: "rgba(255,255,255,0.05)" }, ticks: { color: "rgba(255,255,255,0.35)", font: { size: 10 } } },
     },
   };
 
@@ -153,7 +226,8 @@ const OperatorDetailModal: React.FC<Props> = ({ operatorId, year, month, monthLa
         }
         .odm-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
         .odm-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 16px; }
-        .odm-close { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: rgba(255,255,255,0.7); }
+        .odm-close { background: rgba(99,102,241,0.16); border: 1px solid rgba(129,140,248,0.65); border-radius: 8px; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #C7D2FE; box-shadow: 0 0 8px rgba(99,102,241,0.15); }
+        .odm-close svg, .odm-icon-btn svg { display: block !important; visibility: visible !important; opacity: 1 !important; width: 16px !important; height: 16px !important; min-width: 16px !important; min-height: 16px !important; stroke: currentColor !important; stroke-width: 2 !important; fill: none !important; }
         .odm-section { margin-bottom: 18px; }
         .odm-section-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: rgba(165,180,252,0.85); margin-bottom: 8px; }
         .odm-explicacion { font-size: 12px; line-height: 1.5; color: rgba(255,255,255,0.55); background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; padding: 10px 12px; }
@@ -167,7 +241,7 @@ const OperatorDetailModal: React.FC<Props> = ({ operatorId, year, month, monthLa
       <div className="odm-panel" onClick={(e) => e.stopPropagation()}>
         <div className="odm-header">
           <span className="odm-title">{data ? data.name : "Detalle del operario"} — {monthLabel}</span>
-          <button className="odm-close" onClick={onClose} type="button"><FiX size={15} /></button>
+          <button className="odm-close" onClick={onClose} type="button"><FiX size={16} /></button>
         </div>
 
         {loading && <div className="odm-act-empty">Cargando detalle…</div>}
@@ -230,34 +304,144 @@ const OperatorDetailModal: React.FC<Props> = ({ operatorId, year, month, monthLa
               {data.actividades.length === 0 ? (
                 <div className="odm-act-empty">No se han registrado otras actividades este mes.</div>
               ) : (
-                data.actividades.map((a) => (
-                  <div className="odm-act-row" key={a.id}>
-                    <span>{a.fecha}</span>
-                    <span>{a.horas}h</span>
-                    <span style={{ color: "rgba(255,255,255,0.4)", flex: 1 }}>{a.nota || "—"}</span>
-                    <button
-                      onClick={() => handleDeleteActivity(a.id)}
-                      disabled={deletingId === a.id}
-                      type="button"
-                      style={{
-                        background: "rgba(248,113,113,0.12)",
-                        border: "1px solid rgba(248,113,113,0.3)",
-                        color: "#FCA5A5",
-                        borderRadius: 6,
-                        width: 24,
-                        height: 24,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        cursor: "pointer",
-                        flexShrink: 0,
-                      }}
-                      title="Eliminar actividad"
+                data.actividades.map((a) =>
+                  editingActivityId === a.id ? (
+                    <div
+                      key={a.id}
+                      className="odm-act-row"
+                      style={{ flexDirection: "column", alignItems: "stretch", gap: 6 }}
                     >
-                      <FiTrash2 size={12} />
-                    </button>
-                  </div>
-                ))
+                      <input
+                        type="date"
+                        value={editFecha}
+                        onChange={(e) => setEditFecha(e.target.value)}
+                        style={{
+                          background: "rgba(255,255,255,0.04)",
+                          border: "1px solid rgba(255,255,255,0.08)",
+                          color: "white",
+                          borderRadius: 6,
+                          padding: "5px 8px",
+                          fontSize: 12,
+                        }}
+                      />
+                      <input
+                        type="number"
+                        min={0}
+                        step={0.5}
+                        value={editHoras}
+                        onChange={(e) => setEditHoras(e.target.value)}
+                        placeholder="Horas"
+                        style={{
+                          background: "rgba(255,255,255,0.04)",
+                          border: "1px solid rgba(255,255,255,0.08)",
+                          color: "white",
+                          borderRadius: 6,
+                          padding: "5px 8px",
+                          fontSize: 12,
+                        }}
+                      />
+                      <input
+                        type="text"
+                        value={editNota}
+                        onChange={(e) => setEditNota(e.target.value)}
+                        placeholder="Motivo (opcional)"
+                        style={{
+                          background: "rgba(255,255,255,0.04)",
+                          border: "1px solid rgba(255,255,255,0.08)",
+                          color: "white",
+                          borderRadius: 6,
+                          padding: "5px 8px",
+                          fontSize: 12,
+                        }}
+                      />
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <button
+                          onClick={saveEditActivity}
+                          disabled={savingEdit}
+                          type="button"
+                          style={{
+                            flex: 1,
+                            background: "rgba(52,211,153,0.15)",
+                            border: "1px solid rgba(52,211,153,0.3)",
+                            color: "#6EE7B7",
+                            borderRadius: 6,
+                            padding: "6px 0",
+                            fontSize: 12,
+                            fontWeight: 600,
+                            cursor: "pointer",
+                          }}
+                        >
+                          {savingEdit ? "Guardando…" : "Guardar"}
+                        </button>
+                        <button
+                          onClick={cancelEditActivity}
+                          type="button"
+                          style={{
+                            flex: 1,
+                            background: "rgba(255,255,255,0.04)",
+                            border: "1px solid rgba(255,255,255,0.1)",
+                            color: "rgba(255,255,255,0.6)",
+                            borderRadius: 6,
+                            padding: "6px 0",
+                            fontSize: 12,
+                            cursor: "pointer",
+                          }}
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="odm-act-row" key={a.id}>
+                      <span>{a.fecha}</span>
+                      <span>{a.horas}h</span>
+                      <span style={{ color: "rgba(255,255,255,0.4)", flex: 1 }}>{a.nota || "—"}</span>
+                      <button
+                        className="odm-icon-btn"
+                        onClick={() => startEditActivity(a)}
+                        type="button"
+                        style={{
+                          background: "rgba(96,165,250,0.18)",
+                          border: "1px solid rgba(96,165,250,0.65)",
+                          color: "#BFDBFE",
+                          borderRadius: 6,
+                          width: 24,
+                          height: 24,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          cursor: "pointer",
+                          flexShrink: 0,
+                        }}
+                        title="Editar actividad"
+                      >
+                        <FiEdit2 size={12} />
+                      </button>
+                      <button
+                        className="odm-icon-btn"
+                        onClick={() => handleDeleteActivity(a.id)}
+                        disabled={deletingId === a.id}
+                        type="button"
+                        style={{
+                          background: "rgba(248,113,113,0.18)",
+                          border: "1px solid rgba(248,113,113,0.65)",
+                          color: "#FECACA",
+                          borderRadius: 6,
+                          width: 24,
+                          height: 24,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          cursor: "pointer",
+                          flexShrink: 0,
+                        }}
+                        title="Eliminar actividad"
+                      >
+                        <FiTrash2 size={12} />
+                      </button>
+                    </div>
+                  )
+                )
               )}
             </div>
           </>

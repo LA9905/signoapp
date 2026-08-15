@@ -12,11 +12,11 @@ import * as XLSX from "xlsx";
 interface ProductionSummary {
   id: number;
   operator: string;
+  operator_id: number | null;
   created_by: string;
   fecha: string;
   productos: { nombre: string; cantidad: number; unidad: string }[];
 }
-
 interface Product {
   id: number;
   name: string;
@@ -36,6 +36,11 @@ type SearchState = {
   date_to: string;
 };
 
+function p_fechaAnterior(list: ProductionSummary[], id: number): string | null {
+  const found = list.find((p) => p.id === id);
+  return found ? found.fecha : null;
+}
+
 const ProductionTracking = () => {
   const [productions, setProductions] = useState<ProductionSummary[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -46,6 +51,9 @@ const ProductionTracking = () => {
   const [draft, setDraft] = useState<{
     operator: string;
     productos: ProductoRow[];
+    fecha: string;
+    horasOtras: string;
+    notaOtras: string;
   } | null>(null);
   const [productNames, setProductNames] = useState<string[]>([]);
   const [productList, setProductList] = useState<{ name: string; usage: number }[]>([]);
@@ -53,6 +61,28 @@ const ProductionTracking = () => {
   const [validationError, setValidationError] = useState<string | null>(null);
   const [dropdownPos, setDropdownPos] = useState<Record<number, { top: number; left: number; width: number }>>({});
   const inputRefs = useRef<Record<number, HTMLInputElement | null>>({});
+  const [activitiesByKey, setActivitiesByKey] = useState<Record<string, { horas: number; nota: string } | null>>({});
+  const fetchedActivityKeysRef = useRef<Set<string>>(new Set());
+
+  const activityKey = (operatorId: number, fecha: string) => `${operatorId}_${fecha.slice(0, 10)}`;
+
+  const fetchActivityFor = useCallback((operatorId: number, fecha: string) => {
+    const key = activityKey(operatorId, fecha);
+    if (fetchedActivityKeysRef.current.has(key)) return;
+    fetchedActivityKeysRef.current.add(key);
+    api
+      .get(`/operators/${operatorId}/activities`, { params: { date: fecha.slice(0, 10) } })
+      .then((res) => {
+        const act = Array.isArray(res.data) && res.data.length > 0 ? res.data[0] : null;
+        setActivitiesByKey((prev) => ({
+          ...prev,
+          [key]: act ? { horas: act.horas, nota: act.nota || "" } : null,
+        }));
+      })
+      .catch((err) => {
+        console.error("Error cargando actividad de la fila:", err);
+      });
+  }, []);
 
   const [searchState, setSearchState] = useState<SearchState>({
     operator: "",
@@ -180,6 +210,12 @@ const ProductionTracking = () => {
     };
   }, [debouncedSearch, fetchProductions]);
 
+  useEffect(() => {
+    productions.forEach((p) => {
+      if (p.operator_id) fetchActivityFor(p.operator_id, p.fecha);
+    });
+  }, [productions, fetchActivityFor]);
+
   const handleSearchChange = (e: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setSearchState((prev) => ({ ...prev, [name]: value }));
@@ -216,10 +252,33 @@ const ProductionTracking = () => {
 
   const startEditRow = (p: ProductionSummary) => {
     setEditingId(p.id);
+    const fechaSolo = p.fecha.slice(0, 10); // "YYYY-MM-DDTHH:mm:ss" -> "YYYY-MM-DD"
     setDraft({
       operator: p.operator,
       productos: p.productos.map((pr) => ({ ...pr })),
+      fecha: fechaSolo,
+      horasOtras: "",
+      notaOtras: "",
     });
+
+    // Precargar, si existe, la actividad de "otras horas" ya registrada
+    // para ese operario en esa misma fecha, para poder editarla o quitarla
+    // desde aquí sin perder lo que ya se había guardado.
+    if (p.operator_id) {
+      api
+        .get(`/operators/${p.operator_id}/activities`, { params: { date: fechaSolo } })
+        .then((res) => {
+          const act = Array.isArray(res.data) && res.data.length > 0 ? res.data[0] : null;
+          if (act) {
+            setDraft((prev) =>
+              prev ? { ...prev, horasOtras: String(act.horas), notaOtras: act.nota || "" } : prev
+            );
+          }
+        })
+        .catch((err) => {
+          console.error("Error cargando actividad del día:", err);
+        });
+    }
   };
 
   const cancelEditRow = () => {
@@ -248,19 +307,36 @@ const ProductionTracking = () => {
 
     setIsLoading(true);
     try {
-      const payload = {
+      const payload: Record<string, unknown> = {
         operator: draft.operator,
         productos: draft.productos.map((pr) => ({
           nombre: pr.nombre,
           cantidad: pr.cantidad,
           unidad: pr.unidad,
         })),
+        fecha: draft.fecha,
+        horas_otras: draft.horasOtras ? Number(draft.horasOtras) : 0,
+        nota_otras: draft.notaOtras,
       };
       const response = await api.put<ProductionSummary>(`/productions/${editingId}`, payload);
       const updated = response.data;
       setProductions((prev) =>
         prev.map((pr) => (pr.id === editingId ? { ...pr, ...updated } : pr))
       );
+
+      // La edición pudo haber creado, cambiado o quitado la actividad de
+      // otras horas de esa fecha (y la fecha misma pudo haber cambiado):
+      // se invalidan ambas claves (la fecha anterior y la nueva) para que
+      // se vuelvan a consultar y la tarjeta refleje el dato actualizado.
+      if (updated.operator_id) {
+        [p_fechaAnterior(productions, editingId), updated.fecha].forEach((f) => {
+          if (!f) return;
+          const key = activityKey(updated.operator_id as number, f);
+          fetchedActivityKeysRef.current.delete(key);
+        });
+        fetchActivityFor(updated.operator_id, updated.fecha);
+      }
+
       setMensaje("Producción actualizada correctamente");
       cancelEditRow();
     } catch (err) {
@@ -628,6 +704,25 @@ const ProductionTracking = () => {
                           ))}
                         </div>
                       </div>
+
+                      {/* Otra actividad registrada ese día para el operario */}
+                      {p.operator_id && activitiesByKey[activityKey(p.operator_id, p.fecha)] && (
+                        <div className="border-t border-blue-500/70 pt-3 mb-4">
+                          <p className="field-label-pt mb-2">Otra actividad ese día</p>
+                          <span
+                            className="meta-chip-pt w-fit"
+                            style={{ background: "rgba(251,191,36,0.08)", borderColor: "rgba(251,191,36,0.2)" }}
+                          >
+                            <strong>{activitiesByKey[activityKey(p.operator_id, p.fecha)]!.horas}h</strong>
+                            {activitiesByKey[activityKey(p.operator_id, p.fecha)]!.nota && (
+                              <>
+                                <span className="text-white/30">·</span>
+                                <span>{activitiesByKey[activityKey(p.operator_id, p.fecha)]!.nota}</span>
+                              </>
+                            )}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   ) : (
                     /* ── Edit mode ── */
@@ -652,6 +747,39 @@ const ProductionTracking = () => {
                             onChange={(operator) => setDraft((prev) => (prev ? { ...prev, operator } : prev))}
                           />
                         </div>
+                        <div>
+                          <div className="field-label-pt">Fecha de la producción</div>
+                          <input
+                            type="date"
+                            className="input-pt w-full px-3 py-2.5"
+                            value={draft?.fecha || ""}
+                            onChange={(e) => setDraft((prev) => (prev ? { ...prev, fecha: e.target.value } : prev))}
+                          />
+                        </div>
+                        <div>
+                          <div className="field-label-pt">Horas en otras actividades</div>
+                          <input
+                            type="number"
+                            min={0}
+                            step={0.5}
+                            placeholder="0"
+                            className="input-pt w-full px-3 py-2.5"
+                            value={draft?.horasOtras || ""}
+                            onChange={(e) => setDraft((prev) => (prev ? { ...prev, horasOtras: e.target.value } : prev))}
+                          />
+                        </div>
+                        {draft?.horasOtras && Number(draft.horasOtras) > 0 && (
+                          <div className="sm:col-span-2">
+                            <div className="field-label-pt">Motivo de la otra actividad</div>
+                            <input
+                              type="text"
+                              placeholder="Ej: Apoyo en despacho"
+                              className="input-pt w-full px-3 py-2.5"
+                              value={draft?.notaOtras || ""}
+                              onChange={(e) => setDraft((prev) => (prev ? { ...prev, notaOtras: e.target.value } : prev))}
+                            />
+                          </div>
+                        )}
                       </div>
 
                       {/* Products edit */}

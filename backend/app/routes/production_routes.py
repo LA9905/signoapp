@@ -12,6 +12,7 @@ from sqlalchemy.exc import IntegrityError
 from flask_cors import CORS
 from collections import defaultdict
 from app.routes.product_routes import normalize_product_name, normalize_search, normalize_db_column
+from app.models.operator_activity_model import OperatorActivity
 
 production_bp = Blueprint("productions", __name__)
 CORS(
@@ -19,6 +20,41 @@ CORS(
     resources={r"/*": {"origins": "*"}},
     supports_credentials=True,
 )
+
+def _upsert_or_clear_operator_activity(operator_id: int, fecha, horas, nota, user_id):
+    """
+    Crea, actualiza o elimina el registro de OperatorActivity de un operario
+    para una fecha específica, según lo que se envíe desde el formulario de
+    producción (create/update). Mismo criterio que ya usa
+    create_operator_activity en operator_performance_routes.py: una sola
+    actividad por operario y día (se sobreescribe si ya existía).
+
+    - horas > 0: crea o actualiza el registro con esas horas y nota.
+    - horas es None, "" o 0: si existía un registro para ese día, se elimina
+      (permite "quitar" la actividad editando la producción).
+    """
+    existing = OperatorActivity.query.filter_by(operator_id=operator_id, fecha=fecha).first()
+
+    if horas is None or horas == "" or float(horas) <= 0:
+        if existing:
+            db.session.delete(existing)
+        return
+
+    horas_val = float(horas)
+    nota_val = (nota or "").strip()
+    if existing:
+        existing.horas = horas_val
+        existing.nota = nota_val
+    else:
+        db.session.add(
+            OperatorActivity(
+                operator_id=operator_id,
+                fecha=fecha,
+                horas=horas_val,
+                nota=nota_val,
+                created_by=user_id,
+            )
+        )
 
 @production_bp.route("/productions", methods=["POST"])
 @jwt_required()
@@ -44,7 +80,24 @@ def create_production():
             operator_name=operator.name,
             created_by=user_id,
         )
-        new_production.fecha = to_utc_naive(datetime.now(CL_TZ))
+
+        # Fecha real a la que pertenece la producción: por defecto "ahora",
+        # pero puede elegirse manualmente (ej. producción del viernes que
+        # recién se registra el lunes siguiente). Se conserva la hora actual
+        # del reloj y solo se reemplaza el día, para que el registro siga
+        # teniendo un timestamp realista.
+        fecha_str = (data.get("fecha") or "").strip()
+        now_local = datetime.now(CL_TZ)
+        if fecha_str:
+            try:
+                chosen_date = datetime.strptime(fecha_str, "%Y-%m-%d").date()
+            except ValueError:
+                return jsonify({"error": "Formato de fecha inválido, use YYYY-MM-DD"}), 400
+            local_dt = datetime.combine(chosen_date, now_local.timetz())
+        else:
+            chosen_date = now_local.date()
+            local_dt = now_local
+        new_production.fecha = to_utc_naive(local_dt)
 
         db.session.add(new_production)
 
@@ -74,6 +127,15 @@ def create_production():
                     prod_row.stock = float(prod_row.stock or 0) + float(p["cantidad"] or 0)
                 except Exception:
                     pass
+
+        # Registrar de una vez, opcionalmente, las horas de otras
+        # actividades del operario para esa misma fecha (queda guardado en
+        # el mismo registro de actividades que usa el rendimiento de
+        # producción, sin necesidad de ir a otra pantalla).
+        if "horas_otras" in data:
+            _upsert_or_clear_operator_activity(
+                operator.id, chosen_date, data.get("horas_otras"), data.get("nota_otras"), user_id
+            )
 
         db.session.commit()
         return jsonify(new_production.to_dict()), 201
@@ -148,6 +210,7 @@ def get_productions():
                 {
                     "id": p.id,
                     "operator": operator_display,
+                    "operator_id": p.operator_id,
                     "created_by": creator.name if creator else p.created_by,
                     "fecha": to_local(p.fecha).isoformat(timespec="seconds"),
                     "productos": [
@@ -213,6 +276,20 @@ def update_production(production_id):
         production.operator_id = operator.id
         production.operator_name = operator.name
 
+        # Fecha real de la producción: si se envía, reemplaza el día
+        # conservando la hora original del registro (misma lógica que en
+        # la creación), para poder corregir a qué día pertenece la
+        # producción sin perder un timestamp realista.
+        if "fecha" in data and data.get("fecha"):
+            try:
+                chosen_date = datetime.strptime(data["fecha"], "%Y-%m-%d").date()
+            except ValueError:
+                return jsonify({"error": "Formato de fecha inválido, use YYYY-MM-DD"}), 400
+            hora_actual = to_local(production.fecha).timetz()
+            production.fecha = to_utc_naive(datetime.combine(chosen_date, hora_actual))
+        else:
+            chosen_date = to_local(production.fecha).date()
+
         # Calcular cantidades antiguas sumadas por nombre
         old_qty_by_name = defaultdict(float)
         for p in production.productos:
@@ -260,12 +337,21 @@ def update_production(production_id):
                 )
             )
 
+        # Registrar, editar o quitar (si horas_otras llega en 0/None) las
+        # horas de otras actividades del operario para la fecha final de
+        # esta producción, directamente desde el formulario de edición.
+        if "horas_otras" in data:
+            _upsert_or_clear_operator_activity(
+                operator.id, chosen_date, data.get("horas_otras"), data.get("nota_otras"), user_id
+            )
+
         db.session.commit()
 
         creator = User.query.get(production.created_by)
         return jsonify({
             "id": production.id,
             "operator": operator.name,
+            "operator_id": production.operator_id,
             "created_by": creator.name if creator else production.created_by,
             "fecha": to_local(production.fecha).isoformat(timespec="seconds"),
             "productos": [

@@ -418,6 +418,10 @@ def daily_detail_for_operator(operator_id: int, year: int, month: int):
             "fecha": d.isoformat(),
             "cantidad_producto_principal": round(cantidad_principal, 2),
             "cantidad_total_dia": round(sum(qty_por_dia_producto[d].values()), 2),
+            "productos_dia": [
+                {"nombre": nombre, "cantidad": round(qty, 2)}
+                for nombre, qty in qty_por_dia_producto[d].items()
+            ],
             "horas_programadas": base,
             "horas_otras_actividades": round(otras, 2),
             "horas_efectivas": round(horas_efectivas_dia, 2),

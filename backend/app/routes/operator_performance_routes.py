@@ -120,8 +120,11 @@ def upload_operator_photo(operator_id):
 @jwt_required()
 def list_operator_activities(operator_id):
     month_param = request.args.get("month")
+    date_param = request.args.get("date")  # "YYYY-MM-DD": filtra a un día exacto
     q = OperatorActivity.query.filter_by(operator_id=operator_id)
-    if month_param:
+    if date_param:
+        q = q.filter(OperatorActivity.fecha == date.fromisoformat(date_param))
+    elif month_param:
         year, month = map(int, month_param.split("-"))
         q = q.filter(db.extract("year", OperatorActivity.fecha) == year)
         q = q.filter(db.extract("month", OperatorActivity.fecha) == month)
@@ -158,6 +161,30 @@ def create_operator_activity(operator_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": "No se pudo registrar la actividad", "details": str(e)}), 500
+
+
+@performance_bp.route("/operators/activities/<int:activity_id>", methods=["PUT"])
+@jwt_required()
+def update_operator_activity(activity_id):
+    try:
+        activity = OperatorActivity.query.get_or_404(activity_id)
+        data = request.get_json() or {}
+        fecha_str = data.get("fecha")
+        horas = data.get("horas")
+        nota = data.get("nota")
+
+        if fecha_str:
+            activity.fecha = date.fromisoformat(fecha_str)
+        if horas is not None:
+            activity.horas = float(horas)
+        if nota is not None:
+            activity.nota = nota.strip()
+
+        db.session.commit()
+        return jsonify(activity.to_dict()), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": "No se pudo actualizar la actividad", "details": str(e)}), 500
 
 
 @performance_bp.route("/operators/activities/<int:activity_id>", methods=["DELETE"])
