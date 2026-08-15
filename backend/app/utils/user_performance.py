@@ -4,7 +4,7 @@ from collections import defaultdict
 from app.models.dispatch_model import Dispatch
 from app.models.dispatch_edit_model import DispatchEditLog
 from app.models.user_model import User
-from app.utils.timezone import to_utc_naive, CL_TZ
+from app.utils.timezone import to_utc_naive, to_local, CL_TZ
 
 MOTIVO_LABELS = {
     "orden": "Orden de compra incorrecta",
@@ -121,3 +121,54 @@ def evaluar_usuarios_logistica(year: int, month: int):
 
     resultados.sort(key=lambda r: -r["total_despachos"])
     return resultados
+
+
+def evaluar_usuario(user_id: str, year: int, month: int):
+    """
+    Mismo cálculo que evaluar_usuarios_logistica, pero para un solo usuario
+    (usado por el detalle). Se apoya en la misma función para no duplicar
+    la lógica de volumen/precisión — solo filtra el resultado.
+    """
+    resultados = evaluar_usuarios_logistica(year, month)
+    return next((r for r in resultados if str(r["user_id"]) == str(user_id)), None)
+
+
+def daily_detail_for_user(user_id: str, year: int, month: int):
+    """
+    Desglose día a día del mes: cuántos despachos creó el usuario cada día
+    y cuántos de esos terminaron siendo editados después (por errores en
+    orden, chofer o productos). Usado por el detalle del usuario para
+    mostrar los picos de despachos por fecha, distinguiendo correctos de
+    editados.
+    """
+    start_utc, end_utc = _month_utc_bounds(year, month)
+    dispatches = (
+        Dispatch.query
+        .filter(Dispatch.created_by == str(user_id))
+        .filter(Dispatch.fecha >= start_utc, Dispatch.fecha < end_utc)
+        .all()
+    )
+    if not dispatches:
+        return []
+
+    ids = [d.id for d in dispatches]
+    logs = DispatchEditLog.query.filter(DispatchEditLog.dispatch_id.in_(ids)).all()
+    editados_ids = {log.dispatch_id for log in logs}
+
+    por_dia = defaultdict(lambda: {"total": 0, "editados": 0})
+    for d in dispatches:
+        fecha = to_local(d.fecha).date()
+        por_dia[fecha]["total"] += 1
+        if d.id in editados_ids:
+            por_dia[fecha]["editados"] += 1
+
+    resultado = []
+    for fecha in sorted(por_dia.keys()):
+        v = por_dia[fecha]
+        resultado.append({
+            "fecha": fecha.isoformat(),
+            "total_despachos": v["total"],
+            "correctos": v["total"] - v["editados"],
+            "editados": v["editados"],
+        })
+    return resultado

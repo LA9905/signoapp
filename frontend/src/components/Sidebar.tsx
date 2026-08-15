@@ -6,6 +6,7 @@ import DriverPerformanceCard, { type DriverPerformance } from "./DriverPerforman
 import UserPerformanceCard, { type UserPerformance } from "./UserPerformanceCard";
 import OperatorDetailModal from "./OperatorDetailModal";
 import DriverDetailModal from "./DriverDetailModal";
+import UserDetailModal from "./UserDetailModal";
 
 const MESES = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -50,6 +51,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const [loadingDrivers, setLoadingDrivers] = useState(false);
   const [logisticsUsers, setLogisticsUsers] = useState<UserPerformance[]>([]);
   const [loadingLogistics, setLoadingLogistics] = useState(false);
+  const [detailUserId, setDetailUserId] = useState<string | null>(null);
 
   const fetchPerformance = useCallback(async () => {
     setLoading(true);
@@ -581,7 +583,12 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                     <div className="sb-operators-grid">
                       {!loadingLogistics &&
                         logisticsUsers.map((u) => (
-                          <UserPerformanceCard key={u.user_id} u={u} monthLabel={monthLabel} />
+                          <UserPerformanceCard
+                            key={u.user_id}
+                            u={u}
+                            monthLabel={monthLabel}
+                            onViewDetail={setDetailUserId}
+                          />
                         ))}
                     </div>
                   </div>
@@ -614,6 +621,16 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                 month={month}
                 monthLabel={monthLabel}
                 onClose={() => setDetailDriverId(null)}
+              />
+            )}
+
+            {detailUserId !== null && (
+              <UserDetailModal
+                userId={detailUserId}
+                year={year}
+                month={month}
+                monthLabel={monthLabel}
+                onClose={() => setDetailUserId(null)}
               />
             )}
           </aside>

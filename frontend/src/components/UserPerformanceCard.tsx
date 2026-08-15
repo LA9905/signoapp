@@ -1,5 +1,6 @@
 import { Doughnut } from "react-chartjs-2";
 import "chart.js/auto";
+import { FiEye } from "react-icons/fi";
 
 export interface UserPerformance {
   user_id: string;
@@ -42,9 +43,10 @@ function calcularPorcentajeVisual(ratio: number, clasificacion: string): number 
 interface Props {
   u: UserPerformance;
   monthLabel: string;
+  onViewDetail?: (userId: string) => void;
 }
 
-const UserPerformanceCard: React.FC<Props> = ({ u, monthLabel }) => {
+const UserPerformanceCard: React.FC<Props> = ({ u, monthLabel, onViewDetail }) => {
   const info = CLASIFICACION_INFO[u.clasificacion] || CLASIFICACION_INFO.sin_datos;
   const pctDisplay = u.ratio !== null ? calcularPorcentajeVisual(u.ratio, u.clasificacion) : null;
   const pctRing = pctDisplay !== null ? Math.min(pctDisplay, 100) : 0;
@@ -104,6 +106,14 @@ const UserPerformanceCard: React.FC<Props> = ({ u, monthLabel }) => {
         </div>
       )}
       {u.mes_en_curso && <div className="opc-source">Mes en curso — puede variar</div>}
+
+      {onViewDetail && (
+        <div style={{ display: "flex", gap: 6, width: "100%", marginTop: 4 }}>
+          <button className="opc-activity-btn" onClick={() => onViewDetail(u.user_id)} type="button" style={{ flex: 1 }}>
+            <FiEye size={12} /> Ver detalle
+          </button>
+        </div>
+      )}
     </div>
   );
 };
