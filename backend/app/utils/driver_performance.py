@@ -1,6 +1,7 @@
 from datetime import date, datetime, timedelta
 from calendar import monthrange
 from collections import defaultdict
+from sqlalchemy import func
 from app.models.dispatch_model import Dispatch
 from app.models.driver_model import Driver
 from app.utils.timezone import to_utc_naive, to_local, CL_TZ
@@ -25,6 +26,27 @@ def _normalizar_nombre(n: str) -> str:
 
 def is_evaluable_driver(name: str) -> bool:
     return _normalizar_nombre(name) not in EXCLUDED_DRIVER_NAMES
+
+
+# Mapeo de correos de usuarios "chofer" (acceso limitado) al nombre EXACTO
+# del chofer correspondiente en la tabla Driver. Se usa para que estos
+# usuarios vean en su propio Dashboard las métricas de SU rendimiento
+# como chofer.
+LIMITED_USER_DRIVER_EMAIL_MAP = {
+    "alfonsomachado64@gmail.com": "Alfonso Machado",
+    "cocachaucono@gmail.com": "José Chaucono",
+    "jerrykalet@gmail.com": "Fernando Terrones",
+    "claudiogarbarino1966@gmail.com": "Claudio Garbarino",
+}
+
+
+def get_driver_for_user_email(email: str):
+    """Devuelve el Driver asociado a un correo de usuario limitado (chofer),
+    o None si el correo no está mapeado o el chofer no existe en la tabla."""
+    driver_name = LIMITED_USER_DRIVER_EMAIL_MAP.get((email or "").strip().lower())
+    if not driver_name:
+        return None
+    return Driver.query.filter(func.lower(Driver.name) == driver_name.lower()).first()
 
 
 def _month_utc_bounds(year: int, month: int):

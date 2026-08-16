@@ -2,7 +2,13 @@ from flask import Blueprint, request, jsonify
 from datetime import date
 from app import db
 from app.models.driver_model import Driver
-from app.utils.driver_performance import evaluar_chofer, is_evaluable_driver, daily_detail_for_driver
+from app.models.user_model import User
+from app.utils.driver_performance import (
+    evaluar_chofer,
+    is_evaluable_driver,
+    daily_detail_for_driver,
+    get_driver_for_user_email,
+)
 from flask_jwt_extended import jwt_required, get_jwt_identity
 import cloudinary.uploader
 
@@ -87,6 +93,65 @@ def driver_performance_detail(driver_id):
                 "(entregados al cliente) sobre el total de despachos que le fueron "
                 "asignados ese mes. Todavía no hay despachos asignados a este chofer "
                 "en el mes seleccionado."
+            )
+
+        return jsonify({
+            "driver_id": driver.id,
+            "name": driver.name,
+            "photo_url": driver.photo_url,
+            "year": year,
+            "month": month,
+            "resumen": resumen,
+            "diario": diario,
+            "explicacion": explicacion,
+        }), 200
+    except Exception as e:
+        return jsonify({"error": "No se pudo obtener el detalle de rendimiento", "details": str(e)}), 500
+
+
+@driver_performance_bp.route("/drivers/me/performance/detail", methods=["GET"])
+@jwt_required()
+def my_driver_performance_detail():
+    try:
+        uid = get_jwt_identity()
+        user = User.query.get(uid)
+        if not user:
+            return jsonify({"error": "Usuario no encontrado"}), 404
+
+        driver = get_driver_for_user_email(user.email)
+        if not driver:
+            return jsonify({"error": "Este usuario no tiene un chofer asociado"}), 404
+
+        month_param = request.args.get("month")
+        if month_param:
+            year, month = map(int, month_param.split("-"))
+        else:
+            today = date.today()
+            year, month = today.year, today.month
+
+        resumen = evaluar_chofer(driver.id, year, month)
+        diario = daily_detail_for_driver(driver.id, year, month)
+
+        if resumen["ratio"] is not None:
+            explicacion = (
+                "El rendimiento del chofer se calcula como el porcentaje de despachos "
+                "asignados en el mes que quedaron marcados como 'Pedido Entregado' "
+                "(entregados al cliente) sobre el total de despachos que le fueron "
+                "asignados ese mes. Un despacho pendiente de marcar cuenta en contra "
+                "de ese porcentaje aunque el chofer ya lo haya entregado físicamente, "
+                "porque el sistema solo puede medir lo que quedó registrado. "
+                f"Este mes se te asignaron {resumen['total_despachos']} "
+                f"despachos, de los cuales {resumen['entregados']} quedaron marcados "
+                f"como entregados y {resumen['pendientes']} siguen sin marcar, dando "
+                f"un {round(resumen['ratio'] * 100)}% de cumplimiento."
+            )
+        else:
+            explicacion = (
+                "El rendimiento del chofer se calcula como el porcentaje de despachos "
+                "asignados en el mes que quedaron marcados como 'Pedido Entregado' "
+                "(entregados al cliente) sobre el total de despachos que le fueron "
+                "asignados ese mes. Todavía no tienes despachos asignados en el mes "
+                "seleccionado."
             )
 
         return jsonify({

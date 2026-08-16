@@ -28,9 +28,10 @@ type SectionKey = "production" | "drivers" | "logistics";
 interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
+  isLimited?: boolean;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
+const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, isLimited = false }) => {
   const [expanded, setExpanded] = useState(false);
   const [isDark, setIsDark] = useState(true);
   const [year, setYear] = useState(new Date().getFullYear());
@@ -473,6 +474,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                 </div>
               </div>
 
+              {!isLimited && (
+                <>
               {/* Selector de mes compartido por las 3 secciones de rendimiento */}
               <div className="sb-month-nav">
                 <button onClick={() => changeMonth(-1)} type="button" aria-label="Mes anterior">
@@ -594,6 +597,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                   </div>
                 )}
               </div>
+                </>
+              )}
             </div>
 
             <div className="sb-footer">

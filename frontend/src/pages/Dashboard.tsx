@@ -179,6 +179,7 @@
 
 import { useEffect, useState } from "react";
 import type { AxiosResponse } from "axios";
+import { Bar } from "react-chartjs-2";
 import NavbarUser from "../components/NavbarUser";
 import DashboardAnniversaryBanner from "../components/DashboardAnniversaryBanner";
 import ChartMonthlyOrders from "../components/ChartMonthlyOrders";
@@ -187,6 +188,32 @@ import { api } from "../services/http";
 import { me } from "../services/authService";
 import type { MeResp } from "../types";
 import Sidebar from "../components/Sidebar";
+
+interface DriverDiaDetalle {
+  fecha: string;
+  total_despachos: number;
+  marcados: number;
+  sin_marcar: number;
+}
+
+interface DriverPerformanceDetail {
+  driver_id: number;
+  name: string;
+  photo_url: string | null;
+  year: number;
+  month: number;
+  resumen: {
+    total_despachos: number;
+    entregados: number;
+    pendientes: number;
+    ratio: number | null;
+    clasificacion: string;
+    sujeto_sancion: boolean;
+    mes_en_curso: boolean;
+  };
+  diario: DriverDiaDetalle[];
+  explicacion: string;
+}
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -201,10 +228,35 @@ const Dashboard: React.FC = () => {
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [driverDetail, setDriverDetail] = useState<DriverPerformanceDetail | null>(null);
+  const [loadingDriverDetail, setLoadingDriverDetail] = useState(false);
 
   const handleStart = () => navigate("/CreateDispatch");
 
   useEffect(() => {
+    if (isLoadingUser) return;
+
+    if (isLimited) {
+      const fetchDriverDetail = async () => {
+        setLoadingDriverDetail(true);
+        try {
+          const monthParam = `${selectedYear}-${String(selectedMonth).padStart(2, "0")}`;
+          const res = await api.get("/drivers/me/performance/detail", {
+            params: { month: monthParam },
+          });
+          setDriverDetail(res.data);
+          setErrorMessage(null);
+        } catch (err) {
+          setDriverDetail(null);
+          setErrorMessage("Error al cargar tus métricas. Intenta de nuevo.");
+        } finally {
+          setLoadingDriverDetail(false);
+        }
+      };
+      fetchDriverDetail();
+      return;
+    }
+
     const fetchChartData = async () => {
       try {
         const res = await api.get("/dispatches/monthly", {
@@ -221,7 +273,7 @@ const Dashboard: React.FC = () => {
       }
     };
     fetchChartData();
-  }, [selectedYear, selectedMonth]);
+  }, [selectedYear, selectedMonth, isLimited, isLoadingUser]);
 
   useEffect(() => {
     me()
@@ -406,7 +458,7 @@ const Dashboard: React.FC = () => {
         .fade-in { animation: fade-in .3s ease both; }
       `}</style>
 
-      <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+      <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} isLimited={isLimited} />
 
       <NavbarUser avatarUrl={avatarUrl} onMenuClick={() => setIsSidebarOpen(true)} />
       <DashboardAnniversaryBanner />
@@ -457,7 +509,7 @@ const Dashboard: React.FC = () => {
             <div>
               <div className="section-divider" style={{ marginBottom: "2px" }}>Actividad</div>
               <p style={{ fontSize: "16px", fontWeight: 500, color: "rgba(255,255,255,0.85)" }}>
-                Despachos del mes
+                {isLimited ? "Mi rendimiento del mes" : "Despachos del mes"}
               </p>
             </div>
             <div className="flex gap-2 flex-wrap">
@@ -490,7 +542,99 @@ const Dashboard: React.FC = () => {
             <p style={{ color: "#F87171", fontSize: "13px", marginBottom: "12px" }}>{errorMessage}</p>
           )}
 
-          <ChartMonthlyOrders dataPoints={chartData} />
+          {isLimited ? (
+            loadingDriverDetail ? (
+              <p style={{ color: "rgba(255,255,255,0.3)", fontSize: "13px" }}>Cargando tus métricas…</p>
+            ) : driverDetail ? (
+              <>
+                <div
+                  style={{
+                    fontSize: "12px",
+                    lineHeight: 1.5,
+                    color: "rgba(255,255,255,0.55)",
+                    background: "rgba(255,255,255,0.03)",
+                    border: "1px solid rgba(255,255,255,0.06)",
+                    borderRadius: "10px",
+                    padding: "10px 12px",
+                    marginBottom: "16px",
+                  }}
+                >
+                  {driverDetail.explicacion}
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+                  <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "10px", padding: "10px 12px" }}>
+                    <div style={{ fontSize: "10px", color: "rgba(255,255,255,0.35)" }}>Despachos asignados</div>
+                    <div style={{ fontSize: "15px", fontWeight: 600, color: "white" }}>{driverDetail.resumen.total_despachos}</div>
+                  </div>
+                  <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "10px", padding: "10px 12px" }}>
+                    <div style={{ fontSize: "10px", color: "rgba(255,255,255,0.35)" }}>Entregados (marcados)</div>
+                    <div style={{ fontSize: "15px", fontWeight: 600, color: "white" }}>{driverDetail.resumen.entregados}</div>
+                  </div>
+                  <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "10px", padding: "10px 12px" }}>
+                    <div style={{ fontSize: "10px", color: "rgba(255,255,255,0.35)" }}>Sin marcar</div>
+                    <div style={{ fontSize: "15px", fontWeight: 600, color: "white" }}>{driverDetail.resumen.pendientes}</div>
+                  </div>
+                  <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "10px", padding: "10px 12px" }}>
+                    <div style={{ fontSize: "10px", color: "rgba(255,255,255,0.35)" }}>% de cumplimiento</div>
+                    <div style={{ fontSize: "15px", fontWeight: 600, color: "white" }}>
+                      {driverDetail.resumen.ratio !== null ? `${Math.round(driverDetail.resumen.ratio * 100)}%` : "—"}
+                    </div>
+                  </div>
+                </div>
+
+                {driverDetail.diario.length === 0 ? (
+                  <p style={{ color: "rgba(255,255,255,0.25)", fontSize: "13px" }}>
+                    Sin despachos asignados este mes.
+                  </p>
+                ) : (
+                  <div style={{ height: 220 }}>
+                    <Bar
+                      data={{
+                        labels: driverDetail.diario.map((d) => d.fecha.slice(8, 10)),
+                        datasets: [
+                          {
+                            label: "Entregados (marcados)",
+                            data: driverDetail.diario.map((d) => d.marcados),
+                            backgroundColor: "rgba(52,211,153,0.75)",
+                            borderRadius: 4,
+                            stack: "total",
+                          },
+                          {
+                            label: "Sin marcar",
+                            data: driverDetail.diario.map((d) => d.sin_marcar),
+                            backgroundColor: "rgba(248,113,113,0.6)",
+                            borderRadius: 4,
+                            stack: "total",
+                          },
+                        ],
+                      }}
+                      options={{
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                          legend: {
+                            display: true,
+                            labels: { color: "rgba(255,255,255,0.6)", font: { size: 10 }, boxWidth: 10 },
+                          },
+                        },
+                        scales: {
+                          x: { stacked: true, grid: { display: false }, ticks: { color: "rgba(255,255,255,0.35)", font: { size: 10 } } },
+                          y: { stacked: true, grid: { color: "rgba(255,255,255,0.05)" }, ticks: { color: "rgba(255,255,255,0.35)", font: { size: 10 }, precision: 0 } },
+                        },
+                      }}
+                    />
+                  </div>
+                )}
+              </>
+            ) : (
+              <p style={{ color: "rgba(255,255,255,0.25)", fontSize: "13px" }}>
+                No se encontraron métricas para tu usuario.
+              </p>
+            )
+          ) : (
+            <ChartMonthlyOrders dataPoints={chartData} />
+          )}
         </div>
 
       </div>
