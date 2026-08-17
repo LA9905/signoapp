@@ -261,6 +261,18 @@ const OPERATOR_CLASIFICACION_INFO: Record<string, { label: string; color: string
   sin_datos: { label: "Sin datos", color: "rgba(255,255,255,0.25)" },
 };
 
+// color fijo por producto, el principal siempre índigo).
+const OPERATOR_CHART_PALETTE = [
+  "rgba(99,102,241,0.8)",   // índigo — reservado para el producto principal
+  "rgba(52,211,153,0.75)",  // verde
+  "rgba(96,165,250,0.75)",  // azul
+  "rgba(251,191,36,0.75)",  // amarillo
+  "rgba(248,113,113,0.75)", // rojo
+  "rgba(232,121,249,0.75)", // fucsia
+  "rgba(45,212,191,0.75)",  // teal
+  "rgba(251,146,60,0.75)",  // naranjo
+];
+
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const name = localStorage.getItem("name") || "Usuario";
@@ -780,35 +792,49 @@ const Dashboard: React.FC = () => {
                     Sin producción registrada este mes.
                   </p>
                 ) : (
-                  <div style={{ height: 220 }}>
-                    <Bar
-                      data={{
-                        labels: operatorDetail.diario.map((d) => d.fecha.slice(8, 10)),
-                        datasets: [
-                          {
-                            label: `Producción del día${operatorDetail.resumen.unidad ? ` (${operatorDetail.resumen.unidad})` : ""}`,
-                            data: operatorDetail.diario.map((d) => d.cantidad_total_dia),
-                            backgroundColor: "rgba(99,102,241,0.75)",
-                            borderRadius: 4,
-                          },
-                        ],
-                      }}
-                      options={{
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                          legend: {
-                            display: true,
-                            labels: { color: "rgba(255,255,255,0.6)", font: { size: 10 }, boxWidth: 10 },
-                          },
-                        },
-                        scales: {
-                          x: { grid: { display: false }, ticks: { color: "rgba(255,255,255,0.35)", font: { size: 10 } } },
-                          y: { grid: { color: "rgba(255,255,255,0.05)" }, ticks: { color: "rgba(255,255,255,0.35)", font: { size: 10 }, precision: 0 } },
-                        },
-                      }}
-                    />
-                  </div>
+                  (() => {
+                    const nombresSet = new Set<string>();
+                    operatorDetail.diario.forEach((d) => d.productos_dia.forEach((p) => nombresSet.add(p.nombre)));
+                    const otrosNombres = Array.from(nombresSet)
+                      .filter((n) => n !== operatorDetail.producto_principal)
+                      .sort();
+                    const ordenNombres = operatorDetail.producto_principal
+                      ? [operatorDetail.producto_principal, ...otrosNombres]
+                      : otrosNombres;
+
+                    return (
+                      <div style={{ height: 220 }}>
+                        <Bar
+                          data={{
+                            labels: operatorDetail.diario.map((d) => d.fecha.slice(8, 10)),
+                            datasets: ordenNombres.map((nombre, i) => ({
+                              label: nombre,
+                              data: operatorDetail.diario.map(
+                                (d) => d.productos_dia.find((p) => p.nombre === nombre)?.cantidad || 0
+                              ),
+                              backgroundColor: OPERATOR_CHART_PALETTE[i % OPERATOR_CHART_PALETTE.length],
+                              borderRadius: 4,
+                              stack: "total",
+                            })),
+                          }}
+                          options={{
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                              legend: {
+                                display: true,
+                                labels: { color: "rgba(255,255,255,0.6)", font: { size: 10 }, boxWidth: 10 },
+                              },
+                            },
+                            scales: {
+                              x: { stacked: true, grid: { display: false }, ticks: { color: "rgba(255,255,255,0.35)", font: { size: 10 } } },
+                              y: { stacked: true, grid: { color: "rgba(255,255,255,0.05)" }, ticks: { color: "rgba(255,255,255,0.35)", font: { size: 10 } } },
+                            },
+                          }}
+                        />
+                      </div>
+                    );
+                  })()
                 )}
               </>
             ) : (
