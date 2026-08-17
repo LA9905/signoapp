@@ -21,6 +21,17 @@ interface Actividad {
   nota: string | null;
 }
 
+interface DetalleUnidad {
+  nombre: string;
+  unidad: string | null;
+  cantidad: number;
+  horas: number;
+  produccion_por_hora: number;
+  linea_base: number | null;
+  linea_base_fuente: "historica" | "producto" | "pares_mes" | "inicial" | null;
+  ratio: number | null;
+}
+
 interface DetailResponse {
   operator_id: number;
   name: string;
@@ -36,6 +47,7 @@ interface DetailResponse {
     produccion_por_hora: number | null;
     horas_efectivas: number;
     dias_trabajados: number;
+    detalle_unidades: DetalleUnidad[];
   };
   producto_principal: string | null;
   diario: DiaDetalle[];
@@ -288,13 +300,59 @@ const OperatorDetailModal: React.FC<Props> = ({ operatorId, year, month, monthLa
               </div>
             </div>
 
-            <div className="odm-section">
+           <div className="odm-section">
               <div className="odm-section-title">Picos de producción por fecha</div>
               {data.diario.length === 0 ? (
                 <div className="odm-act-empty">Sin registros este mes.</div>
               ) : (
                 <div style={{ height: 200 }}>
                   {chartData && <Bar data={chartData} options={chartOptions} />}
+                </div>
+              )}
+            </div>
+
+            <div className="odm-section">
+              <div className="odm-section-title">Detalle por producto (auditoría del cálculo)</div>
+              {data.resumen.detalle_unidades.length === 0 ? (
+                <div className="odm-act-empty">Sin productos evaluados este mes.</div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {data.resumen.detalle_unidades.map((d, i) => {
+                    const fuenteLabel =
+                      d.linea_base_fuente === "producto"
+                        ? "Histórico del producto"
+                        : d.linea_base_fuente === "pares_mes"
+                        ? "Compañeros este mes"
+                        : d.linea_base_fuente === "historica"
+                        ? "Historial propio"
+                        : d.linea_base_fuente === "inicial"
+                        ? "Primer registro (sin comparación)"
+                        : "—";
+                    return (
+                      <div
+                        key={i}
+                        style={{
+                          background: "rgba(255,255,255,0.03)",
+                          border: "1px solid rgba(255,255,255,0.06)",
+                          borderRadius: 10,
+                          padding: "8px 10px",
+                          fontSize: 12,
+                        }}
+                      >
+                        <div style={{ fontWeight: 600, color: "white", marginBottom: 4 }}>{d.nombre}</div>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4, color: "rgba(255,255,255,0.55)" }}>
+                          <span>Cant: {d.cantidad} {d.unidad || ""}</span>
+                          <span>Horas: {d.horas}h</span>
+                          <span>Prod/h: {d.produccion_por_hora}</span>
+                          <span>Línea base: {d.linea_base ?? "—"}</span>
+                          <span>Fuente: {fuenteLabel}</span>
+                          <span style={{ color: "white", fontWeight: 600 }}>
+                            Ratio: {d.ratio !== null ? `${Math.round(d.ratio * 100)}%` : "—"}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
