@@ -2,11 +2,13 @@ import { useEffect, useRef, useState, useCallback, type ChangeEvent } from "reac
 import { createPortal } from "react-dom";
 import { normalizeSearch } from "../utils/normalizeSearch";
 import { detectUnit } from "../utils/detectUnit";
-import type { AxiosError } from "axios";
+import type { AxiosError, AxiosResponse } from "axios";
 import { FiEdit2, FiTrash2, FiSave, FiX, FiPlus, FiMinus, FiDownload, FiSearch, FiFileText } from "react-icons/fi";
 import OperatorSelector from "../components/OperatorSelector";
 import ArrowBackButton from "../components/ArrowBackButton";
 import { api } from "../services/http";
+import { me } from "../services/authService";
+import type { MeResp } from "../types";
 import * as XLSX from "xlsx";
 
 interface ProductionSummary {
@@ -83,6 +85,8 @@ const ProductionTracking = () => {
         console.error("Error cargando actividad de la fila:", err);
       });
   }, []);
+
+  const [isOperatorLimited, setIsOperatorLimited] = useState(false);
 
   const [searchState, setSearchState] = useState<SearchState>({
     operator: "",
@@ -166,6 +170,17 @@ const ProductionTracking = () => {
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
   }, []);
+
+useEffect(() => {
+    me()
+      .then((res: AxiosResponse<MeResp>) => {
+        setIsOperatorLimited(!!res.data.is_operator_limited);
+      })
+      .catch(() => {
+        setIsOperatorLimited(false);
+      });
+  }, []);
+  
 
   useEffect(() => {
     if (isLoading || !hasMore) return;
@@ -663,12 +678,26 @@ const ProductionTracking = () => {
                       {/* Top row */}
                       <div className="mb-4">
                         <div className="flex items-center justify-between gap-2 mb-2">
-                          <span className="folio-badge-pt flex-shrink-0">Folio# {p.id}</span>
+                            <span className="folio-badge-pt flex-shrink-0">Folio# {p.id}</span>
                           <div className="flex items-center gap-1.5 flex-shrink-0">
-                            <button className="btn-action-pt btn-edit-pt" onClick={() => startEditRow(p)} title="Editar" aria-label="Editar">
+                            <button
+                              className="btn-action-pt btn-edit-pt"
+                              onClick={() => startEditRow(p)}
+                              title={isOperatorLimited ? "No tienes permiso para editar" : "Editar"}
+                              aria-label="Editar"
+                              disabled={isOperatorLimited}
+                              style={isOperatorLimited ? { opacity: 0.35, cursor: "not-allowed" } : undefined}
+                            >
                               <FiEdit2 size={13} />
                             </button>
-                            <button className="btn-action-pt btn-del-pt" onClick={() => deleteRow(p.id)} title="Eliminar" aria-label="Eliminar">
+                            <button
+                              className="btn-action-pt btn-del-pt"
+                              onClick={() => deleteRow(p.id)}
+                              title={isOperatorLimited ? "No tienes permiso para eliminar" : "Eliminar"}
+                              aria-label="Eliminar"
+                              disabled={isOperatorLimited}
+                              style={isOperatorLimited ? { opacity: 0.35, cursor: "not-allowed" } : undefined}
+                            >
                               <FiTrash2 size={13} />
                             </button>
                           </div>

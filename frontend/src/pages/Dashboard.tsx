@@ -215,6 +215,52 @@ interface DriverPerformanceDetail {
   explicacion: string;
 }
 
+interface OperatorDiaDetalle {
+  fecha: string;
+  cantidad_producto_principal: number;
+  cantidad_total_dia: number;
+  productos_dia: { nombre: string; cantidad: number }[];
+  horas_programadas: number;
+  horas_otras_actividades: number;
+  horas_efectivas: number;
+}
+
+interface OperatorPerformanceDetail {
+  operator_id: number;
+  name: string;
+  photo_url: string | null;
+  year: number;
+  month: number;
+  resumen: {
+    unidad: string | null;
+    producto_principal: string | null;
+    cantidad_mes: number;
+    dias_trabajados: number;
+    horas_efectivas: number;
+    produccion_por_hora: number | null;
+    linea_base_historica: number | null;
+    linea_base_fuente: string | null;
+    ratio: number | null;
+    clasificacion: "muy_alta" | "alta" | "regular" | "baja" | "muy_baja" | "sin_datos";
+    bono: boolean;
+    mes_en_curso: boolean;
+    detalle_unidades: unknown[];
+  };
+  producto_principal: string | null;
+  diario: OperatorDiaDetalle[];
+  actividades: unknown[];
+  explicacion: string;
+}
+
+const OPERATOR_CLASIFICACION_INFO: Record<string, { label: string; color: string }> = {
+  muy_alta: { label: "Muy Alta", color: "#34D399" },
+  alta: { label: "Alta", color: "#60A5FA" },
+  regular: { label: "Regular", color: "#FBBF24" },
+  baja: { label: "Baja", color: "#FB923C" },
+  muy_baja: { label: "Muy Baja", color: "#F87171" },
+  sin_datos: { label: "Sin datos", color: "rgba(255,255,255,0.25)" },
+};
+
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const name = localStorage.getItem("name") || "Usuario";
@@ -230,6 +276,9 @@ const Dashboard: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [driverDetail, setDriverDetail] = useState<DriverPerformanceDetail | null>(null);
   const [loadingDriverDetail, setLoadingDriverDetail] = useState(false);
+  const [isOperatorLimited, setIsOperatorLimited] = useState(false);
+  const [operatorDetail, setOperatorDetail] = useState<OperatorPerformanceDetail | null>(null);
+  const [loadingOperatorDetail, setLoadingOperatorDetail] = useState(false);
 
   const handleStart = () => navigate("/CreateDispatch");
 
@@ -257,6 +306,27 @@ const Dashboard: React.FC = () => {
       return;
     }
 
+    if (isOperatorLimited) {
+      const fetchOperatorDetail = async () => {
+        setLoadingOperatorDetail(true);
+        try {
+          const monthParam = `${selectedYear}-${String(selectedMonth).padStart(2, "0")}`;
+          const res = await api.get("/operators/me/performance/detail", {
+            params: { month: monthParam },
+          });
+          setOperatorDetail(res.data);
+          setErrorMessage(null);
+        } catch (err) {
+          setOperatorDetail(null);
+          setErrorMessage("Error al cargar tus métricas. Intenta de nuevo.");
+        } finally {
+          setLoadingOperatorDetail(false);
+        }
+      };
+      fetchOperatorDetail();
+      return;
+    }
+
     const fetchChartData = async () => {
       try {
         const res = await api.get("/dispatches/monthly", {
@@ -273,13 +343,14 @@ const Dashboard: React.FC = () => {
       }
     };
     fetchChartData();
-  }, [selectedYear, selectedMonth, isLimited, isLoadingUser]);
+  }, [selectedYear, selectedMonth, isLimited, isOperatorLimited, isLoadingUser]);
 
   useEffect(() => {
     me()
       .then((res: AxiosResponse<MeResp>) => {
         setIsAdmin(!!res.data.is_admin);
         setIsLimited(!!res.data.is_limited);
+        setIsOperatorLimited(!!res.data.is_operator_limited);
         setAvatarUrl(res.data.avatar_url || null);
         setGender(res.data.gender ?? null);
         setIsLoadingUser(false);
@@ -287,6 +358,7 @@ const Dashboard: React.FC = () => {
       .catch(() => {
         setIsAdmin(false);
         setIsLimited(false);
+        setIsOperatorLimited(false);
         setAvatarUrl(null);
         setIsLoadingUser(false);
       });
@@ -314,6 +386,8 @@ const Dashboard: React.FC = () => {
 
   if (isLimited) {
     menuItems = [{ title: "Seguimiento de despachos", route: "/tracking" }];
+  } else if (isOperatorLimited) {
+    menuItems = [{ title: "Registros de Producción", route: "/production-tracking" }];
   } else if (isAdmin) {
     menuItems.push({ title: "Administración (pagos)", route: "/admin/billing" });
   }
@@ -458,7 +532,7 @@ const Dashboard: React.FC = () => {
         .fade-in { animation: fade-in .3s ease both; }
       `}</style>
 
-      <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} isLimited={isLimited} />
+      <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} isLimited={isLimited || isOperatorLimited} />
 
       <NavbarUser avatarUrl={avatarUrl} onMenuClick={() => setIsSidebarOpen(true)} />
       <DashboardAnniversaryBanner />
@@ -476,7 +550,7 @@ const Dashboard: React.FC = () => {
               <span style={{ color: "#A5B4FC" }}>{name}</span>
             </h1>
           </div>
-          {!isLimited && (
+          {!isLimited && !isOperatorLimited && (
             <button onClick={handleStart} className="dash-start-btn flex-shrink-0">
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M8 5v14l11-7z"/>
@@ -509,7 +583,7 @@ const Dashboard: React.FC = () => {
             <div>
               <div className="section-divider" style={{ marginBottom: "2px" }}>Actividad</div>
               <p style={{ fontSize: "16px", fontWeight: 500, color: "rgba(255,255,255,0.85)" }}>
-                {isLimited ? "Mi rendimiento del mes" : "Despachos del mes"}
+                {isLimited ? "Mi rendimiento del mes" : isOperatorLimited ? "Mi producción del mes" : "Despachos del mes"}
               </p>
             </div>
             <div className="flex gap-2 flex-wrap">
@@ -621,6 +695,116 @@ const Dashboard: React.FC = () => {
                         scales: {
                           x: { stacked: true, grid: { display: false }, ticks: { color: "rgba(255,255,255,0.35)", font: { size: 10 } } },
                           y: { stacked: true, grid: { color: "rgba(255,255,255,0.05)" }, ticks: { color: "rgba(255,255,255,0.35)", font: { size: 10 }, precision: 0 } },
+                        },
+                      }}
+                    />
+                  </div>
+                )}
+              </>
+) : (
+              <p style={{ color: "rgba(255,255,255,0.25)", fontSize: "13px" }}>
+                No se encontraron métricas para tu usuario.
+              </p>
+            )
+          ) : isOperatorLimited ? (
+            loadingOperatorDetail ? (
+              <p style={{ color: "rgba(255,255,255,0.3)", fontSize: "13px" }}>Cargando tus métricas…</p>
+            ) : operatorDetail ? (
+              <>
+                <div
+                  style={{
+                    fontSize: "12px",
+                    lineHeight: 1.5,
+                    color: "rgba(255,255,255,0.55)",
+                    background: "rgba(255,255,255,0.03)",
+                    border: "1px solid rgba(255,255,255,0.06)",
+                    borderRadius: "10px",
+                    padding: "10px 12px",
+                    marginBottom: "16px",
+                  }}
+                >
+                  {operatorDetail.explicacion}
+                </div>
+
+                {(() => {
+                  const info =
+                    OPERATOR_CLASIFICACION_INFO[operatorDetail.resumen.clasificacion] ||
+                    OPERATOR_CLASIFICACION_INFO.sin_datos;
+                  return (
+                    <div
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        fontSize: "12px",
+                        fontWeight: 700,
+                        padding: "4px 14px",
+                        borderRadius: "99px",
+                        border: `1px solid ${info.color}55`,
+                        background: `${info.color}18`,
+                        color: info.color,
+                        marginBottom: "16px",
+                      }}
+                    >
+                      Producción: {info.label}
+                    </div>
+                  );
+                })()}
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+                  <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "10px", padding: "10px 12px" }}>
+                    <div style={{ fontSize: "10px", color: "rgba(255,255,255,0.35)" }}>Producto principal</div>
+                    <div style={{ fontSize: "15px", fontWeight: 600, color: "white" }}>
+                      {operatorDetail.resumen.producto_principal || "—"}
+                    </div>
+                  </div>
+                  <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "10px", padding: "10px 12px" }}>
+                    <div style={{ fontSize: "10px", color: "rgba(255,255,255,0.35)" }}>Cantidad producida</div>
+                    <div style={{ fontSize: "15px", fontWeight: 600, color: "white" }}>
+                      {operatorDetail.resumen.cantidad_mes} {operatorDetail.resumen.unidad || ""}
+                    </div>
+                  </div>
+                  <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "10px", padding: "10px 12px" }}>
+                    <div style={{ fontSize: "10px", color: "rgba(255,255,255,0.35)" }}>Días trabajados</div>
+                    <div style={{ fontSize: "15px", fontWeight: 600, color: "white" }}>{operatorDetail.resumen.dias_trabajados}</div>
+                  </div>
+                  <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "10px", padding: "10px 12px" }}>
+                    <div style={{ fontSize: "10px", color: "rgba(255,255,255,0.35)" }}>% de rendimiento</div>
+                    <div style={{ fontSize: "15px", fontWeight: 600, color: "white" }}>
+                      {operatorDetail.resumen.ratio !== null ? `${Math.round(operatorDetail.resumen.ratio * 100)}%` : "—"}
+                    </div>
+                  </div>
+                </div>
+
+                {operatorDetail.diario.length === 0 ? (
+                  <p style={{ color: "rgba(255,255,255,0.25)", fontSize: "13px" }}>
+                    Sin producción registrada este mes.
+                  </p>
+                ) : (
+                  <div style={{ height: 220 }}>
+                    <Bar
+                      data={{
+                        labels: operatorDetail.diario.map((d) => d.fecha.slice(8, 10)),
+                        datasets: [
+                          {
+                            label: `Producción del día${operatorDetail.resumen.unidad ? ` (${operatorDetail.resumen.unidad})` : ""}`,
+                            data: operatorDetail.diario.map((d) => d.cantidad_total_dia),
+                            backgroundColor: "rgba(99,102,241,0.75)",
+                            borderRadius: 4,
+                          },
+                        ],
+                      }}
+                      options={{
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                          legend: {
+                            display: true,
+                            labels: { color: "rgba(255,255,255,0.6)", font: { size: 10 }, boxWidth: 10 },
+                          },
+                        },
+                        scales: {
+                          x: { grid: { display: false }, ticks: { color: "rgba(255,255,255,0.35)", font: { size: 10 } } },
+                          y: { grid: { color: "rgba(255,255,255,0.05)" }, ticks: { color: "rgba(255,255,255,0.35)", font: { size: 10 }, precision: 0 } },
                         },
                       }}
                     />

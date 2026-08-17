@@ -3,7 +3,12 @@ from datetime import date
 from app import db
 from app.models.operator_model import Operator
 from app.models.operator_activity_model import OperatorActivity
-from app.utils.performance import evaluar_operador, daily_detail_for_operator
+from app.models.user_model import User
+from app.utils.performance import (
+    evaluar_operador,
+    daily_detail_for_operator,
+    get_operator_for_user_email,
+)
 from flask_jwt_extended import jwt_required, get_jwt_identity
 import cloudinary.uploader
 
@@ -91,6 +96,62 @@ def operator_performance_detail(operator_id):
                 "de producción. Registrar las horas de otras actividades del operario "
                 "reduce sus horas efectivas y por lo tanto sube su producción por hora, "
                 "reflejando mejor su rendimiento real en tareas productivas."
+            ),
+        }), 200
+    except Exception as e:
+        return jsonify({"error": "No se pudo obtener el detalle de rendimiento", "details": str(e)}), 500
+
+
+@performance_bp.route("/operators/me/performance/detail", methods=["GET"])
+@jwt_required()
+def my_operator_performance_detail():
+    try:
+        uid = get_jwt_identity()
+        user = User.query.get(uid)
+        if not user:
+            return jsonify({"error": "Usuario no encontrado"}), 404
+
+        operator = get_operator_for_user_email(user.email)
+        if not operator:
+            return jsonify({"error": "Este usuario no tiene un operario asociado"}), 404
+
+        month_param = request.args.get("month")
+        if month_param:
+            year, month = map(int, month_param.split("-"))
+        else:
+            today = date.today()
+            year, month = today.year, today.month
+
+        resumen = evaluar_operador(operator.id, year, month)
+        diario, principal = daily_detail_for_operator(operator.id, year, month)
+
+        actividades = (
+            OperatorActivity.query
+            .filter(OperatorActivity.operator_id == operator.id)
+            .filter(db.extract('year', OperatorActivity.fecha) == year)
+            .filter(db.extract('month', OperatorActivity.fecha) == month)
+            .order_by(OperatorActivity.fecha.asc())
+            .all()
+        )
+
+        return jsonify({
+            "operator_id": operator.id,
+            "name": operator.name,
+            "photo_url": operator.photo_url,
+            "year": year,
+            "month": month,
+            "resumen": resumen,
+            "producto_principal": principal,
+            "diario": diario,
+            "actividades": [a.to_dict() for a in actividades],
+            "explicacion": (
+                "El rendimiento se calcula por producto exacto: cuánto produjiste "
+                "por cada hora EFECTIVA de trabajo (horario laboral menos las horas "
+                "registradas en otras actividades ese día), comparado contra la "
+                "mediana histórica de ese mismo producto entre todos los operarios "
+                "que lo hayan fabricado. Si el resultado alcanza o supera el 100% de "
+                "ese histórico, el mes clasifica como Alta o Muy Alta y da derecho a "
+                "bono de producción."
             ),
         }), 200
     except Exception as e:

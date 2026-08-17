@@ -2,7 +2,7 @@ from datetime import date, datetime, timedelta
 from calendar import monthrange
 from collections import defaultdict
 from functools import lru_cache
-from sqlalchemy import extract
+from sqlalchemy import extract, func
 from sqlalchemy.orm import joinedload
 from app import db
 from app.models.production_model import Production, ProductionProduct
@@ -44,6 +44,25 @@ def normalizar_nombre(n: str) -> str:
     if not n:
         return n
     return " ".join(str(n).strip().split())
+
+# Mapeo de correos de usuarios "operario" (acceso limitado) al nombre
+# EXACTO del operario correspondiente en la tabla Operator. Se usa para
+# que estos usuarios vean en su propio Dashboard las métricas de SU
+# producción. Para agregar más operarios con usuario, solo se agrega
+# aquí el correo y el nombre exacto tal como está en la tabla Operator.
+OPERATOR_LIMITED_USER_EMAIL_MAP = {
+    "dalvismoran01@gmail.com": "Dalvis Moran",
+}
+
+
+def get_operator_for_user_email(email: str):
+    """Devuelve el Operator asociado a un correo de usuario limitado
+    (operario), o None si el correo no está mapeado o el operario no
+    existe en la tabla."""
+    operator_name = OPERATOR_LIMITED_USER_EMAIL_MAP.get((email or "").strip().lower())
+    if not operator_name:
+        return None
+    return Operator.query.filter(func.lower(Operator.name) == operator_name.lower()).first()
 
 
 def _otras_horas_por_dia(operator_id: int, year: int, month: int):
