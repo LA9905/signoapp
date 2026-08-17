@@ -354,7 +354,21 @@ def update_credit_note(credit_note_id):
             )
 
         db.session.commit()
-        return jsonify(credit_note.to_dict()), 200
+
+        creator = User.query.get(credit_note.created_by)
+        return jsonify({
+            "id": credit_note.id,
+            "client": client.name,
+            "order_number": credit_note.order_number,
+            "invoice_number": credit_note.invoice_number,
+            "credit_note_number": credit_note.credit_note_number,
+            "reason": credit_note.reason,
+            "created_by": creator.name if creator else credit_note.created_by,
+            "fecha": to_local(credit_note.fecha).isoformat(timespec="seconds"),
+            "productos": [
+                {"nombre": p.nombre, "cantidad": p.cantidad, "unidad": p.unidad} for p in credit_note.productos
+            ],
+        }), 200
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": "No se pudo actualizar", "details": str(e)}), 500

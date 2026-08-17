@@ -17,11 +17,27 @@ interface Producto {
 interface FormularioProduccion {
   operator: string;
   productos: Producto[];
+  fecha: string;
+  horasOtras: string;
+  notaOtras: string;
 }
 
 interface Payload {
   operator: string;
   productos: { nombre: string; cantidad: number; unidad: string }[];
+  fecha: string;
+  horas_otras?: number;
+  nota_otras?: string;
+}
+
+// new Date().toISOString() devuelve la fecha en UTC, no en hora local de
+// Chile — se usa la fecha local para que el valor por defecto del selector
+// coincida con "hoy" en Chile, sin importar la hora del navegador.
+function getLocalDateString(): string {
+  const now = new Date();
+  const offsetMs = now.getTimezoneOffset() * 60000;
+  const local = new Date(now.getTime() - offsetMs);
+  return local.toISOString().slice(0, 10);
 }
 
 const CreateProduction = () => {
@@ -29,6 +45,9 @@ const CreateProduction = () => {
   const [form, setForm] = useState<FormularioProduccion>({
     operator: "",
     productos: [],
+    fecha: getLocalDateString(),
+    horasOtras: "",
+    notaOtras: "",
   });
   const [mensaje, setMensaje] = useState<string>("");
 
@@ -71,7 +90,12 @@ const CreateProduction = () => {
           cantidad: p.cantidad,
           unidad: p.unidad,
         })),
+        fecha: form.fecha,
       };
+      if (form.horasOtras && Number(form.horasOtras) > 0) {
+        payload.horas_otras = Number(form.horasOtras);
+        payload.nota_otras = form.notaOtras;
+      }
 
       const newProducts = form.productos.filter(
         (p) => !productos.some((ep) => ep.id === p.id)
@@ -101,7 +125,7 @@ const CreateProduction = () => {
 
       await api.post("/productions", payload);
       setMensaje("Producción registrada satisfactoriamente");
-      setForm({ ...form, productos: [] });
+      setForm({ ...form, productos: [], horasOtras: "", notaOtras: "" });
     } catch (err: unknown) {
       if (err instanceof AxiosError) {
         setMensaje(err.response?.data?.error || "Error al registrar producción");
@@ -341,6 +365,54 @@ const CreateProduction = () => {
                   onChange={(operator: string) => setForm({ ...form, operator })}
                 />
               </div>
+            </div>
+          </div>
+
+          {/* ── Sección 1.5: Fecha y otras actividades ── */}
+          <div className="section-card-cp fade-in" style={{ animationDelay: "0.07s" }}>
+            <div className="section-title-cp">
+              <FiUser size={13} />
+              Fecha y otras actividades
+            </div>
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div>
+                <div className="field-label-cp">
+                  Fecha de la producción <span style={{ color: "rgba(248,113,113,0.8)" }}>*</span>
+                </div>
+                <div className="input-cp-wrapper">
+                  <input
+                    type="date"
+                    value={form.fecha}
+                    onChange={(e) => setForm({ ...form, fecha: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div>
+                <div className="field-label-cp">Horas en otras actividades (opcional)</div>
+                <div className="input-cp-wrapper">
+                  <input
+                    type="number"
+                    min={0}
+                    step={0.5}
+                    placeholder="Ej: 6.5"
+                    value={form.horasOtras}
+                    onChange={(e) => setForm({ ...form, horasOtras: e.target.value })}
+                  />
+                </div>
+              </div>
+              {form.horasOtras && Number(form.horasOtras) > 0 && (
+                <div className="sm:col-span-2">
+                  <div className="field-label-cp">Motivo de la otra actividad (opcional)</div>
+                  <div className="input-cp-wrapper">
+                    <input
+                      type="text"
+                      placeholder="Ej: Apoyo en despacho"
+                      value={form.notaOtras}
+                      onChange={(e) => setForm({ ...form, notaOtras: e.target.value })}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

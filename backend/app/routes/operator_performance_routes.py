@@ -3,7 +3,12 @@ from datetime import date
 from app import db
 from app.models.operator_model import Operator
 from app.models.operator_activity_model import OperatorActivity
-from app.utils.performance import evaluar_operador
+from app.models.user_model import User
+from app.utils.performance import (
+    evaluar_operador,
+    daily_detail_for_operator,
+    get_operator_for_user_email,
+)
 from flask_jwt_extended import jwt_required, get_jwt_identity
 import cloudinary.uploader
 
@@ -47,6 +52,112 @@ def operators_performance():
         return jsonify({"error": "No se pudo calcular el rendimiento", "details": str(e)}), 500
 
 
+@performance_bp.route("/operators/<int:operator_id>/performance/detail", methods=["GET"])
+@jwt_required()
+def operator_performance_detail(operator_id):
+    try:
+        operator = Operator.query.get_or_404(operator_id)
+        month_param = request.args.get("month")
+        if month_param:
+            year, month = map(int, month_param.split("-"))
+        else:
+            today = date.today()
+            year, month = today.year, today.month
+
+        resumen = evaluar_operador(operator_id, year, month)
+        diario, principal = daily_detail_for_operator(operator_id, year, month)
+
+        actividades = (
+            OperatorActivity.query
+            .filter(OperatorActivity.operator_id == operator_id)
+            .filter(db.extract('year', OperatorActivity.fecha) == year)
+            .filter(db.extract('month', OperatorActivity.fecha) == month)
+            .order_by(OperatorActivity.fecha.asc())
+            .all()
+        )
+
+        return jsonify({
+            "operator_id": operator.id,
+            "name": operator.name,
+            "photo_url": operator.photo_url,
+            "year": year,
+            "month": month,
+            "resumen": resumen,
+            "producto_principal": principal,
+            "diario": diario,
+            "actividades": [a.to_dict() for a in actividades],
+            "explicacion": (
+                "El rendimiento se calcula por producto exacto: cuánto produjo el "
+                "operario por cada hora EFECTIVA de trabajo (horario laboral menos las "
+                "horas registradas en otras actividades ese día), comparado contra la "
+                "mediana histórica de ese mismo producto entre todos los operarios que "
+                "lo hayan fabricado. Si el resultado alcanza o supera el 100% de ese "
+                "histórico, el mes clasifica como Alta o Muy Alta y da derecho a bono "
+                "de producción. Registrar las horas de otras actividades del operario "
+                "reduce sus horas efectivas y por lo tanto sube su producción por hora, "
+                "reflejando mejor su rendimiento real en tareas productivas."
+            ),
+        }), 200
+    except Exception as e:
+        return jsonify({"error": "No se pudo obtener el detalle de rendimiento", "details": str(e)}), 500
+
+
+@performance_bp.route("/operators/me/performance/detail", methods=["GET"])
+@jwt_required()
+def my_operator_performance_detail():
+    try:
+        uid = get_jwt_identity()
+        user = User.query.get(uid)
+        if not user:
+            return jsonify({"error": "Usuario no encontrado"}), 404
+
+        operator = get_operator_for_user_email(user.email)
+        if not operator:
+            return jsonify({"error": "Este usuario no tiene un operario asociado"}), 404
+
+        month_param = request.args.get("month")
+        if month_param:
+            year, month = map(int, month_param.split("-"))
+        else:
+            today = date.today()
+            year, month = today.year, today.month
+
+        resumen = evaluar_operador(operator.id, year, month)
+        diario, principal = daily_detail_for_operator(operator.id, year, month)
+
+        actividades = (
+            OperatorActivity.query
+            .filter(OperatorActivity.operator_id == operator.id)
+            .filter(db.extract('year', OperatorActivity.fecha) == year)
+            .filter(db.extract('month', OperatorActivity.fecha) == month)
+            .order_by(OperatorActivity.fecha.asc())
+            .all()
+        )
+
+        return jsonify({
+            "operator_id": operator.id,
+            "name": operator.name,
+            "photo_url": operator.photo_url,
+            "year": year,
+            "month": month,
+            "resumen": resumen,
+            "producto_principal": principal,
+            "diario": diario,
+            "actividades": [a.to_dict() for a in actividades],
+            "explicacion": (
+                "El rendimiento se calcula por producto exacto: cuánto produjiste "
+                "por cada hora EFECTIVA de trabajo (horario laboral menos las horas "
+                "registradas en otras actividades ese día), comparado contra la "
+                "mediana histórica de ese mismo producto entre todos los operarios "
+                "que lo hayan fabricado. Si el resultado alcanza o supera el 100% de "
+                "ese histórico, el mes clasifica como Alta o Muy Alta y da derecho a "
+                "bono de producción."
+            ),
+        }), 200
+    except Exception as e:
+        return jsonify({"error": "No se pudo obtener el detalle de rendimiento", "details": str(e)}), 500
+
+
 @performance_bp.route("/operators/<int:operator_id>/photo", methods=["POST"])
 @jwt_required()
 def upload_operator_photo(operator_id):
@@ -70,8 +181,11 @@ def upload_operator_photo(operator_id):
 @jwt_required()
 def list_operator_activities(operator_id):
     month_param = request.args.get("month")
+    date_param = request.args.get("date")  # "YYYY-MM-DD": filtra a un día exacto
     q = OperatorActivity.query.filter_by(operator_id=operator_id)
-    if month_param:
+    if date_param:
+        q = q.filter(OperatorActivity.fecha == date.fromisoformat(date_param))
+    elif month_param:
         year, month = map(int, month_param.split("-"))
         q = q.filter(db.extract("year", OperatorActivity.fecha) == year)
         q = q.filter(db.extract("month", OperatorActivity.fecha) == month)
@@ -108,6 +222,30 @@ def create_operator_activity(operator_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": "No se pudo registrar la actividad", "details": str(e)}), 500
+
+
+@performance_bp.route("/operators/activities/<int:activity_id>", methods=["PUT"])
+@jwt_required()
+def update_operator_activity(activity_id):
+    try:
+        activity = OperatorActivity.query.get_or_404(activity_id)
+        data = request.get_json() or {}
+        fecha_str = data.get("fecha")
+        horas = data.get("horas")
+        nota = data.get("nota")
+
+        if fecha_str:
+            activity.fecha = date.fromisoformat(fecha_str)
+        if horas is not None:
+            activity.horas = float(horas)
+        if nota is not None:
+            activity.nota = nota.strip()
+
+        db.session.commit()
+        return jsonify(activity.to_dict()), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": "No se pudo actualizar la actividad", "details": str(e)}), 500
 
 
 @performance_bp.route("/operators/activities/<int:activity_id>", methods=["DELETE"])
