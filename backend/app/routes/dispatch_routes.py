@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify, current_app
 from app import db
 from app.models.dispatch_model import Dispatch, DispatchProduct, DispatchImage
+from app.models.dispatch_edit_model import DispatchEditLog
 from app.models.client_model import Client
 from app.models.driver_model import Driver
 from app.models.user_model import User
@@ -8,6 +9,7 @@ from app.models.product_model import Product
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from datetime import datetime, timedelta
 from sqlalchemy import cast, String, func, exists
+from sqlalchemy.orm import joinedload
 import traceback
 from app.utils.timezone import (
     to_local,
@@ -34,6 +36,27 @@ def get_public_id(url):
     return None
 
 from flask_cors import CORS, cross_origin
+
+# Choferes cuyos despachos se marcan automáticamente como "entregados" al
+# crearse — no requieren seguimiento manual (retiros de cliente, encomiendas,
+# transportistas externos, etc.).
+AUTO_DELIVERY_DRIVER_NAMES = {
+    "retira cliente",
+    "encomienda",
+    "pelicano",
+    "don luis mendez",
+    "don cesar mendez",
+    "luis miguel mendez",
+    "andri alvarez",
+    "frank flores",
+    "encomienda",
+    "fernando chalbaud"
+}
+
+
+def is_auto_delivery_driver(name: str) -> bool:
+    return " ".join((name or "").strip().split()).lower() in AUTO_DELIVERY_DRIVER_NAMES
+
 
 dispatch_bp = Blueprint("dispatches", __name__)
 CORS(
@@ -120,6 +143,15 @@ def create_dispatch():
             client_name=cliente.name, 
         )
         new_dispatch.fecha = to_utc_naive(datetime.now(CL_TZ))
+
+        if is_auto_delivery_driver(chofer.name):
+            ahora = datetime.utcnow()
+            new_dispatch.delivered_driver = True
+            new_dispatch.delivered_driver_at = ahora
+            new_dispatch.delivered_client = True
+            new_dispatch.delivered_client_at = ahora
+            new_dispatch.status = "entregado_cliente"
+            new_dispatch.auto_delivered = True
 
         db.session.add(new_dispatch)
         db.session.flush()
@@ -268,7 +300,12 @@ def get_dispatches():
         query = query.order_by(Dispatch.fecha.asc())
 
         if all_param:
-            dispatches = query.all()
+            
+            dispatches = (
+                query
+                .options(joinedload(Dispatch.productos))
+                .all()
+            )
         else:
             dispatches = query.paginate(page=page, per_page=limit, error_out=False).items
 
@@ -346,6 +383,22 @@ def update_dispatch(dispatch_id):
             return jsonify({"error": "Faltan datos"}), 400
         data = json.loads(request.form['data'])
 
+        # Estado original antes de aplicar cualquier cambio de esta edición.
+        # Sirve para distinguir si el usuario cambió el status manualmente
+        # (selector) o si sigue igual y por lo tanto puede aplicarse la
+        # lógica automática de chofer sin que este bloque la sobrescriba.
+        orig_status = d.status
+
+        # Estado original adicional, para el historial de ediciones (rendimiento
+        # del equipo de logística): qué se corrigió respecto a como se creó
+        # originalmente el despacho (orden, chofer o productos).
+        orig_orden = d.orden
+        orig_chofer_id = d.chofer_id
+        orig_productos_set = {
+            (p.nombre.strip(), round(float(p.cantidad or 0), 4), p.unidad)
+            for p in d.productos
+        }
+
         # Verificar duplicados de orden y factura en edición
         new_orden = data.get("orden") or d.orden
         new_factura = (data.get("factura_numero") or "").strip() or None
@@ -394,11 +447,37 @@ def update_dispatch(dispatch_id):
             if chofer:
                 d.chofer_id = chofer.id
                 d.chofer_name = chofer.name
+                if is_auto_delivery_driver(chofer.name):
+                    if not d.delivered_client:
+                        ahora = datetime.utcnow()
+                        d.delivered_driver = True
+                        d.delivered_driver_at = d.delivered_driver_at or ahora
+                        d.delivered_client = True
+                        d.delivered_client_at = ahora
+                        d.status = "entregado_cliente"
+                        d.auto_delivered = True
+                elif d.auto_delivered:
+                    # El chofer cambió a uno que no es de entrega automática:
+                    # revertir el estado que se puso automáticamente (no una
+                    # entrega manual), para que vuelva a requerir seguimiento.
+                    d.delivered_driver = False
+                    d.delivered_driver_at = None
+                    d.delivered_client = False
+                    d.delivered_client_at = None
+                    d.status = "pendiente"
+                    d.auto_delivered = False
 
         if "paquete_numero" in data: d.paquete_numero = data.get("paquete_numero") or None
         if "factura_numero" in data: d.factura_numero = (data.get("factura_numero") or "").strip() or None
 
-        if "status" in data and data["status"]:
+        status_changed_explicitly = (
+            "status" in data and data["status"] and data["status"] != orig_status
+        )
+
+        if status_changed_explicitly:
+            # El usuario cambió el status manualmente (selector) en esta
+            # edición. Tiene prioridad absoluta sobre la lógica automática
+            # de chofer aplicada más arriba.
             new_status = data["status"]
             if new_status == "entregado_cliente":
                 d.delivered_client = True
@@ -406,18 +485,21 @@ def update_dispatch(dispatch_id):
                 d.status = "entregado_cliente"
                 d.delivered_driver = True
                 d.delivered_driver_at = datetime.utcnow()
+                d.auto_delivered = False
             elif new_status == "entregado_chofer":
                 d.delivered_driver = True
                 d.delivered_driver_at = datetime.utcnow()
                 d.delivered_client = False
                 d.delivered_client_at = None
                 d.status = "entregado_chofer"
+                d.auto_delivered = False
             elif new_status == "pendiente":
                 d.delivered_driver = False
                 d.delivered_driver_at = None
                 d.delivered_client = False
                 d.delivered_client_at = None
                 d.status = "pendiente"
+                d.auto_delivered = False
 
         if "productos" in data and isinstance(data["productos"], list):
             old_qty = {item.nombre: float(item.cantidad or 0) for item in d.productos}
@@ -453,6 +535,32 @@ def update_dispatch(dispatch_id):
             if img:
                 res = cloudinary.uploader.upload(img, folder="dispatches")
                 db.session.add(DispatchImage(dispatch_id=d.id, image_url=res['secure_url']))
+
+        # Registrar la edición para el rendimiento del equipo de logística:
+        # qué se tuvo que corregir en este despacho respecto a como fue
+        # creado originalmente.
+        motivos_edicion = []
+        if "orden" in data and data["orden"] and data["orden"] != orig_orden:
+            motivos_edicion.append("orden")
+        if "chofer" in data and data["chofer"] and int(data["chofer"]) != orig_chofer_id:
+            motivos_edicion.append("chofer")
+        if "productos" in data and isinstance(data["productos"], list):
+            nuevo_productos_set = {
+                ((p["nombre"] or "").strip(), round(float(p["cantidad"] or 0), 4), p["unidad"])
+                for p in data["productos"]
+            }
+            if nuevo_productos_set != orig_productos_set:
+                motivos_edicion.append("productos")
+
+        if motivos_edicion:
+            db.session.add(
+                DispatchEditLog(
+                    dispatch_id=d.id,
+                    created_by=d.created_by,
+                    edited_by=user_id,
+                    motivos=";".join(motivos_edicion),
+                )
+            )
 
         db.session.commit()
         
@@ -510,6 +618,7 @@ def mark_driver_delivered(dispatch_id):
             d.delivered_driver = True
             d.delivered_driver_at = datetime.utcnow()
             d.status = "entregado_chofer"
+            d.auto_delivered = False
             db.session.commit()
         creator = User.query.get(d.created_by)
         result = d.to_dict()
@@ -530,6 +639,7 @@ def mark_client_delivered(dispatch_id):
         d.status = "entregado_cliente"
         d.delivered_driver = True
         d.delivered_driver_at = datetime.utcnow()
+        d.auto_delivered = False
         db.session.commit()
         creator = User.query.get(d.created_by)
         result = d.to_dict()

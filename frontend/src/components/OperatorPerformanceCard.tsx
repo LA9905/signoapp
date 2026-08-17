@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { Doughnut } from "react-chartjs-2";
 import "chart.js/auto";
-import { FiCamera, FiClock } from "react-icons/fi";
+import { FiCamera, FiClock, FiEye } from "react-icons/fi";
 import { api } from "../services/http";
 
 export interface OperatorPerformance {
@@ -14,7 +14,7 @@ export interface OperatorPerformance {
   horas_efectivas: number;
   produccion_por_hora: number | null;
   linea_base_historica: number | null;
-  linea_base_fuente: "historica" | "equipo" | "inicial" | null;
+  linea_base_fuente: "historica" | "producto" | "pares_mes" | "inicial" | null;
   ratio: number | null;
   clasificacion: "muy_alta" | "alta" | "regular" | "baja" | "muy_baja" | "sin_datos";
   bono: boolean;
@@ -31,29 +31,61 @@ const CLASIFICACION_INFO: Record<string, { label: string; color: string }> = {
   sin_datos: { label: "Sin datos", color: "rgba(255,255,255,0.25)" },
 };
 
+const BANDAS_SIN_BONO: Record<string, [number, number, number, number]> = {
+  // clasificacion: [ratioMin, ratioMax, scoreMin, scoreMax]
+  regular: [0.85, 1.0, 70, 84],
+  baja: [0.65, 0.85, 50, 70],
+  muy_baja: [0, 0.65, 0, 50],
+};
+
+function calcularPorcentajeVisual(ratio: number, clasificacion: string): number {
+  if (ratio >= 1.0) {
+    // Zona de bono: se muestra el porcentaje real, siempre >= 100.
+    return Math.round(ratio * 100);
+  }
+  const banda = BANDAS_SIN_BONO[clasificacion];
+  if (!banda) return Math.round(ratio * 100);
+  const [rMin, rMax, sMin, sMax] = banda;
+  const t = rMax > rMin ? Math.min(Math.max((ratio - rMin) / (rMax - rMin), 0), 1) : 0;
+  return Math.round(sMin + t * (sMax - sMin));
+}
+
+// new Date().toISOString() devuelve la fecha en UTC
+function getLocalDateString(): string {
+  const now = new Date();
+  const offsetMs = now.getTimezoneOffset() * 60000;
+  const local = new Date(now.getTime() - offsetMs);
+  return local.toISOString().slice(0, 10);
+}
+
 interface Props {
   op: OperatorPerformance;
   monthLabel: string;
   onChanged?: () => void;
+  onViewDetail?: (operatorId: number) => void;
 }
 
-const OperatorPerformanceCard: React.FC<Props> = ({ op, monthLabel, onChanged }) => {
+const OperatorPerformanceCard: React.FC<Props> = ({ op, monthLabel, onChanged, onViewDetail }) => {
   const [uploading, setUploading] = useState(false);
   const [showActivityForm, setShowActivityForm] = useState(false);
-  const [actDate, setActDate] = useState<string>(new Date().toISOString().slice(0, 10));
+  const [actDate, setActDate] = useState<string>(getLocalDateString());
   const [actHours, setActHours] = useState<string>("");
   const [actNote, setActNote] = useState<string>("");
   const [savingActivity, setSavingActivity] = useState(false);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   const info = CLASIFICACION_INFO[op.clasificacion] || CLASIFICACION_INFO.sin_datos;
-  const pct = op.ratio !== null ? Math.min(op.ratio * 100, 150) : 0;
+
+  // Número mostrado: coherente con la clasificación final (ver función arriba).
+  const pctDisplay = op.ratio !== null ? calcularPorcentajeVisual(op.ratio, op.clasificacion) : null;
+  // El anillo se llena sobre una escala de 0-100 del número YA visual (no del ratio crudo).
+  const pctRing = pctDisplay !== null ? Math.min(pctDisplay, 100) : 0;
 
   const data = {
     labels: ["Rendimiento", "Restante"],
     datasets: [
       {
-        data: [pct, Math.max(150 - pct, 0)],
+        data: [pctRing, Math.max(100 - pctRing, 0)],
         backgroundColor: [info.color, "rgba(255,255,255,0.06)"],
         borderWidth: 0,
         cutout: "72%",
@@ -138,7 +170,7 @@ const OperatorPerformanceCard: React.FC<Props> = ({ op, monthLabel, onChanged })
           <Doughnut data={data} options={options} />
           <div className="opc-chart-center">
             <span style={{ color: info.color }}>
-              {op.ratio !== null ? `${Math.round(op.ratio * 100)}%` : "—"}
+              {pctDisplay !== null ? `${pctDisplay}%` : "—"}
             </span>
           </div>
         </div>
@@ -155,11 +187,13 @@ const OperatorPerformanceCard: React.FC<Props> = ({ op, monthLabel, onChanged })
         {op.bono ? "✓ Merece bono de producción" : "Sin bono este mes"}
       </div>
 
-      {op.linea_base_fuente && op.linea_base_fuente !== "historica" && (
+      {op.linea_base_fuente && op.linea_base_fuente !== "producto" && (
         <div className="opc-source">
-          {op.linea_base_fuente === "equipo"
-            ? "Comparado con el equipo (sin historial propio aún)"
-            : "Primer registro — línea base inicial"}
+          {op.linea_base_fuente === "pares_mes"
+            ? "Producto nuevo — comparado con compañeros que lo fabrican este mes"
+            : op.linea_base_fuente === "historica"
+            ? "Sin histórico de otros operarios en este producto — comparado con su propio historial"
+            : "Primer registro de este producto — línea base inicial"}
         </div>
       )}
       {op.mes_en_curso && (
@@ -168,9 +202,16 @@ const OperatorPerformanceCard: React.FC<Props> = ({ op, monthLabel, onChanged })
 
       {uploading && <div className="opc-uploading">Subiendo foto…</div>}
 
-      <button className="opc-activity-btn" onClick={() => setShowActivityForm((s) => !s)} type="button">
-        <FiClock size={12} /> Registrar otra actividad
-      </button>
+      <div style={{ display: "flex", gap: 6, width: "100%" }}>
+        <button className="opc-activity-btn" onClick={() => setShowActivityForm((s) => !s)} type="button" style={{ flex: 1 }}>
+          <FiClock size={12} /> Otra actividad
+        </button>
+        {onViewDetail && (
+          <button className="opc-activity-btn" onClick={() => onViewDetail(op.operator_id)} type="button" style={{ flex: 1 }}>
+            <FiEye size={12} /> Ver detalle
+          </button>
+        )}
+      </div>
 
       {showActivityForm && (
         <div className="opc-activity-form">
