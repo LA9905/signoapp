@@ -265,11 +265,98 @@ def baseline_peers_current_month(nombre: str, year: int, month: int, exclude_ope
             rates.append(data["rate"])
     if not rates:
         return None
-    rates.sort()
+        rates.sort()
     mid = len(rates) // 2
     if len(rates) % 2 == 1:
         return rates[mid]
     return (rates[mid - 1] + rates[mid]) / 2
+
+
+@lru_cache(maxsize=4096)
+def _first_production_month_for_product(nombre: str):
+    """
+    Año y mes de la producción más antigua registrada para este producto
+    exacto, sin importar qué operario la haya hecho. Es el punto de
+    partida para recorrer TODO el histórico del producto (no solo el mes
+    en curso o una ventana reciente) al calcular su línea base.
+    """
+    rows = (
+        db.session.query(Production.fecha, ProductionProduct.nombre)
+        .join(ProductionProduct, ProductionProduct.production_id == Production.id)
+        .all()
+    )
+    fechas = [f for f, n in rows if normalizar_nombre(n) == nombre]
+    if not fechas:
+        return None
+    earliest_local = to_local(min(fechas))
+    return earliest_local.year, earliest_local.month
+
+
+def _all_rates_for_product(nombre: str, upto_year: int, upto_month: int):
+    """
+    Recolecta la tasa (producción por hora) de TODOS los operarios que
+    hayan fabricado este producto exacto, en TODOS los meses desde el
+    primer registro histórico del producto hasta el mes evaluado
+    (inclusive).
+    Devuelve una lista de tuplas (rate, year, month, operator_id).
+    """
+    start = _first_production_month_for_product(nombre)
+    if start is None:
+        return []
+
+    y, m = start
+    resultados = []
+    while (y, m) <= (upto_year, upto_month):
+        for op in Operator.query.all():
+            data = rate_by_product_for_month(op.id, y, m).get(nombre)
+            if data and data["rate"] is not None and data["horas"] > 0:
+                resultados.append((data["rate"], y, m, op.id))
+        m += 1
+        if m == 13:
+            m = 1
+            y += 1
+    return resultados
+
+
+def baseline_historical_max_product(nombre: str, year: int, month: int, current_operator_id: int):
+    """
+    Línea base = el MEJOR rendimiento por hora jamás registrado para este
+    producto exacto, considerando TODOS los operarios y TODO el
+    histórico disponible (desde el primer registro del producto) hasta
+    el mes evaluado, inclusive. 
+
+    Devuelve (mejor_tasa, fuente):
+      - "producto": el mejor registro proviene de un mes ANTERIOR al
+        evaluado — la referencia más sólida, ya demostrada en el pasado.
+      - "pares_mes": no hay ningún mes anterior con datos; el mejor
+        registro proviene de OTRO operario en el mismo mes evaluado.
+      - "historica": no hay ningún mes anterior con datos de otros
+        operarios; el mejor registro es del propio operario en el mes
+        evaluado, pero existen otros registros de este producto que no
+        lo superaron.
+      - "inicial": es literalmente el primer y único registro que existe
+        de este producto en todo el sistema — no hay nada con qué
+        comparar todavía.
+      - (None, None): el producto no tiene ningún registro (no debería
+        pasar si se está evaluando una producción real).
+    """
+    rates = _all_rates_for_product(nombre, year, month)
+    if not rates:
+        return None, None
+
+    if len(rates) == 1:
+        rate, _, _, _ = rates[0]
+        return rate, "inicial"
+
+    rate, y, m, op_id = max(rates, key=lambda r: r[0])
+    if (y, m) < (year, month):
+        fuente = "producto"
+    elif op_id == current_operator_id:
+        fuente = "historica"
+    else:
+        fuente = "pares_mes"
+    return rate, fuente
+
 
 UMBRALES = [
     (1.15, "muy_alta", True),
@@ -308,32 +395,15 @@ def evaluar_operador(operator_id: int, year: int, month: int):
         if data["rate"] is None:
             continue
 
-        # Prioridad de comparación, de más a menos confiable:
-        #   1. Histórico GLOBAL del producto en meses ANTERIORES (todos los
-        #      operarios que lo hayan fabricado) — la referencia más sólida.
-        #   2. Compañeros que fabrican el MISMO producto en el MISMO mes
-        #      actual — cuando el producto es nuevo y aún no hay meses
-        #      anteriores, esto permite distinguir en tiempo real a un
-        #      operario que produjo mucho de otro que produjo poco del
-        #      mismo producto el mismo día, en vez de darles a ambos 100%
-        #      por falta de referencia.
-        #   3. Historial propio del operario en meses anteriores.
-        #   4. Su propia tasa actual (solo si es literalmente el primer
-        #      registro de este producto en todo el sistema).
-        baseline = baseline_global_product(nombre, year, month)
-        if baseline is not None:
-            fuente = "producto"
-        else:
-            baseline = baseline_peers_current_month(nombre, year, month, operator_id)
-            if baseline is not None:
-                fuente = "pares_mes"
-            else:
-                baseline = baseline_for_operator_product(operator_id, year, month, nombre)
-                if baseline is not None:
-                    fuente = "historica"
-                else:
-                    baseline = data["rate"]
-                    fuente = "inicial"
+        # Línea base = el mejor rendimiento por hora jamás registrado para
+        # este producto exacto, en TODO el histórico (no solo el mes en
+        # curso), sin exigir un mínimo de días trabajados por mes. Solo se
+        # cae a "inicial" (100% contra sí mismo) cuando es literalmente el
+        # primer registro de este producto en todo el sistema.
+        baseline, fuente = baseline_historical_max_product(nombre, year, month, operator_id)
+        if baseline is None:
+            baseline = data["rate"]
+            fuente = "inicial"
 
         ratio_producto = (data["rate"] / baseline) if baseline else None
         detalle.append({
