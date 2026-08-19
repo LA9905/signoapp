@@ -389,6 +389,7 @@ const Dashboard: React.FC = () => {
     { title: "Operarios", route: "/operators" },
     { title: "Ingreso de Producción", route: "/create-production" },
     { title: "Registros de Producción", route: "/production-tracking" },
+    { title: "Récords de Producción", route: "/product-records" },
     { title: "Crear Nota de Crédito", route: "/create-credit-note" },
     { title: "Seguimiento de Notas de Crédito", route: "/credit-note-tracking" },
     { title: "Consumo Interno", route: "/create-internal" },
@@ -398,8 +399,11 @@ const Dashboard: React.FC = () => {
 
   if (isLimited) {
     menuItems = [{ title: "Seguimiento de despachos", route: "/tracking" }];
-  } else if (isOperatorLimited) {
-    menuItems = [{ title: "Registros de Producción", route: "/production-tracking" }];
+    } else if (isOperatorLimited) {
+    menuItems = [
+      { title: "Registros de Producción", route: "/production-tracking" },
+      { title: "Récords de Producción", route: "/product-records" },
+    ];
   } else if (isAdmin) {
     menuItems.push({ title: "Administración (pagos)", route: "/admin/billing" });
   }

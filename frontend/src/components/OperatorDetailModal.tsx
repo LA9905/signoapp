@@ -29,6 +29,10 @@ interface DetalleUnidad {
   produccion_por_hora: number;
   linea_base: number | null;
   linea_base_fuente: "historica" | "producto" | "pares_mes" | "inicial" | null;
+  linea_base_fecha: string | null;
+  linea_base_operario: string | null;
+  linea_base_cantidad: number | null;
+  linea_base_horas: number | null;
   ratio: number | null;
 }
 
@@ -350,6 +354,18 @@ const OperatorDetailModal: React.FC<Props> = ({ operatorId, year, month, monthLa
                             Ratio: {d.ratio !== null ? `${Math.round(d.ratio * 100)}%` : "—"}
                           </span>
                         </div>
+                        {(d.linea_base_fecha || d.linea_base_operario) && (
+                          <div style={{ marginTop: 6, fontSize: 11, color: "rgba(165,180,252,0.75)", lineHeight: 1.5 }}>
+                            Récord establecido {d.linea_base_operario ? `por ${d.linea_base_operario}` : ""}
+                            {d.linea_base_fecha ? ` el ${d.linea_base_fecha}` : ""}
+                            {typeof d.linea_base_cantidad === "number" && typeof d.linea_base_horas === "number" && (
+                              <>
+                                {" "}— produjo {d.linea_base_cantidad} {d.unidad || ""} en {d.linea_base_horas}h
+                                {" "}(resultado: {d.linea_base} {d.unidad || ""}/h)
+                              </>
+                            )}
+                          </div>
+                        )}
                       </div>
                     );
                   })}

@@ -1,18 +1,71 @@
 from flask import Blueprint, request, jsonify
 from datetime import date
+from sqlalchemy import func
 from app import db
 from app.models.operator_model import Operator
 from app.models.operator_activity_model import OperatorActivity
 from app.models.user_model import User
+from app.models.product_model import Product
+from app.models.production_model import ProductionProduct
+from app.routes.product_routes import normalize_search
 from app.utils.performance import (
     evaluar_operador,
     daily_detail_for_operator,
     get_operator_for_user_email,
+    current_record_for_product,
+    normalizar_nombre,
+    normalizar_unidad,
 )
 from flask_jwt_extended import jwt_required, get_jwt_identity
 import cloudinary.uploader
 
 performance_bp = Blueprint("operator_performance", __name__)
+
+
+@performance_bp.route("/products/records", methods=["GET"])
+@jwt_required()
+def products_records():
+    """
+    Récord actual (mejor producción por hora jamás registrada, en un solo
+    día) de cada producto, para que cualquier operario pueda buscar el
+    producto que va a fabricar y ver de inmediato cuál es la marca a
+    superar. Sin restricción de rol — también deben poder verlo los
+    usuarios de operario limitados.
+    """
+    try:
+        search = normalize_search(request.args.get("search") or "")
+        products = Product.query.order_by(Product.name.asc()).all()
+
+        resultados = []
+        for p in products:
+            if search and search not in normalize_search(p.name):
+                continue
+
+            nombre_norm = normalizar_nombre(p.name)
+            record = current_record_for_product(nombre_norm)
+
+            unidad = None
+            if record:
+                last_row = (
+                    ProductionProduct.query
+                    .filter(func.lower(ProductionProduct.nombre) == p.name.lower())
+                    .order_by(ProductionProduct.id.desc())
+                    .first()
+                )
+                if last_row:
+                    unidad = normalizar_unidad(last_row.unidad)
+
+            resultados.append({
+                "id": p.id,
+                "name": p.name,
+                "category": p.category,
+                "unidad": unidad,
+                "record": record,
+            })
+
+        return jsonify(resultados), 200
+    except Exception as e:
+        return jsonify({"error": "No se pudo obtener los récords de productos", "details": str(e)}), 500
 
 
 @performance_bp.route("/operators/performance", methods=["GET"])

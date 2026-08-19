@@ -104,6 +104,7 @@ def me():
     # (app/utils/performance.py).
     operator_limited_emails = [
         "dalvismoran01@gmail.com",
+        "erickgonzalezrt@gmail.com",
     ]
     is_operator_limited = user.email.lower() in [email.lower() for email in operator_limited_emails]
 

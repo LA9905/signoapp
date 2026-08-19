@@ -12,6 +12,7 @@ interface Producto {
   cantidad: number;
   unidad: string;
   category?: string;
+  horas?: number;
 }
 
 interface FormularioProduccion {
@@ -24,7 +25,7 @@ interface FormularioProduccion {
 
 interface Payload {
   operator: string;
-  productos: { nombre: string; cantidad: number; unidad: string }[];
+  productos: { nombre: string; cantidad: number; unidad: string; horas?: number }[];
   fecha: string;
   horas_otras?: number;
   nota_otras?: string;
@@ -89,6 +90,7 @@ const CreateProduction = () => {
           nombre: p.name,
           cantidad: p.cantidad,
           unidad: p.unidad,
+          horas: p.horas && p.horas > 0 ? p.horas : undefined,
         })),
         fecha: form.fecha,
       };
