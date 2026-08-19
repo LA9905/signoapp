@@ -307,148 +307,112 @@ def baseline_peers_current_month(nombre: str, year: int, month: int, exclude_ope
     return (rates[mid - 1] + rates[mid]) / 2
 
 
-@lru_cache(maxsize=4096)
-def _first_production_month_for_product(nombre: str):
+@lru_cache(maxsize=6)
+def _compute_daily_rates_bulk(upto_year: int, upto_month: int):
     """
-    Año y mes de la producción más antigua registrada para este producto
-    exacto, sin importar qué operario la haya hecho. Es el punto de
-    partida para recorrer TODO el histórico del producto (no solo el mes
-    en curso o una ventana reciente) al calcular su línea base.
+    Calcula, en UNA sola pasada con dos consultas totales a la base de
+    datos (una para producciones, otra para actividades), la tasa de
+    producción por hora de TODOS los productos y TODOS los operarios,
+    DÍA POR DÍA, desde el primer registro hasta el mes evaluado
+    (inclusive).
+
+    Devuelve un dict: nombre_producto -> lista de
+    (rate, fecha, operator_id, qty, horas).
+
+    Se cachea por (upto_year, upto_month) — incluyendo el mes en curso —
+    porque invalidate_performance_caches() limpia este caché en cada
+    creación, edición o eliminación de una producción, así que no hace
+    falta el resguardo de "nunca cachear el mes actual" que sí usan
+    otras funciones de este archivo.
     """
-    rows = (
-        db.session.query(Production.fecha, ProductionProduct.nombre)
-        .join(ProductionProduct, ProductionProduct.production_id == Production.id)
-        .all()
-    )
-    fechas = [f for f, n in rows if normalizar_nombre(n) == nombre]
-    if not fechas:
-        return None
-    earliest_local = to_local(min(fechas))
-    return earliest_local.year, earliest_local.month
+    _, end_utc = _month_utc_bounds(upto_year, upto_month)
 
-
-def _compute_daily_rates_by_product(operator_id: int, year: int, month: int):
-    """
-    Para UN operario y UN mes, calcula la tasa de producción por hora
-    PRODUCTO POR PRODUCTO y DÍA POR DÍA — nunca promediada entre varios
-    días del mes. Se usa exclusivamente para encontrar el mejor registro
-    histórico (línea base): la mejor marca alcanzada por un operario en
-    UN SOLO DÍA. Promediar todo el mes "diluiría" un día excepcional
-    entre otros días más flojos del mismo mes, ocultando el verdadero
-    récord.
-
-    Reaplica la MISMA regla de reparto de horas que
-    _compute_rate_by_product_for_month (horas manuales por línea de
-    producto respetadas tal cual; el resto del día repartido en partes
-    iguales entre las líneas sin horas manuales), pero sin sumar entre
-    días — si esa regla de reparto cambia en el futuro, hay que
-    replicarlo aquí también.
-
-    Devuelve una lista de tuplas (rate, fecha, nombre).
-    """
-    start_utc, end_utc = _month_utc_bounds(year, month)
     productions = (
         Production.query
         .options(joinedload(Production.productos))
-        .filter(Production.operator_id == operator_id)
-        .filter(Production.fecha >= start_utc, Production.fecha < end_utc)
+        .filter(Production.fecha < end_utc)
+        .filter(Production.operator_id.isnot(None))
         .all()
     )
 
-    qty_por_dia = defaultdict(lambda: defaultdict(float))
-    horas_manual_por_dia = defaultdict(lambda: defaultdict(float))
-    entries_sin_horas_por_dia = defaultdict(lambda: defaultdict(int))
+    otras_por_operador_dia = defaultdict(lambda: defaultdict(float))
+    for act in OperatorActivity.query.all():
+        otras_por_operador_dia[act.operator_id][act.fecha] += float(act.horas or 0)
+
+    qty_por_op_dia = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
+    horas_manual_por_op_dia = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
+    entries_sin_horas_por_op_dia = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
+
     for p in productions:
+        op_id = p.operator_id
         d = to_local(p.fecha).date()
         for prod in p.productos:
             nombre = normalizar_nombre(prod.nombre)
-            qty_por_dia[d][nombre] += float(prod.cantidad or 0)
+            qty_por_op_dia[op_id][d][nombre] += float(prod.cantidad or 0)
             horas_manual = getattr(prod, "horas", None)
             if horas_manual is not None and horas_manual > 0:
-                horas_manual_por_dia[d][nombre] += float(horas_manual)
+                horas_manual_por_op_dia[op_id][d][nombre] += float(horas_manual)
             else:
-                entries_sin_horas_por_dia[d][nombre] += 1
+                entries_sin_horas_por_op_dia[op_id][d][nombre] += 1
 
-    horas_otras_por_dia = _otras_horas_por_dia(operator_id, year, month)
+    resultados = defaultdict(list)
 
-    resultados = []
-    for d, productos_dia in qty_por_dia.items():
-        base = horas_programadas(d)
-        otras = horas_otras_por_dia.get(d, 0.0)
-        horas_efectivas_dia = max(base - otras, 0.0)
+    for op_id, dias in qty_por_op_dia.items():
+        otras_dia_op = otras_por_operador_dia.get(op_id, {})
+        for d, productos_dia in dias.items():
+            base = horas_programadas(d)
+            otras = otras_dia_op.get(d, 0.0)
+            horas_efectivas_dia = max(base - otras, 0.0)
 
-        horas_manual_dia = horas_manual_por_dia.get(d, {})
-        entries_sin_horas_dia = entries_sin_horas_por_dia.get(d, {})
-        suma_horas_manual_dia = sum(horas_manual_dia.values())
-        horas_restantes_dia = max(horas_efectivas_dia - suma_horas_manual_dia, 0.0)
-        total_entries_sin_horas_dia = sum(entries_sin_horas_dia.values())
+            horas_manual_dia = horas_manual_por_op_dia[op_id].get(d, {})
+            entries_sin_horas_dia = entries_sin_horas_por_op_dia[op_id].get(d, {})
+            suma_horas_manual_dia = sum(horas_manual_dia.values())
+            horas_restantes_dia = max(horas_efectivas_dia - suma_horas_manual_dia, 0.0)
+            total_entries_sin_horas_dia = sum(entries_sin_horas_dia.values())
 
-        for nombre, qty in productos_dia.items():
-            horas_manual_nombre = horas_manual_dia.get(nombre, 0.0)
-            entries_sin_horas_nombre = entries_sin_horas_dia.get(nombre, 0)
-            if total_entries_sin_horas_dia > 0:
-                horas_repartidas = horas_restantes_dia * (entries_sin_horas_nombre / total_entries_sin_horas_dia)
-            else:
-                horas_repartidas = 0.0
-            horas_dia_producto = horas_manual_nombre + horas_repartidas
-            if horas_dia_producto > 0:
-                resultados.append((qty / horas_dia_producto, d, nombre, qty, horas_dia_producto))
+            for nombre, qty in productos_dia.items():
+                horas_manual_nombre = horas_manual_dia.get(nombre, 0.0)
+                entries_sin_horas_nombre = entries_sin_horas_dia.get(nombre, 0)
+                if total_entries_sin_horas_dia > 0:
+                    horas_repartidas = horas_restantes_dia * (entries_sin_horas_nombre / total_entries_sin_horas_dia)
+                else:
+                    horas_repartidas = 0.0
+                horas_dia_producto = horas_manual_nombre + horas_repartidas
+                if horas_dia_producto > 0:
+                    resultados[nombre].append((qty / horas_dia_producto, d, op_id, qty, horas_dia_producto))
 
     return resultados
 
 
-@lru_cache(maxsize=8192)
-def _daily_rates_for_product_cached(operator_id: int, year: int, month: int):
-    return _compute_daily_rates_by_product(operator_id, year, month)
-
-
-def daily_rates_by_product(operator_id: int, year: int, month: int):
+@lru_cache(maxsize=1)
+def unidad_por_producto_map():
     """
-    Igual criterio de caché que rate_by_product_for_month: los meses YA
-    CERRADOS se cachean en memoria, el mes EN CURSO nunca se cachea.
+    Mapa nombre_normalizado -> unidad más reciente registrada para ese
+    producto, calculado en UNA sola consulta (en vez de una consulta por
+    producto, como se hacía antes en la ruta de récords). Se usa para
+    mostrar la unidad correcta junto a cada récord.
     """
-    hoy = date.today()
-    if year == hoy.year and month == hoy.month:
-        return _compute_daily_rates_by_product(operator_id, year, month)
-    return _daily_rates_for_product_cached(operator_id, year, month)
-
-
-def _all_daily_rates_for_product(nombre: str, upto_year: int, upto_month: int):
-    """
-    Recolecta la tasa de producción por hora de TODOS los operarios que
-    hayan fabricado este producto exacto, DÍA POR DÍA, en todos los
-    meses desde el primer registro histórico del producto hasta el mes
-    evaluado (inclusive). Cada día de cada operario cuenta por separado
-    — si varios operarios fabricaron el mismo producto el mismo día,
-    NUNCA se suman entre sí, cada uno compite con su propia cantidad y
-    sus propias horas.
-
-    Devuelve una lista de tuplas (rate, fecha, operator_id, qty, horas).
-    """
-    start = _first_production_month_for_product(nombre)
-    if start is None:
-        return []
-
-    y, m = start
-    resultados = []
-    while (y, m) <= (upto_year, upto_month):
-        for op in Operator.query.all():
-            for rate, fecha, prod_nombre, qty, horas in daily_rates_by_product(op.id, y, m):
-                if prod_nombre == nombre:
-                    resultados.append((rate, fecha, op.id, qty, horas))
-        m += 1
-        if m == 13:
-            m = 1
-            y += 1
-    return resultados
+    rows = (
+        db.session.query(Production.fecha, ProductionProduct.nombre, ProductionProduct.unidad)
+        .join(ProductionProduct, ProductionProduct.production_id == Production.id)
+        .all()
+    )
+    latest_fecha = {}
+    latest_unidad = {}
+    for fecha, nombre_raw, unidad_raw in rows:
+        nombre = normalizar_nombre(nombre_raw)
+        if nombre not in latest_fecha or fecha > latest_fecha[nombre]:
+            latest_fecha[nombre] = fecha
+            latest_unidad[nombre] = normalizar_unidad(unidad_raw)
+    return latest_unidad
 
 
 def baseline_historical_max_product(nombre: str, year: int, month: int, current_operator_id: int):
     """
     Línea base = el MEJOR rendimiento por hora jamás registrado, EN UN
     SOLO DÍA, para este producto exacto, considerando a todos los
-    operarios y todo el histórico disponible (desde el primer registro
-    del producto) hasta el mes evaluado, inclusive.
+    operarios y todo el histórico disponible hasta el mes evaluado,
+    inclusive.
 
     Devuelve (mejor_tasa, fuente, fecha_record, operator_id_record, qty_record, horas_record):
       - "producto": el mejor día proviene de un mes ANTERIOR al
@@ -463,7 +427,7 @@ def baseline_historical_max_product(nombre: str, year: int, month: int, current_
       - (None, None, None, None, None, None): el producto no tiene
         ningún registro.
     """
-    rates = _all_daily_rates_for_product(nombre, year, month)
+    rates = _compute_daily_rates_bulk(year, month).get(nombre, [])
     if not rates:
         return None, None, None, None, None, None
 
@@ -480,6 +444,7 @@ def baseline_historical_max_product(nombre: str, year: int, month: int, current_
         fuente = "pares_mes"
     return rate, fuente, fecha, op_id, qty, horas
 
+
 def current_record_for_product(nombre: str):
     """
     Récord actual (mejor producción por hora jamás registrada, EN UN SOLO
@@ -492,7 +457,7 @@ def current_record_for_product(nombre: str):
     récord, o None si el producto nunca se ha fabricado.
     """
     hoy = date.today()
-    rates = _all_daily_rates_for_product(nombre, hoy.year, hoy.month)
+    rates = _compute_daily_rates_bulk(hoy.year, hoy.month).get(nombre, [])
     if not rates:
         return None
     rate, fecha, op_id, qty, horas = max(rates, key=lambda r: r[0])
@@ -515,8 +480,8 @@ def invalidate_performance_caches():
     (por ejemplo, al corregir o backdatear la fecha de una producción).
     """
     _rate_by_product_for_month_cached.cache_clear()
-    _first_production_month_for_product.cache_clear()
-    _daily_rates_for_product_cached.cache_clear()
+    _compute_daily_rates_bulk.cache_clear()
+    unidad_por_producto_map.cache_clear()
     baseline_global_product.cache_clear()
 
 

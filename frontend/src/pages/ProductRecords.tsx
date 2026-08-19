@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { FiSearch, FiAward, FiTrendingUp, FiFileText } from "react-icons/fi";
+import { FiSearch, FiAward, FiTrendingUp, FiFileText, FiDownload } from "react-icons/fi";
 import ArrowBackButton from "../components/ArrowBackButton";
 import { api } from "../services/http";
+import * as XLSX from "xlsx";
 
 interface ProductRecord {
   rate: number;
@@ -102,13 +103,51 @@ const ProductRecords = () => {
           <ArrowBackButton />
         </div>
 
-        <div className="mb-6 fade-in">
-          <h1 className="font-display text-3xl font-bold tracking-tight mb-1">
-            Récords de Producción
-          </h1>
-          <p className="text-sm" style={{ color: "rgba(255,255,255,0.3)" }}>
-            Busca un producto y mira cuál es la marca actual a superar por hora.
-          </p>
+                <div className="flex items-start justify-between gap-4 mb-6 fade-in">
+          <div>
+            <h1 className="font-display text-3xl font-bold tracking-tight mb-1">
+              Récords de Producción
+            </h1>
+            <p className="text-sm" style={{ color: "rgba(255,255,255,0.3)" }}>
+              Busca un producto y mira cuál es la marca actual a superar por hora.
+            </p>
+          </div>
+          <button
+            className="flex-shrink-0"
+            title="Descargar Excel de récords"
+            aria-label="Descargar Excel"
+            onClick={async () => {
+              try {
+                const res = await api.get<ProductRecordRow[]>("/products/records");
+                const data = res.data.map((row) => ({
+                  "Producto": row.name,
+                  "Categoría": row.category,
+                  "Unidad": row.unidad || "",
+                  "Récord (por hora)": row.record ? row.record.rate : "",
+                  "Operario del récord": row.record?.operator_name || "",
+                  "Fecha del récord": row.record?.fecha || "",
+                  "Cantidad producida (récord)": row.record?.cantidad ?? "",
+                  "Horas trabajadas (récord)": row.record?.horas ?? "",
+                }));
+                const ws = XLSX.utils.json_to_sheet(data);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "Records");
+                XLSX.writeFile(wb, "records_produccion.xlsx");
+              } catch (err) {
+                console.error("Error exportando récords:", err);
+                alert("No se pudo exportar el Excel de récords.");
+              }
+            }}
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 6,
+              padding: "8px 16px", borderRadius: 9, fontSize: 13, fontWeight: 500,
+              background: "rgba(52,211,153,0.08)", border: "1px solid rgba(52,211,153,0.2)", color: "#6EE7B7",
+              cursor: "pointer",
+            }}
+          >
+            <FiDownload size={14} />
+            Exportar Excel
+          </button>
         </div>
 
         <div className="relative mb-6 fade-in">

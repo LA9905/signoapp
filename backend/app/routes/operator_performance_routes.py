@@ -14,7 +14,7 @@ from app.utils.performance import (
     get_operator_for_user_email,
     current_record_for_product,
     normalizar_nombre,
-    normalizar_unidad,
+    unidad_por_producto_map,
 )
 from flask_jwt_extended import jwt_required, get_jwt_identity
 import cloudinary.uploader
@@ -35,6 +35,7 @@ def products_records():
     try:
         search = normalize_search(request.args.get("search") or "")
         products = Product.query.order_by(Product.name.asc()).all()
+        unidad_map = unidad_por_producto_map()
 
         resultados = []
         for p in products:
@@ -44,22 +45,11 @@ def products_records():
             nombre_norm = normalizar_nombre(p.name)
             record = current_record_for_product(nombre_norm)
 
-            unidad = None
-            if record:
-                last_row = (
-                    ProductionProduct.query
-                    .filter(func.lower(ProductionProduct.nombre) == p.name.lower())
-                    .order_by(ProductionProduct.id.desc())
-                    .first()
-                )
-                if last_row:
-                    unidad = normalizar_unidad(last_row.unidad)
-
             resultados.append({
                 "id": p.id,
                 "name": p.name,
                 "category": p.category,
-                "unidad": unidad,
+                "unidad": unidad_map.get(nombre_norm),
                 "record": record,
             })
 
