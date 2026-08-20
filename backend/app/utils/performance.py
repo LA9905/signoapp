@@ -307,14 +307,26 @@ def baseline_peers_current_month(nombre: str, year: int, month: int, exclude_ope
     return (rates[mid - 1] + rates[mid]) / 2
 
 
+# Mes desde el cual se empieza a construir el historico de records
+# "limpio". Los meses ANTERIORES a este quedan con los datos que ya
+# tienen (no se tocan ni se recalculan distinto), pero DEJAN de usarse
+# como fuente para la linea base de ningun producto, porque corresponden
+# a cuando el sistema de horas por producto todavia no existia y tienen
+# demasiadas inconsistencias para confiar en ellos. A partir de este mes
+# (inclusive), el historico de records se construye desde cero, limpio.
+BASELINE_CUTOFF_YEAR = 2026
+BASELINE_CUTOFF_MONTH = 8
+
+
 @lru_cache(maxsize=6)
 def _compute_daily_rates_bulk(upto_year: int, upto_month: int):
     """
     Calcula, en UNA sola pasada con dos consultas totales a la base de
     datos (una para producciones, otra para actividades), la tasa de
     producción por hora de TODOS los productos y TODOS los operarios,
-    DÍA POR DÍA, desde el primer registro hasta el mes evaluado
-    (inclusive).
+    DÍA POR DÍA, desde BASELINE_CUTOFF_YEAR/BASELINE_CUTOFF_MONTH hasta
+    el mes evaluado (inclusive). Todo lo anterior al corte queda
+    excluido a propósito — ver el comentario de BASELINE_CUTOFF_* arriba.
 
     Devuelve un dict: nombre_producto -> lista de
     (rate, fecha, operator_id, qty, horas).
@@ -325,12 +337,13 @@ def _compute_daily_rates_bulk(upto_year: int, upto_month: int):
     falta el resguardo de "nunca cachear el mes actual" que sí usan
     otras funciones de este archivo.
     """
+    start_utc, _ = _month_utc_bounds(BASELINE_CUTOFF_YEAR, BASELINE_CUTOFF_MONTH)
     _, end_utc = _month_utc_bounds(upto_year, upto_month)
 
     productions = (
         Production.query
         .options(joinedload(Production.productos))
-        .filter(Production.fecha < end_utc)
+        .filter(Production.fecha >= start_utc, Production.fecha < end_utc)
         .filter(Production.operator_id.isnot(None))
         .all()
     )
