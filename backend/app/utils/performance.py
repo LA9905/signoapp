@@ -66,7 +66,9 @@ def get_operator_for_user_email(email: str):
     return Operator.query.filter(func.lower(Operator.name) == operator_name.lower()).first()
 
 
-def _otras_horas_por_dia(operator_id: int, year: int, month: int):
+def _ajustes_horas_por_dia(operator_id: int, year: int, month: int):
+    """Devuelve (horas_otras, horas_extra) por fecha. 'otras' resta horas
+    efectivas del día; 'extra' (sobretiempo) las suma."""
     acts = (
         OperatorActivity.query
         .filter(OperatorActivity.operator_id == operator_id)
@@ -75,10 +77,13 @@ def _otras_horas_por_dia(operator_id: int, year: int, month: int):
         .all()
     )
     horas_otras = defaultdict(float)
+    horas_extra = defaultdict(float)
     for a in acts:
-        horas_otras[a.fecha] += float(a.horas or 0)
-    return horas_otras
-
+        if a.tipo == "extra":
+            horas_extra[a.fecha] += float(a.horas or 0)
+        else:
+            horas_otras[a.fecha] += float(a.horas or 0)
+    return horas_otras, horas_extra
 
 def _month_utc_bounds(year: int, month: int):
     """Límites del mes (hora de Chile) convertidos a UTC naive, para filtrar en la BD."""
@@ -148,13 +153,14 @@ def _compute_rate_by_product_for_month(operator_id: int, year: int, month: int):
     if not entries_por_dia:
         return {}
 
-    horas_otras_por_dia = _otras_horas_por_dia(operator_id, year, month)
+    horas_otras_por_dia, horas_extra_por_dia = _ajustes_horas_por_dia(operator_id, year, month)
 
     horas_por_producto = defaultdict(float)
     for d, productos_dia in entries_por_dia.items():
         base = horas_programadas(d)
         otras = horas_otras_por_dia.get(d, 0.0)
-        horas_efectivas_dia = max(base - otras, 0.0)
+        extra = horas_extra_por_dia.get(d, 0.0)
+        horas_efectivas_dia = max(base - otras + extra, 0.0)
 
         horas_manual_dia = horas_manual_por_dia.get(d, {})
         entries_sin_horas_dia = entries_sin_horas_por_dia.get(d, {})
@@ -349,8 +355,12 @@ def _compute_daily_rates_bulk(upto_year: int, upto_month: int):
     )
 
     otras_por_operador_dia = defaultdict(lambda: defaultdict(float))
+    extra_por_operador_dia = defaultdict(lambda: defaultdict(float))
     for act in OperatorActivity.query.all():
-        otras_por_operador_dia[act.operator_id][act.fecha] += float(act.horas or 0)
+        if act.tipo == "extra":
+            extra_por_operador_dia[act.operator_id][act.fecha] += float(act.horas or 0)
+        else:
+            otras_por_operador_dia[act.operator_id][act.fecha] += float(act.horas or 0)
 
     qty_por_op_dia = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
     horas_manual_por_op_dia = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
@@ -372,10 +382,12 @@ def _compute_daily_rates_bulk(upto_year: int, upto_month: int):
 
     for op_id, dias in qty_por_op_dia.items():
         otras_dia_op = otras_por_operador_dia.get(op_id, {})
+        extra_dia_op = extra_por_operador_dia.get(op_id, {})
         for d, productos_dia in dias.items():
             base = horas_programadas(d)
             otras = otras_dia_op.get(d, 0.0)
-            horas_efectivas_dia = max(base - otras, 0.0)
+            extra = extra_dia_op.get(d, 0.0)
+            horas_efectivas_dia = max(base - otras + extra, 0.0)
 
             horas_manual_dia = horas_manual_por_op_dia[op_id].get(d, {})
             entries_sin_horas_dia = entries_sin_horas_por_op_dia[op_id].get(d, {})
@@ -499,12 +511,24 @@ def invalidate_performance_caches():
 
 
 UMBRALES = [
-    (1.15, "muy_alta", True),
-    (1.00, "alta", True),
-    (0.85, "regular", False),
-    (0.65, "baja", False),
-    (0.0,  "muy_baja", False),
+    (1.35, "extraordinaria", True),
+    (1.00, "muy_alta", True),
+    (0.87, "alta", True),
+    (0.80, "regular_alta", False),
+    (0.65, "regular", False),
+    (0.50, "baja", False),
+    (0.35, "muy_baja", False),
+    (0.0,  "critica", False),
 ]
+
+# Atributos extra por clasificación, además de bono sí/no.
+CLASIFICACION_EXTRAS = {
+    "extraordinaria": {"bono_extra": True, "premio": True},
+    "muy_alta": {"bono_extra_consideracion": True},
+    "regular_alta": {"bono_consideracion": True},
+    "muy_baja": {"accion_requerida": True},
+    "critica": {"accion_requerida": True, "accion_inmediata": True},
+}
 
 # Techo razonable para el ratio mostrado: evita que un mes con muy pocas
 # horas registradas dispare un porcentaje sin sentido en el gráfico.
@@ -514,13 +538,14 @@ RATIO_MAX = 3.0
 MIN_DIAS_MES_ACTUAL = 1
 
 
+# DESPUÉS
 def clasificar(ratio):
     if ratio is None:
         return "sin_datos", False
     for limite, etiqueta, bono in UMBRALES:
         if ratio >= limite:
             return etiqueta, bono
-    return "muy_baja", False
+    return "critica", False
 
 
 def evaluar_operador(operator_id: int, year: int, month: int):
@@ -597,6 +622,7 @@ def evaluar_operador(operator_id: int, year: int, month: int):
         ratio = round(ratio, 2)
 
     etiqueta, bono = clasificar(ratio)
+    extras = CLASIFICACION_EXTRAS.get(etiqueta, {})
 
     principal = max(por_producto.items(), key=lambda kv: kv[1]["horas"])[0] if por_producto else None
     principal_data = por_producto.get(principal) if principal else None
@@ -618,6 +644,12 @@ def evaluar_operador(operator_id: int, year: int, month: int):
         "ratio": round(ratio, 3) if ratio is not None else None,
         "clasificacion": etiqueta,
         "bono": bono,
+        "bono_extra": extras.get("bono_extra", False),
+        "bono_extra_consideracion": extras.get("bono_extra_consideracion", False),
+        "bono_consideracion": extras.get("bono_consideracion", False),
+        "premio": extras.get("premio", False),
+        "accion_requerida": extras.get("accion_requerida", False),
+        "accion_inmediata": extras.get("accion_inmediata", False),
         "mes_en_curso": mes_en_curso,
         "detalle_unidades": detalle,
     }
@@ -652,7 +684,7 @@ def daily_detail_for_operator(operator_id: int, year: int, month: int):
             nombre = normalizar_nombre(prod.nombre)
             qty_por_dia_producto[d][nombre] += float(prod.cantidad or 0)
 
-    horas_otras_por_dia = _otras_horas_por_dia(operator_id, year, month)
+    horas_otras_por_dia, horas_extra_por_dia = _ajustes_horas_por_dia(operator_id, year, month)
     por_producto = rate_by_product_for_month(operator_id, year, month)
     principal = max(por_producto.items(), key=lambda kv: kv[1]["horas"])[0] if por_producto else None
 
@@ -660,7 +692,8 @@ def daily_detail_for_operator(operator_id: int, year: int, month: int):
     for d in sorted(qty_por_dia_producto.keys()):
         base = horas_programadas(d)
         otras = horas_otras_por_dia.get(d, 0.0)
-        horas_efectivas_dia = max(base - otras, 0.0)
+        extra = horas_extra_por_dia.get(d, 0.0)
+        horas_efectivas_dia = max(base - otras + extra, 0.0)
         cantidad_principal = qty_por_dia_producto[d].get(principal, 0.0) if principal else 0.0
         resultado.append({
             "fecha": d.isoformat(),

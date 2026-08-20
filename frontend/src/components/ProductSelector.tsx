@@ -14,16 +14,19 @@ interface Producto {
   horas?: number;
 }
 
+// DESPUÉS
 interface ProductSelectorProps {
   productos: Producto[];
   setProductos: (productos: Producto[]) => void;
   existingProductos: Producto[];
+  showHoras?: boolean;
 }
 
 const ProductSelector: React.FC<ProductSelectorProps> = ({
   productos,
   setProductos,
   existingProductos,
+  showHoras = false,
 }) => {
   const [newProduct, setNewProduct] = useState<Producto>({
     id: "",
@@ -83,6 +86,7 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
           id: newProduct.id || Date.now().toString(),
           category: selectedCategory,
           unidad: detectUnit(newProduct.name),
+          horas: showHoras ? newProduct.horas : undefined,
         };
         setProductos([...productos, updatedProduct]);
         setNewProduct({ id: "", name: "", cantidad: 0, unidad: "unidades", horas: undefined });
@@ -137,7 +141,9 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
 
   const saveEdit = (id: string) => {
     const updated = productos.map((p) =>
-      p.id === id ? { ...p, cantidad: tmpCantidad, unidad: tmpUnidad, horas: tmpHoras } : p
+      p.id === id
+        ? { ...p, cantidad: tmpCantidad, unidad: tmpUnidad, horas: showHoras ? tmpHoras : undefined }
+        : p
     );
     setProductos(updated);
     cancelEdit();
@@ -303,7 +309,7 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
                           style={{ whiteSpace: "nowrap", color: "rgba(251, 191, 36, 0.95)", fontSize: "13px", fontWeight: "500" }}
                         >
                           {p.cantidad} {p.unidad}
-                          {p.horas ? ` · ${p.horas}h` : ""}
+                          {showHoras && p.horas ? ` · ${p.horas}h` : ""}
                         </span>
                       </div>
                       <div style={{ display: "flex", gap: "5px", flexShrink: 0, marginLeft: "10px" }}>
@@ -361,20 +367,22 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
                         <option value="cajas">Cajas</option>
                         <option value="PQT">Paquetes</option>
                       </select>
-                      <input
-                        type="number"
-                        value={tmpHoras ?? ""}
-                        onChange={(e) => {
-                          const v = e.target.value;
-                          setTmpHoras(v === "" ? undefined : parseFloat(v) || undefined);
-                        }}
-                        className="prd-input-plain"
-                        placeholder="Horas (opc.)"
-                        min={0}
-                        step={0.5}
-                        title="Horas reales dedicadas a este producto ese día (opcional)"
-                        style={{ flex: "1", minWidth: "90px" }}
-                      />
+                      {showHoras && (
+                        <input
+                          type="number"
+                          value={tmpHoras ?? ""}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            setTmpHoras(v === "" ? undefined : parseFloat(v) || undefined);
+                          }}
+                          className="prd-input-plain"
+                          placeholder="Horas (opc.)"
+                          min={0}
+                          step={0.5}
+                          title="Horas reales dedicadas a este producto ese día (opcional)"
+                          style={{ flex: "1", minWidth: "90px" }}
+                        />
+                      )}
                       <div style={{ display: "flex", gap: "5px", flexShrink: 0 }}>
                         <button
                           type="button"
@@ -451,7 +459,7 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
           <span className="prd-select-arrow">▼</span>
         </div>
 
-                {/* Quantity + unit + hours + add button */}
+        {/* Quantity + unit + hours + add button */}
         <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }} className="prd-row-grid">
           <input
             type="number"
@@ -477,18 +485,20 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
             </select>
             <span className="prd-select-arrow">▼</span>
           </div>
-          <input
-            type="number"
-            name="horas"
-            placeholder="Horas (opc.)"
-            value={newProduct.horas ?? ""}
-            onChange={handleChangeProduct}
-            className="prd-input-plain"
-            min={0}
-            step={0.5}
-            title="Horas reales dedicadas a este producto ese día (opcional). Si se deja vacío, se reparte el tiempo restante del día en partes iguales entre los productos sin horas indicadas."
-            style={{ flex: "1 1 110px", minWidth: "100px" }}
-          />
+          {showHoras && (
+            <input
+              type="number"
+              name="horas"
+              placeholder="Horas (opc.)"
+              value={newProduct.horas ?? ""}
+              onChange={handleChangeProduct}
+              className="prd-input-plain"
+              min={0}
+              step={0.5}
+              title="Horas reales dedicadas a este producto ese día (opcional). Si se deja vacío, se reparte el tiempo restante del día en partes iguales entre los productos sin horas indicadas."
+              style={{ flex: "1 1 110px", minWidth: "100px" }}
+            />
+          )}
           <button
             type="button"
             onClick={handleAddProduct}
@@ -560,20 +570,22 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
               </select>
               <span className="prd-select-arrow">▼</span>
             </div>
-            <input
-              type="number"
-              name="horas"
-              placeholder="Horas (opc.)"
-              value={newProduct.horas ?? ""}
-              onChange={(e) =>
-                setNewProduct({ ...newProduct, horas: e.target.value === "" ? undefined : parseFloat(e.target.value) || undefined })
-              }
-              className="prd-input-plain"
-              min={0}
-              step={0.5}
-              title="Horas reales dedicadas a este producto ese día (opcional)"
-              style={{ flex: "0 0 100px", width: "100px" }}
-            />
+            {showHoras && (
+              <input
+                type="number"
+                name="horas"
+                placeholder="Horas (opc.)"
+                value={newProduct.horas ?? ""}
+                onChange={(e) =>
+                  setNewProduct({ ...newProduct, horas: e.target.value === "" ? undefined : parseFloat(e.target.value) || undefined })
+                }
+                className="prd-input-plain"
+                min={0}
+                step={0.5}
+                title="Horas reales dedicadas a este producto ese día (opcional)"
+                style={{ flex: "0 0 100px", width: "100px" }}
+              />
+            )}
             <button
               type="button"
               onClick={handleAddProduct}

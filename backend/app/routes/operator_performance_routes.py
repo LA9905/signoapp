@@ -245,19 +245,22 @@ def create_operator_activity(operator_id):
         fecha_str = data.get("fecha")
         horas = data.get("horas")
         nota = (data.get("nota") or "").strip()
+        tipo = (data.get("tipo") or "otra").strip().lower()
+        if tipo not in ("otra", "extra"):
+            return jsonify({"error": "El campo 'tipo' debe ser 'otra' o 'extra'"}), 400
         if not fecha_str or horas is None:
             return jsonify({"error": "Faltan campos requeridos (fecha, horas)"}), 400
         fecha = date.fromisoformat(fecha_str)
         user_id = get_jwt_identity()
 
-        existing = OperatorActivity.query.filter_by(operator_id=operator_id, fecha=fecha).first()
+        existing = OperatorActivity.query.filter_by(operator_id=operator_id, fecha=fecha, tipo=tipo).first()
         if existing:
             existing.horas = float(horas)
             existing.nota = nota
         else:
             existing = OperatorActivity(
                 operator_id=operator_id, fecha=fecha, horas=float(horas),
-                nota=nota, created_by=user_id,
+                nota=nota, created_by=user_id, tipo=tipo,
             )
             db.session.add(existing)
         db.session.commit()
@@ -276,7 +279,13 @@ def update_operator_activity(activity_id):
         fecha_str = data.get("fecha")
         horas = data.get("horas")
         nota = data.get("nota")
+        tipo = data.get("tipo")
 
+        if tipo is not None:
+            tipo = tipo.strip().lower()
+            if tipo not in ("otra", "extra"):
+                return jsonify({"error": "El campo 'tipo' debe ser 'otra' o 'extra'"}), 400
+            activity.tipo = tipo
         if fecha_str:
             activity.fecha = date.fromisoformat(fecha_str)
         if horas is not None:

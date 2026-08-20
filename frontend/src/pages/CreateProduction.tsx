@@ -21,6 +21,8 @@ interface FormularioProduccion {
   fecha: string;
   horasOtras: string;
   notaOtras: string;
+  horasExtra: string;
+  notaExtra: string;
 }
 
 interface Payload {
@@ -29,6 +31,8 @@ interface Payload {
   fecha: string;
   horas_otras?: number;
   nota_otras?: string;
+  horas_extra?: number;
+  nota_extra?: string;
 }
 
 // new Date().toISOString() devuelve la fecha en UTC, no en hora local de
@@ -49,6 +53,8 @@ const CreateProduction = () => {
     fecha: getLocalDateString(),
     horasOtras: "",
     notaOtras: "",
+    horasExtra: "",
+    notaExtra: "",
   });
   const [mensaje, setMensaje] = useState<string>("");
 
@@ -98,6 +104,10 @@ const CreateProduction = () => {
         payload.horas_otras = Number(form.horasOtras);
         payload.nota_otras = form.notaOtras;
       }
+      if (form.horasExtra && Number(form.horasExtra) > 0) {
+        payload.horas_extra = Number(form.horasExtra);
+        payload.nota_extra = form.notaExtra;
+      }
 
       const newProducts = form.productos.filter(
         (p) => !productos.some((ep) => ep.id === p.id)
@@ -127,7 +137,7 @@ const CreateProduction = () => {
 
       await api.post("/productions", payload);
       setMensaje("Producción registrada satisfactoriamente");
-      setForm({ ...form, productos: [], horasOtras: "", notaOtras: "" });
+      setForm({ ...form, productos: [], horasOtras: "", notaOtras: "", horasExtra: "", notaExtra: "" });
     } catch (err: unknown) {
       if (err instanceof AxiosError) {
         setMensaje(err.response?.data?.error || "Error al registrar producción");
@@ -415,6 +425,32 @@ const CreateProduction = () => {
                   </div>
                 </div>
               )}
+              <div>
+                <div className="field-label-cp">Horas extra / sobretiempo (opcional)</div>
+                <div className="input-cp-wrapper">
+                  <input
+                    type="number"
+                    min={0}
+                    step={0.5}
+                    placeholder="Ej: 2"
+                    value={form.horasExtra}
+                    onChange={(e) => setForm({ ...form, horasExtra: e.target.value })}
+                  />
+                </div>
+              </div>
+              {form.horasExtra && Number(form.horasExtra) > 0 && (
+                <div className="sm:col-span-2">
+                  <div className="field-label-cp">Motivo de las horas extra (opcional)</div>
+                  <div className="input-cp-wrapper">
+                    <input
+                      type="text"
+                      placeholder="Ej: Turno adicional por pedido urgente"
+                      value={form.notaExtra}
+                      onChange={(e) => setForm({ ...form, notaExtra: e.target.value })}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -429,6 +465,7 @@ const CreateProduction = () => {
                 productos={form.productos}
                 setProductos={(prods: Producto[]) => setForm({ ...form, productos: prods })}
                 existingProductos={productos}
+                showHoras
               />
             </div>
           </div>

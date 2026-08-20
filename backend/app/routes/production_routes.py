@@ -22,19 +22,13 @@ CORS(
     supports_credentials=True,
 )
 
-def _upsert_or_clear_operator_activity(operator_id: int, fecha, horas, nota, user_id):
+def _upsert_or_clear_operator_activity(operator_id: int, fecha, horas, nota, user_id, tipo: str = "otra"):
     """
-    Crea, actualiza o elimina el registro de OperatorActivity de un operario
-    para una fecha específica, según lo que se envíe desde el formulario de
-    producción (create/update). Mismo criterio que ya usa
-    create_operator_activity en operator_performance_routes.py: una sola
-    actividad por operario y día (se sobreescribe si ya existía).
-
-    - horas > 0: crea o actualiza el registro con esas horas y nota.
-    - horas es None, "" o 0: si existía un registro para ese día, se elimina
-      (permite "quitar" la actividad editando la producción).
+    Filtra también por 'tipo' ('otra' o
+    'extra'), para poder tener el mismo día un registro de otra actividad
+    Y uno de horas extra, de forma independiente.
     """
-    existing = OperatorActivity.query.filter_by(operator_id=operator_id, fecha=fecha).first()
+    existing = OperatorActivity.query.filter_by(operator_id=operator_id, fecha=fecha, tipo=tipo).first()
 
     if horas is None or horas == "" or float(horas) <= 0:
         if existing:
@@ -47,13 +41,14 @@ def _upsert_or_clear_operator_activity(operator_id: int, fecha, horas, nota, use
         existing.horas = horas_val
         existing.nota = nota_val
     else:
-                db.session.add(
+        db.session.add(
             OperatorActivity(
                 operator_id=operator_id,
                 fecha=fecha,
                 horas=horas_val,
                 nota=nota_val,
                 created_by=user_id,
+                tipo=tipo,
             )
         )
 
@@ -150,12 +145,16 @@ def create_production():
                     pass
 
         # Registrar de una vez, opcionalmente, las horas de otras
-        # actividades del operario para esa misma fecha (queda guardado en
+        # actividades o horas extras del operario para esa misma fecha (queda guardado en
         # el mismo registro de actividades que usa el rendimiento de
         # producción, sin necesidad de ir a otra pantalla).
         if "horas_otras" in data:
             _upsert_or_clear_operator_activity(
-                operator.id, chosen_date, data.get("horas_otras"), data.get("nota_otras"), user_id
+                operator.id, chosen_date, data.get("horas_otras"), data.get("nota_otras"), user_id, tipo="otra"
+            )
+        if "horas_extra" in data:
+            _upsert_or_clear_operator_activity(
+                operator.id, chosen_date, data.get("horas_extra"), data.get("nota_extra"), user_id, tipo="extra"
             )
 
         db.session.commit()
@@ -366,9 +365,13 @@ def update_production(production_id):
         # esta producción, directamente desde el formulario de edición.
         if "horas_otras" in data:
             _upsert_or_clear_operator_activity(
-                operator.id, chosen_date, data.get("horas_otras"), data.get("nota_otras"), user_id
+                operator.id, chosen_date, data.get("horas_otras"), data.get("nota_otras"), user_id, tipo="otra"
             )
-
+        if "horas_extra" in data:
+            _upsert_or_clear_operator_activity(
+                operator.id, chosen_date, data.get("horas_extra"), data.get("nota_extra"), user_id, tipo="extra"
+            )
+            
         db.session.commit()
         invalidate_performance_caches()
 
