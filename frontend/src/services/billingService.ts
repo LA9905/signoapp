@@ -9,6 +9,8 @@ export type BillingUser = {
   subscription_paid_until: string | null;
   blocked: boolean;
   can_edit_stock: boolean;
+  notify_low_stock: boolean;
+  notify_pending_dispatches: boolean;
 };
 
 export const getBillingStatus = (email?: string) =>
@@ -34,3 +36,9 @@ export const deleteUsers = (payload: { user_ids: number[] }) =>
 
 export const setStockPermission = (payload: { user_ids: number[]; can_edit_stock: boolean }) =>
   api.post("/billing/set-stock-permission", payload);
+
+export const setNotificationPrefs = (payload: {
+  user_ids: number[];
+  notify_low_stock?: boolean;
+  notify_pending_dispatches?: boolean;
+}) => api.post("/billing/set-notification-prefs", payload);

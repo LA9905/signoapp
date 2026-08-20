@@ -13,8 +13,10 @@ class User(db.Model):
     is_admin = db.Column(db.Boolean, nullable=False, default=False)
     subscription_paid_until = db.Column(db.Date, nullable=True)  # última fecha cubierta (ej.: 2025-09-08)
     due_day = db.Column(db.Integer, nullable=False, default=8)   # día de corte (8)
-    receive_notifications = db.Column(db.Boolean, nullable=False, default=True)  # Suscripción a notificaciones
+    receive_notifications = db.Column(db.Boolean, nullable=False, default=True) # Suscripción a notificaciones (maestro)
     can_edit_stock = db.Column(db.Boolean, nullable=False, default=False) # Permiso para editar stock manualmente
+    notify_low_stock = db.Column(db.Boolean, nullable=False, default=True) # Recibir notificaciones de stock bajo
+    notify_pending_dispatches = db.Column(db.Boolean, nullable=False, default=True) # Recibir notificaciones de despachos retrasados
     gender = db.Column(db.String(1), nullable=True)  # 'm' = masculino, 'f' = femenino, None = sin definir  
 
     def set_password(self, password):

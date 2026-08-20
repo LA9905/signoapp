@@ -108,6 +108,8 @@ def get_all_users():
                 "subscription_paid_until": u.subscription_paid_until.isoformat() if u.subscription_paid_until else None,
                 "blocked": is_blocked(u),
                 "can_edit_stock": u.can_edit_stock,
+                "notify_low_stock": u.notify_low_stock,
+                "notify_pending_dispatches": u.notify_pending_dispatches,
             }
             for u in users
         ]
@@ -213,4 +215,33 @@ def set_stock_permission():
         {User.can_edit_stock: can_edit}, synchronize_session=False
     )
     db.session.commit()
-    return jsonify({"ok": True, "updated_count": updated, "can_edit_stock": can_edit}), 200        
+    return jsonify({"ok": True, "updated_count": updated, "can_edit_stock": can_edit}), 200 
+
+
+@billing_bp.route("/billing/set-notification-prefs", methods=["POST"])
+@jwt_required()
+def set_notification_prefs():
+    uid = get_jwt_identity()
+    viewer = User.query.get(uid)
+    if not viewer or not viewer.is_admin:
+        return jsonify({"msg": "Solo administradores"}), 403
+
+    data = request.get_json() or {}
+    user_ids = data.get("user_ids", [])
+    if not user_ids:
+        return jsonify({"msg": "Debe proporcionar user_ids"}), 400
+
+    updates = {}
+    if "notify_low_stock" in data:
+        updates[User.notify_low_stock] = bool(data["notify_low_stock"])
+    if "notify_pending_dispatches" in data:
+        updates[User.notify_pending_dispatches] = bool(data["notify_pending_dispatches"])
+
+    if not updates:
+        return jsonify({"msg": "Debe indicar al menos un campo a actualizar"}), 400
+
+    updated = User.query.filter(User.id.in_(user_ids)).update(
+        updates, synchronize_session=False
+    )
+    db.session.commit()
+    return jsonify({"ok": True, "updated_count": updated}), 200

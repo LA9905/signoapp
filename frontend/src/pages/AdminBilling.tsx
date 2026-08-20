@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getBillingStatus, markPaid, getAllUsers, markPaidMultiple, blockMultiple, deleteUsers, setStockPermission, type BillingUser } from "../services/billingService";
+import { getBillingStatus, markPaid, getAllUsers, markPaidMultiple, blockMultiple, deleteUsers, setStockPermission, setNotificationPrefs, type BillingUser } from "../services/billingService";
 import { me } from "../services/authService";
 import ArrowBackButton from "../components/ArrowBackButton";
 
@@ -419,7 +419,7 @@ const AdminBilling = () => {
               <p style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", marginBottom: 10 }}>
                 Selecciona los usuarios que deseas mantener bloqueados
               </p>
-              <table className="ab-table">
+                            <table className="ab-table">
                 <thead>
                   <tr>
                     <th className="center">
@@ -444,6 +444,8 @@ const AdminBilling = () => {
                     <th>Cubierto hasta</th>
                     <th className="center">Bloqueado</th>
                     <th className="center">Editar stock</th>
+                    <th className="center">Stock bajo</th>
+                    <th className="center">Despachos retrasados</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -481,6 +483,42 @@ const AdminBilling = () => {
                           }}
                         >
                           {u.can_edit_stock ? "Habilitado" : "Deshabilitado"}
+                        </button>
+                      </td>
+                      <td className="center">
+                        <button
+                          className={`ab-stock-btn ${u.notify_low_stock ? "ab-stock-on" : "ab-stock-off"}`}
+                          title={u.notify_low_stock ? "Clic para desactivar notificaciones de stock bajo" : "Clic para activar notificaciones de stock bajo"}
+                          onClick={async () => {
+                            const newVal = !u.notify_low_stock;
+                            try {
+                              await setNotificationPrefs({ user_ids: [u.id], notify_low_stock: newVal });
+                              setUsers(prev => prev.map(x => x.id === u.id ? { ...x, notify_low_stock: newVal } : x));
+                              setMsg(`Notificaciones de stock bajo ${newVal ? "activadas" : "desactivadas"} para ${u.name}.`);
+                            } catch {
+                              setMsg("Error al actualizar notificaciones de stock bajo");
+                            }
+                          }}
+                        >
+                          {u.notify_low_stock ? "Sí" : "No"}
+                        </button>
+                      </td>
+                      <td className="center">
+                        <button
+                          className={`ab-stock-btn ${u.notify_pending_dispatches ? "ab-stock-on" : "ab-stock-off"}`}
+                          title={u.notify_pending_dispatches ? "Clic para desactivar notificaciones de despachos retrasados" : "Clic para activar notificaciones de despachos retrasados"}
+                          onClick={async () => {
+                            const newVal = !u.notify_pending_dispatches;
+                            try {
+                              await setNotificationPrefs({ user_ids: [u.id], notify_pending_dispatches: newVal });
+                              setUsers(prev => prev.map(x => x.id === u.id ? { ...x, notify_pending_dispatches: newVal } : x));
+                              setMsg(`Notificaciones de despachos retrasados ${newVal ? "activadas" : "desactivadas"} para ${u.name}.`);
+                            } catch {
+                              setMsg("Error al actualizar notificaciones de despachos retrasados");
+                            }
+                          }}
+                        >
+                          {u.notify_pending_dispatches ? "Sí" : "No"}
                         </button>
                       </td>
                     </tr>
