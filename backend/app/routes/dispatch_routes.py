@@ -217,6 +217,7 @@ def get_dispatches():
         page = int(request.args.get("page", 1))
         limit = int(request.args.get("limit", 10))
         all_param = request.args.get("all")
+        after_id_str = (request.args.get("after_id") or "").strip()
         
         date_from_str = (request.args.get("date_from") or "").strip()
         date_to_str = (request.args.get("date_to") or "").strip()
@@ -297,7 +298,14 @@ def get_dispatches():
             except ValueError:
                 return jsonify({"error": "Formato de fecha inválido"}), 400
 
-        query = query.order_by(Dispatch.fecha.asc())
+        query = query.order_by(Dispatch.id.asc())
+
+        if after_id_str:
+            try:
+                after_id = int(after_id_str)
+            except ValueError:
+                return jsonify({"error": "Parámetro 'after_id' inválido"}), 400
+            query = query.filter(Dispatch.id > after_id)
 
         if all_param:
             
@@ -306,6 +314,8 @@ def get_dispatches():
                 .options(joinedload(Dispatch.productos))
                 .all()
             )
+        elif after_id_str:
+            dispatches = query.limit(limit).all()
         else:
             dispatches = query.paginate(page=page, per_page=limit, error_out=False).items
 
