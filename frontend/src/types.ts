@@ -4,6 +4,7 @@ export interface MeResp {
   email: string;
   avatar_url: string | null;
   is_admin: boolean;
+  is_super_admin?: boolean;
   is_limited: boolean;
   is_operator_limited?: boolean;
   subscription_paid_until: string | null;

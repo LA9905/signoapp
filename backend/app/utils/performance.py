@@ -45,25 +45,15 @@ def normalizar_nombre(n: str) -> str:
         return n
     return " ".join(str(n).strip().split())
 
-# Mapeo de correos de usuarios "operario" (acceso limitado) al nombre
-# EXACTO del operario correspondiente en la tabla Operator. Se usa para
-# que estos usuarios vean en su propio Dashboard las métricas de SU
-# producción. Para agregar más operarios con usuario, solo se agrega
-# aquí el correo y el nombre exacto tal como está en la tabla Operator.
-OPERATOR_LIMITED_USER_EMAIL_MAP = {
-    "dalvismoran01@gmail.com": "Dalvis Moran",
-    "erickgonzalezrt@gmail.com": "Erick Gonzalez",
-}
 
-
-def get_operator_for_user_email(email: str):
-    """Devuelve el Operator asociado a un correo de usuario limitado
-    (operario), o None si el correo no está mapeado o el operario no
-    existe en la tabla."""
-    operator_name = OPERATOR_LIMITED_USER_EMAIL_MAP.get((email or "").strip().lower())
-    if not operator_name:
+def get_operator_for_user(user):
+    """Devuelve el Operator vinculado a este usuario, asignado por un
+    administrador desde el panel de administración (User.linked_operator_id),
+    o None si el usuario no tiene ningún operario vinculado (usuario
+    normal)."""
+    if not user or not user.linked_operator_id:
         return None
-    return Operator.query.filter(func.lower(Operator.name) == operator_name.lower()).first()
+    return Operator.query.get(user.linked_operator_id)
 
 
 def _ajustes_horas_por_dia(operator_id: int, year: int, month: int):

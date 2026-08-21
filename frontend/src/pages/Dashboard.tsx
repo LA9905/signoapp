@@ -81,7 +81,7 @@
 //   if (isLimited) {
 //     menuItems = [{ title: "Seguimiento de despachos", route: "/tracking" }];
 //   } else if (isAdmin) {
-//     menuItems.push({ title: "Administración (pagos)", route: "/admin/billing" });
+//     menuItems.push({ title: "Administración de usuarios", route: "/admin/billing" });
 //   }
 
 //   const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
@@ -405,7 +405,7 @@ const Dashboard: React.FC = () => {
       { title: "Récords de Producción", route: "/product-records" },
     ];
   } else if (isAdmin) {
-    menuItems.push({ title: "Administración (pagos)", route: "/admin/billing" });
+    menuItems.push({ title: "Administración de usuarios", route: "/admin/billing" });
   }
 
   const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);

@@ -11,7 +11,7 @@ from app.routes.product_routes import normalize_search
 from app.utils.performance import (
     evaluar_operador,
     daily_detail_for_operator,
-    get_operator_for_user_email,
+    get_operator_for_user,
     current_record_for_product,
     normalizar_nombre,
     unidad_por_producto_map,
@@ -154,7 +154,7 @@ def my_operator_performance_detail():
         if not user:
             return jsonify({"error": "Usuario no encontrado"}), 404
 
-        operator = get_operator_for_user_email(user.email)
+        operator = get_operator_for_user(user)
         if not operator:
             return jsonify({"error": "Este usuario no tiene un operario asociado"}), 404
 

@@ -7,7 +7,7 @@ from app.utils.driver_performance import (
     evaluar_chofer,
     is_evaluable_driver,
     daily_detail_for_driver,
-    get_driver_for_user_email,
+    get_driver_for_user,
 )
 from flask_jwt_extended import jwt_required, get_jwt_identity
 import cloudinary.uploader
@@ -118,7 +118,7 @@ def my_driver_performance_detail():
         if not user:
             return jsonify({"error": "Usuario no encontrado"}), 404
 
-        driver = get_driver_for_user_email(user.email)
+        driver = get_driver_for_user(user)
         if not driver:
             return jsonify({"error": "Este usuario no tiene un chofer asociado"}), 404
 
