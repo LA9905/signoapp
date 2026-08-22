@@ -241,7 +241,9 @@ interface OperatorPerformanceDetail {
     linea_base_historica: number | null;
     linea_base_fuente: string | null;
     ratio: number | null;
-    clasificacion: "muy_alta" | "alta" | "regular" | "baja" | "muy_baja" | "sin_datos";
+    clasificacion:
+      | "extraordinaria" | "muy_alta" | "alta" | "regular_alta"
+      | "regular" | "baja" | "muy_baja" | "critica" | "sin_datos";
     bono: boolean;
     mes_en_curso: boolean;
     detalle_unidades: unknown[];
@@ -253,11 +255,14 @@ interface OperatorPerformanceDetail {
 }
 
 const OPERATOR_CLASIFICACION_INFO: Record<string, { label: string; color: string }> = {
+  extraordinaria: { label: "Extraordinaria", color: "#C084FC" },
   muy_alta: { label: "Muy Alta", color: "#34D399" },
   alta: { label: "Alta", color: "#60A5FA" },
+  regular_alta: { label: "Regular", color: "#FDE68A" },
   regular: { label: "Regular", color: "#FBBF24" },
   baja: { label: "Baja", color: "#FB923C" },
   muy_baja: { label: "Muy Baja", color: "#F87171" },
+  critica: { label: "Crítica", color: "#DC2626" },
   sin_datos: { label: "Sin datos", color: "rgba(255,255,255,0.25)" },
 };
 

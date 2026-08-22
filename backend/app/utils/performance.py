@@ -1,8 +1,10 @@
+import re
+import unicodedata
 from datetime import date, datetime, timedelta
 from calendar import monthrange
 from collections import defaultdict
 from functools import lru_cache
-from sqlalchemy import extract, func
+from sqlalchemy import extract
 from sqlalchemy.orm import joinedload
 from app import db
 from app.models.production_model import Production, ProductionProduct
@@ -86,8 +88,7 @@ def _month_utc_bounds(year: int, month: int):
 def _entries_por_dia_y_producto(operator_id: int, year: int, month: int):
     """
     Recorre las producciones del mes de UN operario y arma, por día, cuántas
-    líneas de producto hay por NOMBRE EXACTO de producto (para repartir las
-    horas proporcionalmente cuando no se indicó un valor manual), más la
+    líneas de producto hay por NOMBRE EXACTO de producto, más la
     cantidad total, la unidad y los días trabajados por cada producto.
 
     Se agrupa por nombre exacto de producto (no solo por unidad genérica
@@ -96,10 +97,12 @@ def _entries_por_dia_y_producto(operator_id: int, year: int, month: int):
     pequeñas vs. bolsas grandes, ambas en "kg").
 
     También separa, por día y producto, cuántas horas se cargaron
-    MANUALMENTE (campo opcional 'horas' en cada línea de producto) y
-    cuántas líneas quedaron SIN ese dato, para que
-    _compute_rate_by_product_for_month reparta solo el tiempo restante
-    del día entre esas líneas sin horas manuales.
+    MANUALMENTE (campo opcional 'horas' en cada línea de producto) y,
+    para las líneas que quedaron SIN ese dato, cuánta CANTIDAD se
+    produjo (qty_sin_horas_por_dia) — necesaria para que
+    _distribuir_horas_sin_manual pueda estimar cuánto tiempo debió
+    tomar cada producto según su propia tasa de referencia, en vez de
+    repartir el tiempo restante del día en partes iguales.
     """
     start_utc, end_utc = _month_utc_bounds(year, month)
     productions = (
@@ -115,6 +118,7 @@ def _entries_por_dia_y_producto(operator_id: int, year: int, month: int):
     unidad_por_producto = {}
     horas_manual_por_dia = defaultdict(lambda: defaultdict(float))
     entries_sin_horas_por_dia = defaultdict(lambda: defaultdict(int))
+    qty_sin_horas_por_dia = defaultdict(lambda: defaultdict(float))
     for p in productions:
         local_dt = to_local(p.fecha)
         d = local_dt.date()
@@ -129,16 +133,17 @@ def _entries_por_dia_y_producto(operator_id: int, year: int, month: int):
                 horas_manual_por_dia[d][nombre] += float(horas_manual)
             else:
                 entries_sin_horas_por_dia[d][nombre] += 1
+                qty_sin_horas_por_dia[d][nombre] += float(prod.cantidad or 0)
     return (
         entries_por_dia, qty_por_producto, dias_por_producto, unidad_por_producto,
-        horas_manual_por_dia, entries_sin_horas_por_dia,
+        horas_manual_por_dia, entries_sin_horas_por_dia, qty_sin_horas_por_dia,
     )
 
 
 def _compute_rate_by_product_for_month(operator_id: int, year: int, month: int):
     (
         entries_por_dia, qty_por_producto, dias_por_producto, unidad_por_producto,
-        horas_manual_por_dia, entries_sin_horas_por_dia,
+        horas_manual_por_dia, _, qty_sin_horas_por_dia,
     ) = _entries_por_dia_y_producto(operator_id, year, month)
     if not entries_por_dia:
         return {}
@@ -153,25 +158,24 @@ def _compute_rate_by_product_for_month(operator_id: int, year: int, month: int):
         horas_efectivas_dia = max(base - otras + extra, 0.0)
 
         horas_manual_dia = horas_manual_por_dia.get(d, {})
-        entries_sin_horas_dia = entries_sin_horas_por_dia.get(d, {})
+        qty_sin_horas_dia = qty_sin_horas_por_dia.get(d, {})
 
         # Las horas cargadas manualmente para un producto ese día se
-        # respetan tal cual. Solo el tiempo que sobra del día (horas
-        # efectivas menos lo ya asignado manualmente) se reparte en
-        # partes iguales, y únicamente entre las líneas que NO trajeron
-        # un valor manual — igual que antes se hacía para todos los
-        # productos, ahora limitado a los que no especificaron horas.
+        # respetan tal cual. El tiempo restante del día se reparte entre
+        # los productos SIN horas manuales de forma PROPORCIONAL a su
+        # tasa de referencia (récord propio o de un producto muy
+        # similar) — ver _distribuir_horas_sin_manual — y solo cae a
+        # partes iguales cuando ninguno de ellos tiene ninguna
+        # referencia disponible.
         suma_horas_manual_dia = sum(horas_manual_dia.values())
         horas_restantes_dia = max(horas_efectivas_dia - suma_horas_manual_dia, 0.0)
-        total_entries_sin_horas_dia = sum(entries_sin_horas_dia.values())
+        horas_repartidas_por_nombre = _distribuir_horas_sin_manual(
+            horas_restantes_dia, qty_sin_horas_dia, year, month
+        )
 
-        for nombre, n in productos_dia.items():
+        for nombre in productos_dia:
             horas_manual_nombre = horas_manual_dia.get(nombre, 0.0)
-            entries_sin_horas_nombre = entries_sin_horas_dia.get(nombre, 0)
-            if total_entries_sin_horas_dia > 0:
-                horas_repartidas = horas_restantes_dia * (entries_sin_horas_nombre / total_entries_sin_horas_dia)
-            else:
-                horas_repartidas = 0.0
+            horas_repartidas = horas_repartidas_por_nombre.get(nombre, 0.0)
             horas_por_producto[nombre] += horas_manual_nombre + horas_repartidas
 
     resultado = {}
@@ -314,6 +318,302 @@ BASELINE_CUTOFF_YEAR = 2026
 BASELINE_CUTOFF_MONTH = 8
 
 
+# ── Reparto inteligente de horas para líneas SIN horas manuales ─────────────
+#
+# Cuando un registro de producción tiene dos o más productos y a ninguno (o
+# a alguno) se le indicó cuánto tiempo específico tomó, el sistema necesita
+# repartir el tiempo restante del día entre esos productos. Repartir en
+# partes iguales es incorrecto porque distintos productos tardan tiempos muy
+# distintos por unidad — inflar el tiempo de uno rápido y desinflar el de
+# uno lento distorsiona el ratio real de ambos, y puede llegar a fabricar un
+# "récord" falso a partir de datos que nunca reflejaron la realidad.
+#
+# Se reparte el tiempo PROPORCIONALMENTE a cuánto debería haber
+# tomado cada producto según su propia tasa de referencia (el mejor
+# rendimiento conocido para ese producto exacto, o el de un producto muy
+# similar si no hay uno propio). Solo se cae a partes iguales cuando
+# absolutamente ningún producto del día tiene ninguna referencia posible.
+
+def _normalizar_texto_para_similitud(texto: str) -> str:
+    texto = (texto or "").strip()
+    nfkd = unicodedata.normalize("NFKD", texto)
+    sin_acentos = "".join(c for c in nfkd if not unicodedata.combining(c))
+    return sin_acentos.lower()
+
+
+# Palabras genéricas que se ignoran al comparar nombres de producto por
+# similitud (unidades, conectores) — lo que realmente distingue la
+# velocidad de fabricación son las medidas y el tipo/material.
+_STOPWORDS_PRODUCTO = {
+    "de", "x", "y", "con", "sin", "el", "la", "los", "las", "un", "una",
+    "para", "por", "und", "unidades", "unidad", "kg", "kgs", "pqt", "pqts",
+    "cajas", "caja", "lt", "lts",
+}
+
+# Puntaje mínimo de similitud (0 a 1) para aceptar un producto "parecido"
+# como referencia. Por debajo de esto, se considera que no hay relación
+# real entre los productos y no se usa su tasa.
+SIMILARITY_THRESHOLD_PRODUCTO = 0.3
+
+
+def _extraer_dims_y_palabras(nombre: str):
+    """
+    Extrae del nombre de un producto dos conjuntos usados para medir
+    similitud con otros productos cuando no hay ninguna tasa (récord)
+    conocida para el nombre exacto:
+      - dims: números presentes en el nombre (medidas, micronaje).
+      - palabras: palabras no numéricas ni genéricas (tipo/material,
+        nomenclatura), para comparar productos del mismo tipo.
+    """
+    texto = _normalizar_texto_para_similitud(nombre)
+    numeros_crudos = re.findall(r"\d+(?:[.,]\d+)?", texto)
+    dims = set()
+    for n in numeros_crudos:
+        try:
+            dims.add(round(float(n.replace(",", ".")), 4))
+        except ValueError:
+            pass
+    palabras_crudas = re.split(r"[^a-zñ0-9]+", texto)
+    palabras = {
+        w for w in palabras_crudas
+        if w and not w[0].isdigit() and w not in _STOPWORDS_PRODUCTO and len(w) > 1
+    }
+    return dims, palabras
+
+
+def _similitud_productos(dims_a, palabras_a, dims_b, palabras_b) -> float:
+    """
+    Puntaje de similitud (0 a 1) entre dos productos. Pondera más las
+    medidas/micronaje (70%) que las palabras de tipo/material (30%),
+    porque dos productos con la misma medida exacta suelen fabricarse a
+    un ritmo mucho más parecido entre sí que dos que solo comparten
+    palabras genéricas de nomenclatura.
+    """
+    if not dims_a and not palabras_a:
+        return 0.0
+    dim_overlap = (len(dims_a & dims_b) / len(dims_a)) if dims_a else 0.0
+    palabra_overlap = 0.0
+    union = palabras_a | palabras_b
+    if union:
+        palabra_overlap = len(palabras_a & palabras_b) / len(union)
+    return 0.7 * dim_overlap + 0.3 * palabra_overlap
+
+
+@lru_cache(maxsize=8)
+def _reference_rate_map(upto_year: int, upto_month: int):
+    """
+    Mapa nombre_producto -> mejor tasa (unidades/hora) conocida de forma
+    NO ambigua, usado únicamente para GUIAR el reparto de horas de un día
+    con varios productos sin horas específicas (ver
+    _distribuir_horas_sin_manual). Nunca se usa para mostrar récords al
+    usuario — solo como referencia interna de cálculo.
+
+    Se construye SOLO a partir de dos fuentes 100% confiables, para no
+    caer en un cálculo circular (usar un reparto ya "adivinado" para
+    adivinar otro reparto):
+      1. Líneas de producción con horas MANUALES indicadas por el
+         usuario — dato real, sin ambigüedad.
+      2. Días donde el operario fabricó UN SOLO producto (sin importar
+         cuántas líneas de producción tenga ese día) — las horas
+         efectivas del día completo pertenecen inequívocamente a ese
+         único producto, no hace falta repartir nada.
+
+    Limitado a datos hasta upto_year/upto_month (nunca usa meses
+    futuros para adivinar un mes pasado) y, como el resto de los
+    récords, nunca usa datos anteriores a BASELINE_CUTOFF_*.
+    """
+    start_utc, _ = _month_utc_bounds(BASELINE_CUTOFF_YEAR, BASELINE_CUTOFF_MONTH)
+    _, end_utc = _month_utc_bounds(upto_year, upto_month)
+
+    productions = (
+        Production.query
+        .options(joinedload(Production.productos))
+        .filter(Production.fecha >= start_utc, Production.fecha < end_utc)
+        .filter(Production.operator_id.isnot(None))
+        .all()
+    )
+
+    otras_por_operador_dia = defaultdict(lambda: defaultdict(float))
+    extra_por_operador_dia = defaultdict(lambda: defaultdict(float))
+    for act in OperatorActivity.query.all():
+        if act.tipo == "extra":
+            extra_por_operador_dia[act.operator_id][act.fecha] += float(act.horas or 0)
+        else:
+            otras_por_operador_dia[act.operator_id][act.fecha] += float(act.horas or 0)
+
+    qty_por_op_dia = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
+    horas_manual_por_op_dia = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
+    tiene_manual_por_op_dia = defaultdict(lambda: defaultdict(lambda: defaultdict(bool)))
+
+    for p in productions:
+        op_id = p.operator_id
+        d = to_local(p.fecha).date()
+        for prod in p.productos:
+            nombre = normalizar_nombre(prod.nombre)
+            qty_por_op_dia[op_id][d][nombre] += float(prod.cantidad or 0)
+            horas_manual = getattr(prod, "horas", None)
+            if horas_manual is not None and horas_manual > 0:
+                horas_manual_por_op_dia[op_id][d][nombre] += float(horas_manual)
+                tiene_manual_por_op_dia[op_id][d][nombre] = True
+
+    muestras = defaultdict(list)
+
+    for op_id, dias in qty_por_op_dia.items():
+        otras_dia_op = otras_por_operador_dia.get(op_id, {})
+        extra_dia_op = extra_por_operador_dia.get(op_id, {})
+        for d, productos_dia in dias.items():
+            # Fuente 1: horas manuales, siempre confiables.
+            horas_manual_dia = horas_manual_por_op_dia[op_id].get(d, {})
+            for nombre, horas in horas_manual_dia.items():
+                qty = productos_dia.get(nombre, 0.0)
+                if horas > 0 and qty > 0:
+                    muestras[nombre].append(qty / horas)
+
+            # Fuente 2: día con un solo producto distinto — sin
+            # ambigüedad posible, aunque no traiga horas manuales.
+            if len(productos_dia) == 1:
+                nombre_unico = next(iter(productos_dia))
+                if not tiene_manual_por_op_dia[op_id][d].get(nombre_unico):
+                    base = horas_programadas(d)
+                    otras = otras_dia_op.get(d, 0.0)
+                    extra = extra_dia_op.get(d, 0.0)
+                    horas_efectivas_dia = max(base - otras + extra, 0.0)
+                    qty = productos_dia[nombre_unico]
+                    if horas_efectivas_dia > 0 and qty > 0:
+                        muestras[nombre_unico].append(qty / horas_efectivas_dia)
+
+    return {nombre: max(rates) for nombre, rates in muestras.items() if rates}
+
+
+@lru_cache(maxsize=8)
+def _reference_rate_map_dims_cache(upto_year: int, upto_month: int):
+    """Precalcula (dims, palabras) de cada producto que sí tiene una tasa
+    de referencia conocida, para no repetir el análisis de texto en cada
+    búsqueda de producto similar."""
+    ref_map = _reference_rate_map(upto_year, upto_month)
+    return {nombre: _extraer_dims_y_palabras(nombre) for nombre in ref_map}
+
+
+def _unidad_para_producto(nombre: str):
+    """
+    Devuelve la unidad normalizada (kg, unidades, pqt, lt, cajas) del
+    producto, según el registro más reciente en TODO el sistema. Es
+    información ESTRUCTURAL del producto (un producto siempre se mide en
+    la misma unidad), no una estimación de tasa — por eso no está
+    limitada al mes evaluado como sí lo están las tasas de referencia.
+
+    Se usa como filtro OBLIGATORIO al buscar un producto "similar": dos
+    productos con la misma medida y nomenclatura pero distinta unidad
+    (ej. "Bolsa T/R 90 x 120 x 0,06 x UND" vs "... x kg") NUNCA deben
+    compararse entre sí, porque kg/hora y unidades/hora no son
+    magnitudes comparables — mezclarlas produciría una referencia sin
+    sentido físico.
+    """
+    return unidad_por_producto_map().get(nombre)
+
+
+@lru_cache(maxsize=16384)
+def _tasa_referencia_para_producto(nombre: str, upto_year: int, upto_month: int):
+    """
+    Devuelve (tasa, es_exacta) para guiar el reparto de horas de un
+    producto sin horas manuales:
+      - Si el producto tiene su propia tasa de referencia, la usa
+        (es_exacta=True).
+      - Si no, busca el producto más PARECIDO (misma medida/micronaje,
+        nomenclatura similar) que sí tenga una tasa conocida
+        (es_exacta=False).
+      - Si no encuentra ninguno, devuelve (None, False).
+    """
+    ref_map = _reference_rate_map(upto_year, upto_month)
+    if nombre in ref_map:
+        return ref_map[nombre], True
+
+    dims_cache = _reference_rate_map_dims_cache(upto_year, upto_month)
+    dims_n, palabras_n = _extraer_dims_y_palabras(nombre)
+    if not dims_n and not palabras_n:
+        return None, False
+
+    unidad_n = _unidad_para_producto(nombre)
+
+    mejor_nombre = None
+    mejor_score = 0.0
+    for candidato, (dims_c, palabras_c) in dims_cache.items():
+        # Filtro obligatorio: nunca comparar productos de unidades
+        # distintas, sin importar cuán parecidas sean sus medidas o su
+        # nombre (ver _unidad_para_producto). Si no se conoce la unidad
+        # del producto evaluado (nunca se ha registrado antes), no se
+        # aplica el filtro por falta de información — se compara contra todos los candidatos.
+        if unidad_n is not None and _unidad_para_producto(candidato) != unidad_n:
+            continue
+        score = _similitud_productos(dims_n, palabras_n, dims_c, palabras_c)
+        if score > mejor_score:
+            mejor_score = score
+            mejor_nombre = candidato
+
+    if mejor_nombre is not None and mejor_score >= SIMILARITY_THRESHOLD_PRODUCTO:
+        return ref_map[mejor_nombre], False
+
+    return None, False
+
+
+def _distribuir_horas_sin_manual(horas_restantes_dia: float, qty_sin_horas_dia: dict, upto_year: int, upto_month: int) -> dict:
+    """
+    Reparte horas_restantes_dia entre los productos de
+    'qty_sin_horas_dia' (nombre -> cantidad producida ese día sin horas
+    indicadas), de forma PROPORCIONAL al tiempo que cada producto
+    debería haber tomado según su tasa de referencia (récord propio o
+    de un producto muy similar), en vez de partes iguales.
+
+    Se escala el conjunto completo por el mismo factor
+    (horas_restantes_dia / suma_de_horas_ideales) tanto si faltan como
+    si sobran horas respecto a lo "ideal" — así se conserva la
+    proporción real entre un producto rápido y uno lento, en vez de
+    borrarla como hacía el reparto en partes iguales.
+
+    Los productos sin ninguna tasa (ni propia ni de uno similar) reciben
+    el peso PROMEDIO de los que sí la tienen, para competir de forma
+    razonable por el tiempo en vez de quedar en cero.
+
+    Si NINGÚN producto del día tiene ninguna referencia, no hay base
+    real para diferenciarlos y, como último recurso, se reparte en
+    partes iguales — igual que el comportamiento anterior a este
+    cambio.
+    """
+    nombres = list(qty_sin_horas_dia.keys())
+    if not nombres:
+        return {}
+    if len(nombres) == 1:
+        return {nombres[0]: horas_restantes_dia}
+
+    pesos = {}
+    pesos_conocidos = []
+    for nombre in nombres:
+        tasa, _ = _tasa_referencia_para_producto(nombre, upto_year, upto_month)
+        if tasa and tasa > 0:
+            qty = qty_sin_horas_dia[nombre]
+            pesos[nombre] = qty / tasa
+            pesos_conocidos.append(pesos[nombre])
+
+    if not pesos_conocidos:
+        horas_iguales = horas_restantes_dia / len(nombres)
+        return {nombre: horas_iguales for nombre in nombres}
+
+    peso_promedio = sum(pesos_conocidos) / len(pesos_conocidos)
+    for nombre in nombres:
+        if nombre not in pesos:
+            pesos[nombre] = peso_promedio
+
+    suma_pesos = sum(pesos.values())
+    if suma_pesos <= 0:
+        horas_iguales = horas_restantes_dia / len(nombres)
+        return {nombre: horas_iguales for nombre in nombres}
+
+    return {
+        nombre: horas_restantes_dia * (pesos[nombre] / suma_pesos)
+        for nombre in nombres
+    }
+
+
 @lru_cache(maxsize=6)
 def _compute_daily_rates_bulk(upto_year: int, upto_month: int):
     """
@@ -354,7 +654,7 @@ def _compute_daily_rates_bulk(upto_year: int, upto_month: int):
 
     qty_por_op_dia = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
     horas_manual_por_op_dia = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
-    entries_sin_horas_por_op_dia = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
+    qty_sin_horas_por_op_dia = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
 
     for p in productions:
         op_id = p.operator_id
@@ -366,7 +666,7 @@ def _compute_daily_rates_bulk(upto_year: int, upto_month: int):
             if horas_manual is not None and horas_manual > 0:
                 horas_manual_por_op_dia[op_id][d][nombre] += float(horas_manual)
             else:
-                entries_sin_horas_por_op_dia[op_id][d][nombre] += 1
+                qty_sin_horas_por_op_dia[op_id][d][nombre] += float(prod.cantidad or 0)
 
     resultados = defaultdict(list)
 
@@ -380,18 +680,17 @@ def _compute_daily_rates_bulk(upto_year: int, upto_month: int):
             horas_efectivas_dia = max(base - otras + extra, 0.0)
 
             horas_manual_dia = horas_manual_por_op_dia[op_id].get(d, {})
-            entries_sin_horas_dia = entries_sin_horas_por_op_dia[op_id].get(d, {})
+            qty_sin_horas_dia = qty_sin_horas_por_op_dia[op_id].get(d, {})
             suma_horas_manual_dia = sum(horas_manual_dia.values())
             horas_restantes_dia = max(horas_efectivas_dia - suma_horas_manual_dia, 0.0)
-            total_entries_sin_horas_dia = sum(entries_sin_horas_dia.values())
+
+            horas_repartidas_por_nombre = _distribuir_horas_sin_manual(
+                horas_restantes_dia, qty_sin_horas_dia, upto_year, upto_month
+            )
 
             for nombre, qty in productos_dia.items():
                 horas_manual_nombre = horas_manual_dia.get(nombre, 0.0)
-                entries_sin_horas_nombre = entries_sin_horas_dia.get(nombre, 0)
-                if total_entries_sin_horas_dia > 0:
-                    horas_repartidas = horas_restantes_dia * (entries_sin_horas_nombre / total_entries_sin_horas_dia)
-                else:
-                    horas_repartidas = 0.0
+                horas_repartidas = horas_repartidas_por_nombre.get(nombre, 0.0)
                 horas_dia_producto = horas_manual_nombre + horas_repartidas
                 if horas_dia_producto > 0:
                     resultados[nombre].append((qty / horas_dia_producto, d, op_id, qty, horas_dia_producto))
@@ -498,6 +797,9 @@ def invalidate_performance_caches():
     _compute_daily_rates_bulk.cache_clear()
     unidad_por_producto_map.cache_clear()
     baseline_global_product.cache_clear()
+    _reference_rate_map.cache_clear()
+    _reference_rate_map_dims_cache.cache_clear()
+    _tasa_referencia_para_producto.cache_clear()
 
 
 UMBRALES = [
@@ -594,7 +896,7 @@ def evaluar_operador(operator_id: int, year: int, month: int):
 
         horas_totales += data["horas"]
 
-    _, _, dias_por_producto, _, _, _ = _entries_por_dia_y_producto(operator_id, year, month)
+    _, _, dias_por_producto, _, _, _, _ = _entries_por_dia_y_producto(operator_id, year, month)
     dias_totales = set()
     for dias_p in dias_por_producto.values():
         dias_totales |= dias_p
@@ -652,13 +954,7 @@ def daily_detail_for_operator(operator_id: int, year: int, month: int):
     resultantes. Usado por la sección de detalle del operario (picos de
     producción por fecha).
     """
-    entries_por_dia, qty_por_producto, dias_por_producto, unidad_por_producto, _, _ = _entries_por_dia_y_producto(
-        operator_id, year, month
-    )
-
     qty_por_dia_producto = defaultdict(lambda: defaultdict(float))
-    for d, productos_dia in entries_por_dia.items():
-        pass  # entries_por_dia solo cuenta líneas, no cantidad; se recalcula abajo
 
     start_utc, end_utc = _month_utc_bounds(year, month)
     productions = (
