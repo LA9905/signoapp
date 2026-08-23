@@ -31,11 +31,13 @@ class ProductionProduct(db.Model):
     nombre = db.Column(db.String(100), nullable=False)
     cantidad = db.Column(db.Float, nullable=False)
     unidad = db.Column(db.String(20), nullable=False)
+    horas = db.Column(db.Float, nullable=True)
 
     def to_dict(self):
         return {
             'id': self.id,
             'nombre': self.nombre,
             'cantidad': self.cantidad,
-            'unidad': self.unidad
+            'unidad': self.unidad,
+            'horas': self.horas,
         }

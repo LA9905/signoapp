@@ -17,7 +17,7 @@ interface ProductionSummary {
   operator_id: number | null;
   created_by: string;
   fecha: string;
-  productos: { nombre: string; cantidad: number; unidad: string }[];
+  productos: { nombre: string; cantidad: number; unidad: string; horas?: number | null }[];
 }
 interface Product {
   id: number;
@@ -27,7 +27,7 @@ interface Product {
   stock: number;
 }
 
-type ProductoRow = { nombre: string; cantidad: number; unidad: string };
+type ProductoRow = { nombre: string; cantidad: number; unidad: string; horas?: number };
 type ApiError = { error?: string; details?: string };
 
 type SearchState = {
@@ -56,6 +56,8 @@ const ProductionTracking = () => {
     fecha: string;
     horasOtras: string;
     notaOtras: string;
+    horasExtra: string;
+    notaExtra: string;
   } | null>(null);
   const [productNames, setProductNames] = useState<string[]>([]);
   const [productList, setProductList] = useState<{ name: string; usage: number }[]>([]);
@@ -64,6 +66,7 @@ const ProductionTracking = () => {
   const [dropdownPos, setDropdownPos] = useState<Record<number, { top: number; left: number; width: number }>>({});
   const inputRefs = useRef<Record<number, HTMLInputElement | null>>({});
   const [activitiesByKey, setActivitiesByKey] = useState<Record<string, { horas: number; nota: string } | null>>({});
+  const [extraHoursByKey, setExtraHoursByKey] = useState<Record<string, { horas: number; nota: string } | null>>({});
   const fetchedActivityKeysRef = useRef<Set<string>>(new Set());
 
   const activityKey = (operatorId: number, fecha: string) => `${operatorId}_${fecha.slice(0, 10)}`;
@@ -75,17 +78,22 @@ const ProductionTracking = () => {
     api
       .get(`/operators/${operatorId}/activities`, { params: { date: fecha.slice(0, 10) } })
       .then((res) => {
-        const act = Array.isArray(res.data) && res.data.length > 0 ? res.data[0] : null;
+        const acts = Array.isArray(res.data) ? res.data : [];
+        const otra = acts.find((a: any) => (a.tipo || "otra") === "otra") || null;
+        const extra = acts.find((a: any) => a.tipo === "extra") || null;
         setActivitiesByKey((prev) => ({
           ...prev,
-          [key]: act ? { horas: act.horas, nota: act.nota || "" } : null,
+          [key]: otra ? { horas: otra.horas, nota: otra.nota || "" } : null,
+        }));
+        setExtraHoursByKey((prev) => ({
+          ...prev,
+          [key]: extra ? { horas: extra.horas, nota: extra.nota || "" } : null,
         }));
       })
       .catch((err) => {
         console.error("Error cargando actividad de la fila:", err);
       });
   }, []);
-
   const [isOperatorLimited, setIsOperatorLimited] = useState(false);
 
   const [searchState, setSearchState] = useState<SearchState>({
@@ -265,15 +273,17 @@ useEffect(() => {
     })();
   };
 
-  const startEditRow = (p: ProductionSummary) => {
+    const startEditRow = (p: ProductionSummary) => {
     setEditingId(p.id);
     const fechaSolo = p.fecha.slice(0, 10); // "YYYY-MM-DDTHH:mm:ss" -> "YYYY-MM-DD"
     setDraft({
       operator: p.operator,
-      productos: p.productos.map((pr) => ({ ...pr })),
+      productos: p.productos.map((pr) => ({ ...pr, horas: pr.horas ?? undefined })),
       fecha: fechaSolo,
       horasOtras: "",
       notaOtras: "",
+      horasExtra: "",
+      notaExtra: "",
     });
 
     // Precargar, si existe, la actividad de "otras horas" ya registrada
@@ -283,12 +293,20 @@ useEffect(() => {
       api
         .get(`/operators/${p.operator_id}/activities`, { params: { date: fechaSolo } })
         .then((res) => {
-          const act = Array.isArray(res.data) && res.data.length > 0 ? res.data[0] : null;
-          if (act) {
-            setDraft((prev) =>
-              prev ? { ...prev, horasOtras: String(act.horas), notaOtras: act.nota || "" } : prev
-            );
-          }
+          const acts = Array.isArray(res.data) ? res.data : [];
+          const otra = acts.find((a: any) => (a.tipo || "otra") === "otra");
+          const extra = acts.find((a: any) => a.tipo === "extra");
+          setDraft((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  horasOtras: otra ? String(otra.horas) : "",
+                  notaOtras: otra ? otra.nota || "" : "",
+                  horasExtra: extra ? String(extra.horas) : "",
+                  notaExtra: extra ? extra.nota || "" : "",
+                }
+              : prev
+          );
         })
         .catch((err) => {
           console.error("Error cargando actividad del día:", err);
@@ -328,10 +346,13 @@ useEffect(() => {
           nombre: pr.nombre,
           cantidad: pr.cantidad,
           unidad: pr.unidad,
+          horas: pr.horas && pr.horas > 0 ? pr.horas : undefined,
         })),
         fecha: draft.fecha,
         horas_otras: draft.horasOtras ? Number(draft.horasOtras) : 0,
         nota_otras: draft.notaOtras,
+        horas_extra: draft.horasExtra ? Number(draft.horasExtra) : 0,
+        nota_extra: draft.notaExtra,
       };
       const response = await api.put<ProductionSummary>(`/productions/${editingId}`, payload);
       const updated = response.data;
@@ -723,12 +744,18 @@ useEffect(() => {
                       {/* Products */}
                       <div className="border-t border-blue-500/70 pt-3 mb-4">
                         <p className="field-label-pt mb-2">Productos</p>
-                        <div className="flex flex-col gap-1.5">
+                                                <div className="flex flex-col gap-1.5">
                           {p.productos.map((pr, i) => (
                             <span key={i} className="meta-chip-pt w-fit">
                               <strong>{pr.nombre}</strong>
                               <span className="text-white/30">·</span>
                               <span>{pr.cantidad} {pr.unidad}</span>
+                              {typeof pr.horas === "number" && pr.horas > 0 && (
+                                <>
+                                  <span className="text-white/30">·</span>
+                                  <span style={{ color: "rgba(96,165,250,0.9)" }}>{pr.horas}h producción</span>
+                                </>
+                              )}
                             </span>
                           ))}
                         </div>
@@ -747,6 +774,24 @@ useEffect(() => {
                               <>
                                 <span className="text-white/30">·</span>
                                 <span>{activitiesByKey[activityKey(p.operator_id, p.fecha)]!.nota}</span>
+                              </>
+                            )}
+                          </span>
+                        </div>
+                      )}
+
+                      {p.operator_id && extraHoursByKey[activityKey(p.operator_id, p.fecha)] && (
+                        <div className="border-t border-blue-500/70 pt-3 mb-4">
+                          <p className="field-label-pt mb-2">Horas extra ese día</p>
+                          <span
+                            className="meta-chip-pt w-fit"
+                            style={{ background: "rgba(52,211,153,0.08)", borderColor: "rgba(52,211,153,0.2)" }}
+                          >
+                            <strong style={{ color: "#6EE7B7" }}>+{extraHoursByKey[activityKey(p.operator_id, p.fecha)]!.horas}h</strong>
+                            {extraHoursByKey[activityKey(p.operator_id, p.fecha)]!.nota && (
+                              <>
+                                <span className="text-white/30">·</span>
+                                <span>{extraHoursByKey[activityKey(p.operator_id, p.fecha)]!.nota}</span>
                               </>
                             )}
                           </span>
@@ -809,19 +854,46 @@ useEffect(() => {
                             />
                           </div>
                         )}
+                        <div>
+                          <div className="field-label-pt">Horas extra / sobretiempo</div>
+                          <input
+                            type="number"
+                            min={0}
+                            step={0.5}
+                            placeholder="0"
+                            className="input-pt w-full px-3 py-2.5"
+                            value={draft?.horasExtra || ""}
+                            onChange={(e) => setDraft((prev) => (prev ? { ...prev, horasExtra: e.target.value } : prev))}
+                          />
+                        </div>
+                        {draft?.horasExtra && Number(draft.horasExtra) > 0 && (
+                          <div className="sm:col-span-2">
+                            <div className="field-label-pt">Motivo de las horas extra</div>
+                            <input
+                              type="text"
+                              placeholder="Ej: Turno adicional por pedido urgente"
+                              className="input-pt w-full px-3 py-2.5"
+                              value={draft?.notaExtra || ""}
+                              onChange={(e) => setDraft((prev) => (prev ? { ...prev, notaExtra: e.target.value } : prev))}
+                            />
+                          </div>
+                        )}
                       </div>
 
                       {/* Products edit */}
                       <div className="border-t border-blue-500/70 pt-3 mb-4">
-                        <div className="flex items-center justify-between mb-3">
+                                                <div className="flex items-center justify-between mb-1">
                           <p className="field-label-pt">Productos</p>
                           <button className="btn-action-pt btn-add-prod-pt" onClick={addRow} title="Agregar producto" aria-label="Agregar producto">
                             <FiPlus size={13} /> Agregar
                           </button>
                         </div>
+                        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", marginBottom: 10 }}>
+                          La última columna es horas de <strong style={{ color: "rgba(96,165,250,0.9)" }}>producción</strong> de ese producto ese día (opcional) — no confundir con "Horas en otras actividades" de arriba.
+                        </div>
                         <div className="space-y-2">
                           {draft?.productos.map((row, idx) => (
-                            <div key={idx} className="grid grid-cols-12 gap-2 items-center">
+                            <div key={idx} className="grid grid-cols-14 gap-2 items-center">
                               <div className="relative col-span-6">
                                 <input
                                   ref={(el) => { inputRefs.current[idx] = el; }}
@@ -899,7 +971,7 @@ useEffect(() => {
                                 value={row.cantidad}
                                 onChange={(e) => updateRow(idx, { cantidad: parseFloat(e.target.value) || 0 })}
                               />
-                              <select
+                                                            <select
                                 className="select-pt col-span-3 px-2 py-2"
                                 value={row.unidad}
                                 onChange={(e) => updateRow(idx, { unidad: e.target.value })}
@@ -910,6 +982,36 @@ useEffect(() => {
                                 <option value="cajas">Cajas</option>
                                 <option value="PQT">Paquetes</option>
                               </select>
+                              <div className="col-span-2 relative">
+                                <input
+                                  type="number"
+                                  className="input-pt w-full px-2 py-2 text-right"
+                                  style={{ paddingRight: 46 }}
+                                  placeholder="Horas prod."
+                                  min={0}
+                                  step={0.5}
+                                  title="Horas de PRODUCCIÓN dedicadas a este producto ese día (opcional, no confundir con 'Horas en otras actividades'). Si se deja vacío, se reparte el tiempo restante del día en partes iguales entre los productos sin horas indicadas."
+                                  value={row.horas ?? ""}
+                                  onChange={(e) => {
+                                    const v = e.target.value;
+                                    updateRow(idx, { horas: v === "" ? undefined : parseFloat(v) || undefined });
+                                  }}
+                                />
+                                <span
+                                  style={{
+                                    position: "absolute",
+                                    right: 8,
+                                    top: "50%",
+                                    transform: "translateY(-50%)",
+                                    fontSize: 10,
+                                    color: "rgba(96,165,250,0.75)",
+                                    pointerEvents: "none",
+                                    whiteSpace: "nowrap",
+                                  }}
+                                >
+                                  h prod.
+                                </span>
+                              </div>
                               <div className="col-span-1 flex justify-end">
                                 <button className="btn-action-pt btn-rem-prod-pt" onClick={() => removeRow(idx)} title="Quitar" aria-label="Quitar">
                                   <FiMinus size={13} />

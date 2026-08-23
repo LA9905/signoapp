@@ -89,23 +89,8 @@ def me():
     if not user:
         return jsonify({"msg": "Usuario no encontrado"}), 404
 
-    #Usuarios limitados que corresponden a choferes.
-    limited_emails = [
-        "claudiogarbarino1966@gmail.com",
-        "alfonsomachado64@gmail.com",
-        "jerrykalet@gmail.com",
-        "cocachaucono@gmail.com"
-    ]
-    is_limited = user.email.lower() in [email.lower() for email in limited_emails]
-
-    # Usuarios limitados que corresponden a Operarios. Para
-    # agregar más operarios con usuario, solo se agrega el correo aquí y
-    # el nombre correspondiente en OPERATOR_LIMITED_USER_EMAIL_MAP
-    # (app/utils/performance.py).
-    operator_limited_emails = [
-        "dalvismoran01@gmail.com",
-    ]
-    is_operator_limited = user.email.lower() in [email.lower() for email in operator_limited_emails]
+    is_limited = user.linked_driver_id is not None  # usuario limitado (chofer)
+    is_operator_limited = user.linked_operator_id is not None  # usuario limitado (operario)
 
     return jsonify({
         "id": user.id,
@@ -113,6 +98,7 @@ def me():
         "email": user.email,
         "avatar_url": user.avatar_url,
         "is_admin": user.is_admin,
+        "is_super_admin": user.is_super_admin,
         "is_limited": is_limited,  # para identificar usuarios limitados (choferes)
         "is_operator_limited": is_operator_limited,  # para identificar usuarios limitados (operarios)
         "subscription_paid_until": user.subscription_paid_until.isoformat() if user.subscription_paid_until else None,

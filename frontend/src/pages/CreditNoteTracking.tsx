@@ -58,6 +58,7 @@ const CreditNoteTracking = () => {
     credit_note_number: string;
     reason: string;
     productos: ProductoRow[];
+    fecha: string;
   } | null>(null);
   const [productNames, setProductNames] = useState<string[]>([]);
   const [productList, setProductList] = useState<{ name: string; usage: number }[]>([]);
@@ -188,6 +189,7 @@ const CreditNoteTracking = () => {
       client: cn.client, order_number: cn.order_number,
       invoice_number: cn.invoice_number, credit_note_number: cn.credit_note_number,
       reason: cn.reason, productos: cn.productos.map((p) => ({ ...p })),
+      fecha: cn.fecha.slice(0, 10),
     });
   };
 
@@ -205,6 +207,7 @@ const CreditNoteTracking = () => {
       client: draft.client, order_number: draft.order_number,
       invoice_number: draft.invoice_number, credit_note_number: draft.credit_note_number,
       reason: draft.reason,
+      fecha: draft.fecha,
       productos: draft.productos.map((p) => ({ nombre: p.nombre, cantidad: p.cantidad, unidad: p.unidad })),
     };
     try {
@@ -641,6 +644,15 @@ const CreditNoteTracking = () => {
                         <div>
                           <div className="field-label">N° Nota de Crédito</div>
                           <input value={draft?.credit_note_number || ""} onChange={(e) => setDraft((prev) => (prev ? { ...prev, credit_note_number: e.target.value } : prev))} className="input-cn w-full px-3 py-2.5" />
+                        </div>
+                        <div>
+                          <div className="field-label">Fecha</div>
+                          <input
+                            type="date"
+                            className="input-cn w-full px-3 py-2.5"
+                            value={draft?.fecha || ""}
+                            onChange={(e) => setDraft((prev) => (prev ? { ...prev, fecha: e.target.value } : prev))}
+                          />
                         </div>
                         <div className="sm:col-span-2">
                           <div className="field-label">Motivo</div>

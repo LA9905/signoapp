@@ -81,7 +81,7 @@
 //   if (isLimited) {
 //     menuItems = [{ title: "Seguimiento de despachos", route: "/tracking" }];
 //   } else if (isAdmin) {
-//     menuItems.push({ title: "Administración (pagos)", route: "/admin/billing" });
+//     menuItems.push({ title: "Administración de usuarios", route: "/admin/billing" });
 //   }
 
 //   const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
@@ -241,7 +241,9 @@ interface OperatorPerformanceDetail {
     linea_base_historica: number | null;
     linea_base_fuente: string | null;
     ratio: number | null;
-    clasificacion: "muy_alta" | "alta" | "regular" | "baja" | "muy_baja" | "sin_datos";
+    clasificacion:
+      | "extraordinaria" | "muy_alta" | "alta" | "regular_alta"
+      | "regular" | "baja" | "muy_baja" | "critica" | "sin_datos";
     bono: boolean;
     mes_en_curso: boolean;
     detalle_unidades: unknown[];
@@ -253,11 +255,14 @@ interface OperatorPerformanceDetail {
 }
 
 const OPERATOR_CLASIFICACION_INFO: Record<string, { label: string; color: string }> = {
+  extraordinaria: { label: "Extraordinaria", color: "#C084FC" },
   muy_alta: { label: "Muy Alta", color: "#34D399" },
   alta: { label: "Alta", color: "#60A5FA" },
+  regular_alta: { label: "Regular", color: "#FDE68A" },
   regular: { label: "Regular", color: "#FBBF24" },
   baja: { label: "Baja", color: "#FB923C" },
   muy_baja: { label: "Muy Baja", color: "#F87171" },
+  critica: { label: "Crítica", color: "#DC2626" },
   sin_datos: { label: "Sin datos", color: "rgba(255,255,255,0.25)" },
 };
 
@@ -389,6 +394,7 @@ const Dashboard: React.FC = () => {
     { title: "Operarios", route: "/operators" },
     { title: "Ingreso de Producción", route: "/create-production" },
     { title: "Registros de Producción", route: "/production-tracking" },
+    { title: "Récords de Producción", route: "/product-records" },
     { title: "Crear Nota de Crédito", route: "/create-credit-note" },
     { title: "Seguimiento de Notas de Crédito", route: "/credit-note-tracking" },
     { title: "Consumo Interno", route: "/create-internal" },
@@ -398,10 +404,13 @@ const Dashboard: React.FC = () => {
 
   if (isLimited) {
     menuItems = [{ title: "Seguimiento de despachos", route: "/tracking" }];
-  } else if (isOperatorLimited) {
-    menuItems = [{ title: "Registros de Producción", route: "/production-tracking" }];
+    } else if (isOperatorLimited) {
+    menuItems = [
+      { title: "Registros de Producción", route: "/production-tracking" },
+      { title: "Récords de Producción", route: "/product-records" },
+    ];
   } else if (isAdmin) {
-    menuItems.push({ title: "Administración (pagos)", route: "/admin/billing" });
+    menuItems.push({ title: "Administración de usuarios", route: "/admin/billing" });
   }
 
   const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);

@@ -18,13 +18,25 @@ interface FormularioRecepcion {
   orden: string;
   supplier: string;
   productos: Producto[];
+  fecha: string;
 }
 
 interface Payload {
   orden: string;
   supplier: string;
   productos: { nombre: string; cantidad: number; unidad: string }[];
+  fecha: string;
   force?: boolean;
+}
+
+// new Date().toISOString() devuelve la fecha en UTC, no en hora local de
+// Chile — se usa la fecha local para que el valor por defecto del selector
+// coincida con "hoy" en Chile, sin importar la hora del navegador.
+function getLocalDateString(): string {
+  const now = new Date();
+  const offsetMs = now.getTimezoneOffset() * 60000;
+  const local = new Date(now.getTime() - offsetMs);
+  return local.toISOString().slice(0, 10);
 }
 
 const ReceiveSupplier = () => {
@@ -33,6 +45,7 @@ const ReceiveSupplier = () => {
     orden: "",
     supplier: "",
     productos: [],
+    fecha: getLocalDateString(),
   });
   const [mensaje, setMensaje] = useState<string>("");
 
@@ -82,6 +95,7 @@ const ReceiveSupplier = () => {
           cantidad: p.cantidad,
           unidad: p.unidad,
         })),
+        fecha: form.fecha,
       };
 
       if (checkResp.data.length > 0) {
@@ -374,13 +388,26 @@ const ReceiveSupplier = () => {
                 <FiFileText size={11} />
                 Número de factura <span style={{ color: "rgba(248,113,113,0.8)" }}>*</span>
               </div>
-              <input
+                            <input
                 name="orden"
                 value={form.orden}
                 onChange={handleChange}
                 placeholder="Ej: FAC-2024-001"
                 className="input-rs"
                 required
+              />
+            </div>
+            <div className="mt-4">
+              <div className="field-label-rs">
+                <FiFileText size={11} />
+                Fecha de recepción <span style={{ color: "rgba(248,113,113,0.8)" }}>*</span>
+              </div>
+              <input
+                type="date"
+                name="fecha"
+                value={form.fecha}
+                onChange={handleChange}
+                className="input-rs"
               />
             </div>
           </div>

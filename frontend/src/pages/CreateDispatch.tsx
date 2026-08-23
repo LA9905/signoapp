@@ -23,6 +23,7 @@ interface FormularioDespacho {
   numero_paquete?: string;
   numero_factura?: string;
   productos: Producto[];
+  fecha: string;
 }
 interface DispatchPayload {
   orden: string;
@@ -31,6 +32,7 @@ interface DispatchPayload {
   paquete_numero?: string;
   factura_numero?: string;
   productos: { nombre: string; cantidad: number; unidad: string }[];
+  fecha: string;
   force?: boolean;
 }
 interface ApiError {
@@ -38,16 +40,27 @@ interface ApiError {
   msg?: string;
 }
 
+// new Date().toISOString() devuelve la fecha en UTC, no en hora local de
+// Chile — se usa la fecha local para que el valor por defecto del selector
+// coincida con "hoy" en Chile, sin importar la hora del navegador.
+function getLocalDateString(): string {
+  const now = new Date();
+  const offsetMs = now.getTimezoneOffset() * 60000;
+  const local = new Date(now.getTime() - offsetMs);
+  return local.toISOString().slice(0, 10);
+}
+
 const CreateDispatch = () => {
   const navigate = useNavigate();
   const [productos, setProductos] = useState<Producto[]>([]);
-  const [form, setForm] = useState<FormularioDespacho>({
+    const [form, setForm] = useState<FormularioDespacho>({
     orden: "",
     chofer: "",
     cliente: "",
     numero_paquete: undefined,
     numero_factura: undefined,
     productos: [],
+    fecha: getLocalDateString(),
   });
   const [mensaje, setMensaje] = useState<string>("");
   const [images, setImages] = useState<File[]>([]);
@@ -128,6 +141,7 @@ const CreateDispatch = () => {
         cantidad: p.cantidad,
         unidad: p.unidad,
       })),
+      fecha: form.fecha,
     };
 
     try {
@@ -561,7 +575,7 @@ const CreateDispatch = () => {
                     placeholder="Ej: 1/4"
                   />
                 </div>
-                <div>
+                                <div>
                   <div className="field-label-cd">
                     <FiFileText size={11} />
                     N° Factura
@@ -575,6 +589,20 @@ const CreateDispatch = () => {
                     placeholder="Opcional"
                   />
                 </div>
+              </div>
+
+              <div>
+                <div className="field-label-cd">
+                  <FiFileText size={11} />
+                  Fecha del despacho <span style={{ color: "rgba(248,113,113,0.8)" }}>*</span>
+                </div>
+                <input
+                  type="date"
+                  name="fecha"
+                  value={form.fecha}
+                  onChange={handleChange}
+                  className="input-cd"
+                />
               </div>
             </div>
           </div>

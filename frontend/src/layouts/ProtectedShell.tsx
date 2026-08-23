@@ -79,7 +79,9 @@ const ProtectedShell: React.FC<{ children: React.ReactNode }> = ({ children }) =
   const refreshStatus = async () => {
     const { data } = await getBillingStatus(); // status del usuario actual
     setBlocked(data.user.blocked);
-    setIsAdmin(!!(data.viewer_is_admin || data.user.is_admin));
+    // El botón "Marcar pago recibido" llama a /billing/mark-paid, que
+    // solo el administrador principal (is_super_admin) puede usar.
+    setIsAdmin(!!data.viewer_is_super_admin);
     setMyDueDay(data.user.due_day ?? 8);
     setMessage(data.user.blocked ? "Debe pagar la suscripción para seguir usando la app." : "OK");
   };

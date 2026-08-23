@@ -25,6 +25,7 @@ import InternalTracking from "./pages/InternalTracking";
 import OperatorList from "./pages/OperatorList";
 import CreateProduction from "./pages/CreateProduction";
 import ProductionTracking from "./pages/ProductionTracking";
+import ProductRecords from "./pages/ProductRecords";
 import CreateCreditNote from "./pages/CreateCreditNote";
 import CreditNoteTracking from "./pages/CreditNoteTracking";
 import StockMovements from "./pages/StockMovements";
@@ -193,6 +194,15 @@ const App: React.FC = () => {
           element={
             <ProtectedShell>
               <ProductionTracking />
+            </ProtectedShell>
+          }
+        />
+
+        <Route
+          path="/product-records"
+          element={
+            <ProtectedShell>
+              <ProductRecords />
             </ProtectedShell>
           }
         />

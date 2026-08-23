@@ -1,18 +1,61 @@
 from flask import Blueprint, request, jsonify
 from datetime import date
+from sqlalchemy import func
 from app import db
 from app.models.operator_model import Operator
 from app.models.operator_activity_model import OperatorActivity
 from app.models.user_model import User
+from app.models.product_model import Product
+from app.models.production_model import ProductionProduct
+from app.routes.product_routes import normalize_search
 from app.utils.performance import (
     evaluar_operador,
     daily_detail_for_operator,
-    get_operator_for_user_email,
+    get_operator_for_user,
+    current_record_for_product,
+    normalizar_nombre,
+    unidad_por_producto_map,
 )
 from flask_jwt_extended import jwt_required, get_jwt_identity
 import cloudinary.uploader
 
 performance_bp = Blueprint("operator_performance", __name__)
+
+
+@performance_bp.route("/products/records", methods=["GET"])
+@jwt_required()
+def products_records():
+    """
+    Récord actual (mejor producción por hora jamás registrada, en un solo
+    día) de cada producto, para que cualquier operario pueda buscar el
+    producto que va a fabricar y ver de inmediato cuál es la marca a
+    superar. Sin restricción de rol — también deben poder verlo los
+    usuarios de operario limitados.
+    """
+    try:
+        search = normalize_search(request.args.get("search") or "")
+        products = Product.query.order_by(Product.name.asc()).all()
+        unidad_map = unidad_por_producto_map()
+
+        resultados = []
+        for p in products:
+            if search and search not in normalize_search(p.name):
+                continue
+
+            nombre_norm = normalizar_nombre(p.name)
+            record = current_record_for_product(nombre_norm)
+
+            resultados.append({
+                "id": p.id,
+                "name": p.name,
+                "category": p.category,
+                "unidad": unidad_map.get(nombre_norm),
+                "record": record,
+            })
+
+        return jsonify(resultados), 200
+    except Exception as e:
+        return jsonify({"error": "No se pudo obtener los récords de productos", "details": str(e)}), 500
 
 
 @performance_bp.route("/operators/performance", methods=["GET"])
@@ -111,7 +154,7 @@ def my_operator_performance_detail():
         if not user:
             return jsonify({"error": "Usuario no encontrado"}), 404
 
-        operator = get_operator_for_user_email(user.email)
+        operator = get_operator_for_user(user)
         if not operator:
             return jsonify({"error": "Este usuario no tiene un operario asociado"}), 404
 
@@ -202,19 +245,22 @@ def create_operator_activity(operator_id):
         fecha_str = data.get("fecha")
         horas = data.get("horas")
         nota = (data.get("nota") or "").strip()
+        tipo = (data.get("tipo") or "otra").strip().lower()
+        if tipo not in ("otra", "extra"):
+            return jsonify({"error": "El campo 'tipo' debe ser 'otra' o 'extra'"}), 400
         if not fecha_str or horas is None:
             return jsonify({"error": "Faltan campos requeridos (fecha, horas)"}), 400
         fecha = date.fromisoformat(fecha_str)
         user_id = get_jwt_identity()
 
-        existing = OperatorActivity.query.filter_by(operator_id=operator_id, fecha=fecha).first()
+        existing = OperatorActivity.query.filter_by(operator_id=operator_id, fecha=fecha, tipo=tipo).first()
         if existing:
             existing.horas = float(horas)
             existing.nota = nota
         else:
             existing = OperatorActivity(
                 operator_id=operator_id, fecha=fecha, horas=float(horas),
-                nota=nota, created_by=user_id,
+                nota=nota, created_by=user_id, tipo=tipo,
             )
             db.session.add(existing)
         db.session.commit()
@@ -233,7 +279,13 @@ def update_operator_activity(activity_id):
         fecha_str = data.get("fecha")
         horas = data.get("horas")
         nota = data.get("nota")
+        tipo = data.get("tipo")
 
+        if tipo is not None:
+            tipo = tipo.strip().lower()
+            if tipo not in ("otra", "extra"):
+                return jsonify({"error": "El campo 'tipo' debe ser 'otra' o 'extra'"}), 400
+            activity.tipo = tipo
         if fecha_str:
             activity.fecha = date.fromisoformat(fecha_str)
         if horas is not None:
