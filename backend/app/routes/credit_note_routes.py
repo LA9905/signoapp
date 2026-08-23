@@ -37,6 +37,19 @@ def create_credit_note():
         reason = data["reason"]
         productos = data.get("productos", [])
 
+        # Fecha real a la que pertenece la nota de crédito: por defecto "ahora", 
+        # pero puede elegirse manualmente 
+        fecha_str = (data.get("fecha") or "").strip()
+        now_local = datetime.now(CL_TZ)
+        if fecha_str:
+            try:
+                chosen_date = datetime.strptime(fecha_str, "%Y-%m-%d").date()
+            except ValueError:
+                return jsonify({"error": "Formato de fecha inválido, use YYYY-MM-DD"}), 400
+            local_dt = datetime.combine(chosen_date, now_local.timetz())
+        else:
+            local_dt = now_local
+
         client_norm = " ".join((client_name or "").strip().split())
         client = Client.query.filter(func.lower(Client.name) == client_norm.lower()).first()
         if not client:
@@ -80,7 +93,7 @@ def create_credit_note():
             reason=reason,
             created_by=user_id,
         )
-        new_credit_note.fecha = to_utc_naive(datetime.now(CL_TZ))
+        new_credit_note.fecha = to_utc_naive(local_dt)
 
         db.session.add(new_credit_note)
 
@@ -275,6 +288,16 @@ def update_credit_note(credit_note_id):
         credit_note.invoice_number = data["invoice_number"]
         credit_note.credit_note_number = data["credit_note_number"]
         credit_note.reason = data["reason"]
+
+        # Fecha real de la nota de crédito: si se envía, reemplaza el día
+        # conservando la hora original del registro.
+        if "fecha" in data and data.get("fecha"):
+            try:
+                chosen_date = datetime.strptime(data["fecha"], "%Y-%m-%d").date()
+            except ValueError:
+                return jsonify({"error": "Formato de fecha inválido, use YYYY-MM-DD"}), 400
+            hora_actual = to_local(credit_note.fecha).timetz()
+            credit_note.fecha = to_utc_naive(datetime.combine(chosen_date, hora_actual))
 
         force = data.get("force", False)
 

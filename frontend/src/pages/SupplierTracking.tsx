@@ -46,11 +46,12 @@ const SupplierTracking = () => {
   const [page, setPage] = useState(1);
   const [mensaje, setMensaje] = useState<string>("");
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [draft, setDraft] = useState<{
+    const [draft, setDraft] = useState<{
     orden: string;
     supplier: string;
     status: string;
     productos: ProductoRow[];
+    fecha: string;
   } | null>(null);
   const [productNames, setProductNames] = useState<string[]>([]);
   const [productList, setProductList] = useState<{ name: string; usage: number }[]>([]);
@@ -227,6 +228,7 @@ const SupplierTracking = () => {
       supplier: r.supplier,
       status: r.status || "pendiente",
       productos: r.productos.map((p) => ({ ...p })),
+      fecha: r.fecha.slice(0, 10),
     });
   };
 
@@ -257,6 +259,7 @@ const SupplierTracking = () => {
     const payload = {
       orden: draft.orden,
       supplier: draft.supplier,
+      fecha: draft.fecha,
       productos: draft.productos.map((p) => ({
         nombre: p.nombre,
         cantidad: p.cantidad,
@@ -698,11 +701,20 @@ const SupplierTracking = () => {
                             className="input-st w-full px-3 py-2.5"
                           />
                         </div>
-                        <div>
+                                                <div>
                           <div className="field-label-st">Proveedor</div>
                           <SupplierSelector
                             value={draft?.supplier || ""}
                             onChange={(supplier) => setDraft((prev) => (prev ? { ...prev, supplier } : prev))}
+                          />
+                        </div>
+                        <div>
+                          <div className="field-label-st">Fecha de recepción</div>
+                          <input
+                            type="date"
+                            className="input-st w-full px-3 py-2.5"
+                            value={draft?.fecha || ""}
+                            onChange={(e) => setDraft((prev) => (prev ? { ...prev, fecha: e.target.value } : prev))}
                           />
                         </div>
                       </div>

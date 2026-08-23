@@ -21,6 +21,7 @@ interface FormularioCreditNote {
   credit_note_number: string;
   reason: string;
   productos: Producto[];
+  fecha: string;
 }
 
 interface ApiError {
@@ -34,6 +35,17 @@ interface Payload {
   credit_note_number: string;
   reason: string;
   productos: { nombre: string; cantidad: number; unidad: string }[];
+  fecha: string;
+}
+
+// new Date().toISOString() devuelve la fecha en UTC, no en hora local de
+// Chile — se usa la fecha local para que el valor por defecto del selector
+// coincida con "hoy" en Chile, sin importar la hora del navegador.
+function getLocalDateString(): string {
+  const now = new Date();
+  const offsetMs = now.getTimezoneOffset() * 60000;
+  const local = new Date(now.getTime() - offsetMs);
+  return local.toISOString().slice(0, 10);
 }
 
 const CreateCreditNote = () => {
@@ -45,6 +57,7 @@ const CreateCreditNote = () => {
     credit_note_number: "",
     reason: "",
     productos: [],
+    fecha: getLocalDateString(),
   });
   const [mensaje, setMensaje] = useState<string>("");
 
@@ -95,6 +108,7 @@ const CreateCreditNote = () => {
         cantidad: p.cantidad,
         unidad: p.unidad,
       })),
+      fecha: form.fecha,
     };
 
     try {
@@ -496,7 +510,7 @@ const CreateCreditNote = () => {
                     required
                   />
                 </div>
-                <div>
+                                <div>
                   <div className="field-label-cn">
                     <FiFileText size={11} />
                     N° Nota de crédito <span style={{ color: "rgba(248,113,113,0.8)" }}>*</span>
@@ -510,6 +524,20 @@ const CreateCreditNote = () => {
                     required
                   />
                 </div>
+              </div>
+
+              <div>
+                <div className="field-label-cn">
+                  <FiFileText size={11} />
+                  Fecha de la nota de crédito <span style={{ color: "rgba(248,113,113,0.8)" }}>*</span>
+                </div>
+                <input
+                  type="date"
+                  name="fecha"
+                  value={form.fecha}
+                  onChange={handleChange}
+                  className="input-cn"
+                />
               </div>
             </div>
           </div>

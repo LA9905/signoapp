@@ -68,6 +68,7 @@ const Tracking = () => {
     status: string;
     productos: ProductoRow[];
     factura_numero?: string;
+    fecha: string;
   } | null>(null);
   const [isLimited, setIsLimited] = useState(false);
 
@@ -303,6 +304,7 @@ const Tracking = () => {
       status: d.status || "pendiente",
       productos: d.productos.map((p) => ({ ...p })),
       factura_numero: d.factura_numero || "",
+      fecha: d.fecha.slice(0, 10),
     });
     setExistingImages(d.images || []);
     setNewImages([]);
@@ -385,6 +387,7 @@ const Tracking = () => {
         chofer: draft.chofer,
         status: draft.status,
         factura_numero: draft.factura_numero,
+        fecha: draft.fecha,
         productos: draft.productos.map((p) => ({
           nombre: p.nombre,
           cantidad: p.cantidad,
@@ -419,12 +422,13 @@ const Tracking = () => {
       if (error.response?.status === 409 && (errCode === "duplicate_order" || errCode === "duplicate_invoice" || errCode === "duplicate_both")) {
         if (window.confirm(errMsg)) {
           try {
-            const payload = {
+                        const payload = {
               orden: draft.orden,
               cliente: draft.cliente,
               chofer: draft.chofer,
               status: draft.status,
               factura_numero: draft.factura_numero,
+              fecha: draft.fecha,
               force: true,
               productos: draft.productos.map((p) => ({
                 nombre: p.nombre,
@@ -1140,6 +1144,15 @@ const Tracking = () => {
                             <option value="entregado_chofer">entregado_chofer</option>
                             <option value="entregado_cliente">entregado_cliente</option>
                           </select>
+                        </div>
+                        <div>
+                          <div className="field-label-tr">Fecha del despacho</div>
+                          <input
+                            type="date"
+                            className="input-tr w-full px-3 py-2.5"
+                            value={draft?.fecha || ""}
+                            onChange={(e) => setDraft((prev) => (prev ? { ...prev, fecha: e.target.value } : prev))}
+                          />
                         </div>
                       </div>
 

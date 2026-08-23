@@ -99,6 +99,20 @@ def create_dispatch():
         factura_numero = (data.get("factura_numero") or "").strip() or None
         force = data.get("force", False)
 
+        # Fecha real a la que pertenece el despacho: por defecto "ahora",
+        # pero puede elegirse manualmente
+        # Se conserva la hora actual del reloj y solo se reemplaza el día.
+        fecha_str = (data.get("fecha") or "").strip()
+        now_local = datetime.now(CL_TZ)
+        if fecha_str:
+            try:
+                chosen_date = datetime.strptime(fecha_str, "%Y-%m-%d").date()
+            except ValueError:
+                return jsonify({"error": "Formato de fecha inválido, use YYYY-MM-DD"}), 400
+            local_dt = datetime.combine(chosen_date, now_local.timetz())
+        else:
+            local_dt = now_local
+
         cliente_norm = " ".join((cliente_name_input or "").strip().split())
         cliente = Client.query.filter(func.lower(Client.name) == cliente_norm.lower()).first()
         if not cliente:
@@ -142,7 +156,7 @@ def create_dispatch():
             chofer_name=chofer.name,
             client_name=cliente.name, 
         )
-        new_dispatch.fecha = to_utc_naive(datetime.now(CL_TZ))
+        new_dispatch.fecha = to_utc_naive(local_dt)
 
         if is_auto_delivery_driver(chofer.name):
             ahora = datetime.utcnow()
@@ -479,6 +493,16 @@ def update_dispatch(dispatch_id):
 
         if "paquete_numero" in data: d.paquete_numero = data.get("paquete_numero") or None
         if "factura_numero" in data: d.factura_numero = (data.get("factura_numero") or "").strip() or None
+
+        # Fecha real del despacho: si se envía, reemplaza el día conservando
+        # la hora original del registro.
+        if "fecha" in data and data.get("fecha"):
+            try:
+                chosen_date = datetime.strptime(data["fecha"], "%Y-%m-%d").date()
+            except ValueError:
+                return jsonify({"error": "Formato de fecha inválido, use YYYY-MM-DD"}), 400
+            hora_actual = to_local(d.fecha).timetz()
+            d.fecha = to_utc_naive(datetime.combine(chosen_date, hora_actual))
 
         status_changed_explicitly = (
             "status" in data and data["status"] and data["status"] != orig_status
