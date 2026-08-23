@@ -205,32 +205,10 @@ def notify_low_stock(app):
             app.logger.info("No hay productos con stock bajo")
             return
 
-        users = User.query.filter_by(receive_notifications=True).all()
-        if not users:
-            app.logger.info("No hay usuarios suscritos a notificaciones")
-            return
-
-        is_prod = os.getenv("FLASK_ENV", "development") == "production" or os.getenv("ENV", "development") == "production"
-
-        if is_prod:
-            no_notif_emails = set([
-                "claudiogarbarino1966@gmail.com".lower(),
-                "alfonsomachado64@gmail.com".lower(),
-                "jerrykalet@gmail.com".lower(),
-                "cocachaucono@gmail.com".lower()
-            ])
-            only_pending_emails = set([
-                "luceromendez13@hotmail.com".lower(),
-                "orozcop648@gmail.com".lower(),
-                "administracion@signoltda.com".lower()
-            ])
-            only_lowstock_emails = set([
-                "robinson67leon@gmail.com".lower()
-            ])
-            recipients = [u for u in users if u.email not in no_notif_emails and u.email not in only_pending_emails]
-        else:
-            recipients = users
-
+        recipients = User.query.filter(
+            User.receive_notifications == True,
+            User.notify_low_stock == True
+        ).all()
         if not recipients:
             app.logger.info("No hay destinatarios para notificaciones de stock bajo")
             return
@@ -306,32 +284,10 @@ def notify_pending_dispatches(app):
             app.logger.info("No hay despachos pendientes")
             return
 
-        users = User.query.filter_by(receive_notifications=True).all()
-        if not users:
-            app.logger.info("No hay usuarios suscritos")
-            return
-
-        is_prod = os.getenv("FLASK_ENV", "development") == "production" or os.getenv("ENV", "development") == "production"
-
-        if is_prod:
-            no_notif_emails = set([
-                "claudiogarbarino1966@gmail.com".lower(),
-                "alfonsomachado64@gmail.com".lower(),
-                "jerrykalet@gmail.com".lower(),
-                "cocachaucono@gmail.com".lower()
-            ])
-            only_pending_emails = set([
-                "luceromendez13@hotmail.com".lower(),
-                "orozcop648@gmail.com".lower(),
-                "administracion@signoltda.com".lower()
-            ])
-            only_lowstock_emails = set([
-                "robinson67leon@gmail.com".lower()
-            ])
-            recipients = [u for u in users if u.email not in no_notif_emails and u.email not in only_lowstock_emails]
-        else:
-            recipients = users
-
+        recipients = User.query.filter(
+            User.receive_notifications == True,
+            User.notify_pending_dispatches == True
+        ).all()
         if not recipients:
             app.logger.info("No hay destinatarios para notificaciones de despachos pendientes")
             return

@@ -9,6 +9,9 @@ class OperatorActivity(db.Model):
     horas = db.Column(db.Float, nullable=False, default=0.0)
     nota = db.Column(db.String(200), nullable=True)
     created_by = db.Column(db.String(50), nullable=False)
+    # 'otra': resta horas efectivas del día. 'extra': sobretiempo, SUMA
+    # horas efectivas. Default 'otra' para no alterar registros existentes.
+    tipo = db.Column(db.String(10), nullable=False, default='otra')
 
     operator = db.relationship('Operator', backref=db.backref('activities', lazy=True))
 
@@ -19,4 +22,5 @@ class OperatorActivity(db.Model):
             'fecha': self.fecha.isoformat(),
             'horas': self.horas,
             'nota': self.nota,
+            'tipo': self.tipo,
         }

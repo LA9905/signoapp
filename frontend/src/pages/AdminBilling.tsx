@@ -1,5 +1,9 @@
 import { useEffect, useState } from "react";
-import { getBillingStatus, markPaid, getAllUsers, markPaidMultiple, blockMultiple, deleteUsers, setStockPermission, type BillingUser } from "../services/billingService";
+import {
+  getBillingStatus, markPaid, getAllUsers, markPaidMultiple, blockMultiple, deleteUsers,
+  setStockPermission, setNotificationPrefs, getOperatorsList, getDriversList,
+  setEmployeeLink, setAdminStatus, type BillingUser, type SimpleEmployee,
+} from "../services/billingService";
 import { me } from "../services/authService";
 import ArrowBackButton from "../components/ArrowBackButton";
 
@@ -12,6 +16,7 @@ function nextCutDate(dueDay = 8): string {
 
 const AdminBilling = () => {
   const [viewerIsAdmin, setViewerIsAdmin] = useState(false);
+  const [viewerIsSuperAdmin, setViewerIsSuperAdmin] = useState(false);
   const [email, setEmail] = useState("");
   const [until, setUntil] = useState(nextCutDate(8));
   const [info, setInfo] = useState<BillingUser | null>(null);
@@ -19,11 +24,14 @@ const AdminBilling = () => {
   const [users, setUsers] = useState<BillingUser[]>([]);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
+  const [operators, setOperators] = useState<SimpleEmployee[]>([]);
+  const [drivers, setDrivers] = useState<SimpleEmployee[]>([]);
 
   useEffect(() => {
     me().then(res => {
       const admin = !!res.data.is_admin;
       setViewerIsAdmin(admin);
+      setViewerIsSuperAdmin(!!res.data.is_super_admin);
       setUntil(nextCutDate(res.data.due_day ?? 8));
     });
   }, []);
@@ -41,8 +49,14 @@ const AdminBilling = () => {
   const loadAllUsers = async () => {
     setLoadingUsers(true);
     try {
-      const res = await getAllUsers();
-      setUsers(res.data.users);
+      const [usersRes, operatorsRes, driversRes] = await Promise.all([
+        getAllUsers(),
+        getOperatorsList(),
+        getDriversList(),
+      ]);
+      setUsers(usersRes.data.users);
+      setOperators([...operatorsRes.data].sort((a, b) => a.name.localeCompare(b.name)));
+      setDrivers([...driversRes.data].sort((a, b) => a.name.localeCompare(b.name)));
       setMsg("Lista de usuarios cargada");
     } catch (error) {
       setMsg("Error al cargar usuarios");
@@ -70,6 +84,58 @@ const AdminBilling = () => {
       if (email) await load();
     } catch (error) {
       setMsg("Error al bloquear usuarios");
+    }
+  };
+
+  const handleSetOperatorLink = async (userId: number, operatorIdStr: string) => {
+    try {
+      if (!operatorIdStr) {
+        await setEmployeeLink({ user_id: userId, role: "none" });
+        setUsers(prev => prev.map(x => x.id === userId
+          ? { ...x, linked_operator_id: null, linked_operator_name: null, linked_driver_id: null, linked_driver_name: null }
+          : x));
+      } else {
+        const operatorId = Number(operatorIdStr);
+        await setEmployeeLink({ user_id: userId, role: "operator", operator_id: operatorId });
+        const opName = operators.find(o => o.id === operatorId)?.name || null;
+        setUsers(prev => prev.map(x => x.id === userId
+          ? { ...x, linked_operator_id: operatorId, linked_operator_name: opName, linked_driver_id: null, linked_driver_name: null }
+          : x));
+      }
+      setMsg("Vínculo de operario actualizado.");
+    } catch (err: any) {
+      setMsg(err?.response?.data?.msg || "Error al vincular el operario");
+    }
+  };
+
+  const handleSetDriverLink = async (userId: number, driverIdStr: string) => {
+    try {
+      if (!driverIdStr) {
+        await setEmployeeLink({ user_id: userId, role: "none" });
+        setUsers(prev => prev.map(x => x.id === userId
+          ? { ...x, linked_driver_id: null, linked_driver_name: null, linked_operator_id: null, linked_operator_name: null }
+          : x));
+      } else {
+        const driverId = Number(driverIdStr);
+        await setEmployeeLink({ user_id: userId, role: "driver", driver_id: driverId });
+        const drName = drivers.find(d => d.id === driverId)?.name || null;
+        setUsers(prev => prev.map(x => x.id === userId
+          ? { ...x, linked_driver_id: driverId, linked_driver_name: drName, linked_operator_id: null, linked_operator_name: null }
+          : x));
+      }
+      setMsg("Vínculo de chofer actualizado.");
+    } catch (err: any) {
+      setMsg(err?.response?.data?.msg || "Error al vincular el chofer");
+    }
+  };
+
+  const handleToggleAdmin = async (userId: number, newVal: boolean) => {
+    try {
+      await setAdminStatus({ user_id: userId, is_admin: newVal });
+      setUsers(prev => prev.map(x => x.id === userId ? { ...x, is_admin: newVal } : x));
+      setMsg(`Rol de administrador ${newVal ? "otorgado" : "quitado"} correctamente.`);
+    } catch (err: any) {
+      setMsg(err?.response?.data?.msg || "Error al actualizar el rol de administrador");
     }
   };
 
@@ -291,6 +357,20 @@ const AdminBilling = () => {
           border-color: rgba(52,211,153,0.25);
           color: #6EE7B7;
         }
+
+        .ab-link-select {
+          background: rgba(255,255,255,0.04);
+          border: 1px solid rgba(255,255,255,0.08);
+          color: rgba(255,255,255,0.85);
+          border-radius: 8px;
+          font-size: 12px;
+          padding: 5px 8px;
+          font-family: 'DM Sans', sans-serif;
+          cursor: pointer;
+          min-width: 140px;
+        }
+        .ab-link-select option { background: #111827; color: white; }
+
         .ab-stock-on:hover { background: rgba(248,113,113,0.1); border-color: rgba(248,113,113,0.25); color: #FCA5A5; }
         .ab-stock-off {
           background: rgba(255,255,255,0.05);
@@ -343,6 +423,41 @@ const AdminBilling = () => {
           .ab-table th, .ab-table td { font-size: 12px; padding: 8px 6px; }
         }
 
+        /* ── Tarjetas de usuario (reemplaza la tabla horizontal) ── */
+        .ab-users-list { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
+
+        .ab-user-card {
+          background: rgba(255,255,255,0.03);
+          border: 1px solid rgba(255,255,255,0.07);
+          border-radius: 14px;
+          padding: 14px 16px;
+          transition: border-color .15s, background .15s;
+        }
+        .ab-user-card:hover { border-color: rgba(99,102,241,0.25); background: rgba(99,102,241,0.04); }
+
+        .ab-user-card-head {
+          display: flex; align-items: flex-start; justify-content: space-between;
+          gap: 10px; margin-bottom: 12px;
+        }
+        .ab-user-card-name { font-size: 14px; font-weight: 600; color: white; }
+        .ab-user-card-email { font-size: 12px; color: rgba(255,255,255,0.4); margin-top: 2px; word-break: break-all; }
+
+        .ab-user-card-grid {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 10px 14px;
+        }
+        @media (min-width: 560px) { .ab-user-card-grid { grid-template-columns: repeat(3, 1fr); } }
+        @media (min-width: 780px) { .ab-user-card-grid { grid-template-columns: repeat(4, 1fr); } }
+
+        .ab-user-field-label {
+          font-size: 10px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
+          color: rgba(255,255,255,0.3); margin-bottom: 4px;
+        }
+        .ab-user-field-value { font-size: 13px; }
+
+        .ab-user-card-fullrow { grid-column: 1 / -1; }
+
       `}</style>
 
       <div className="ab-container">
@@ -358,13 +473,15 @@ const AdminBilling = () => {
             className="ab-font-display"
             style={{ fontSize: 28, fontWeight: 700, letterSpacing: "-0.01em", margin: "0 0 4px" }}
           >
-            Administración de Pagos
+            Administración de usuarios
           </h1>
           <p style={{ fontSize: 13, color: "rgba(255,255,255,0.3)", margin: 0 }}>
             Gestión de acceso y suscripciones de usuarios
           </p>
         </div>
 
+    {viewerIsSuperAdmin && (
+      <>
         {/* ── 1. Buscar usuario ── */}
         <div className="ab-glass ab-fade-in" style={{ padding: "20px 24px", marginBottom: 16 }}>
           <p className="ab-section-title">Consultar usuario</p>
@@ -402,6 +519,8 @@ const AdminBilling = () => {
             </div>
           )}
         </div>
+      </>
+      )}
 
         {/* ── 2. Cargar usuarios ── */}
         <div className="ab-glass ab-fade-in" style={{ padding: "20px 24px", marginBottom: 16 }}>
@@ -415,57 +534,76 @@ const AdminBilling = () => {
           </button>
 
           {users.length > 0 && (
-            <div className="ab-table-container">
-              <p style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", marginBottom: 10 }}>
-                Selecciona los usuarios que deseas mantener bloqueados
-              </p>
-              <table className="ab-table">
-                <thead>
-                  <tr>
-                    <th className="center">
-                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
-                        <span>Todos</span>
-                        <input
-                          type="checkbox"
-                          className="ab-checkbox"
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedIds(users.map(u => u.id));
-                            } else {
-                              setSelectedIds([]);
-                            }
-                          }}
-                          checked={selectedIds.length === users.length && users.length > 0}
-                        />
+            <div>
+              {viewerIsSuperAdmin && (
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
+                  <p style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", margin: 0 }}>
+                    Selecciona los usuarios que deseas mantener bloqueados
+                  </p>
+                  <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "rgba(255,255,255,0.5)", cursor: "pointer" }}>
+                    <input
+                      type="checkbox"
+                      className="ab-checkbox"
+                      onChange={(e) => setSelectedIds(e.target.checked ? users.map(u => u.id) : [])}
+                      checked={selectedIds.length === users.length && users.length > 0}
+                    />
+                    Seleccionar todos
+                  </label>
+                </div>
+              )}
+
+              <div className="ab-users-list">
+                {users.map(u => (
+                  <div className="ab-user-card" key={u.id}>
+                    <div className="ab-user-card-head">
+                      <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                        {viewerIsSuperAdmin && (
+                          <input
+                            type="checkbox"
+                            className="ab-checkbox"
+                            checked={selectedIds.includes(u.id)}
+                            onChange={() => toggleSelect(u.id)}
+                            style={{ marginTop: 3, flexShrink: 0 }}
+                          />
+                        )}
+                        <div>
+                          <div className="ab-user-card-name">{u.name}</div>
+                          <div className="ab-user-card-email">{u.email}</div>
+                        </div>
                       </div>
-                    </th>
-                    <th>Nombre</th>
-                    <th>Email</th>
-                    <th>Cubierto hasta</th>
-                    <th className="center">Bloqueado</th>
-                    <th className="center">Editar stock</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {users.map(u => (
-                    <tr key={u.id}>
-                      <td className="center">
-                        <input
-                          type="checkbox"
-                          className="ab-checkbox"
-                          checked={selectedIds.includes(u.id)}
-                          onChange={() => toggleSelect(u.id)}
-                        />
-                      </td>
-                      <td>{u.name}</td>
-                      <td style={{ color: "rgba(255,255,255,0.5)" }}>{u.email}</td>
-                      <td>{u.subscription_paid_until || "—"}</td>
-                      <td className="center">
-                        <span className={u.blocked ? "ab-blocked-yes" : "ab-blocked-no"}>
+                      {viewerIsSuperAdmin && (
+                        u.is_super_admin ? (
+                          <span style={{ fontSize: 11, color: "rgba(192,132,252,0.9)", fontWeight: 600, whiteSpace: "nowrap" }}>
+                            Principal
+                          </span>
+                        ) : (
+                          <button
+                            className={`ab-stock-btn ${u.is_admin ? "ab-stock-on" : "ab-stock-off"}`}
+                            title={u.is_admin ? "Clic para quitar rol de administrador" : "Clic para hacer administrador"}
+                            onClick={() => handleToggleAdmin(u.id, !u.is_admin)}
+                            style={{ flexShrink: 0 }}
+                          >
+                            {u.is_admin ? "✓ Administrador" : "+ Hacer admin"}
+                          </button>
+                        )
+                      )}
+                    </div>
+
+                    <div className="ab-user-card-grid">
+                      <div>
+                        <div className="ab-user-field-label">Cubierto hasta</div>
+                        <div className="ab-user-field-value">{u.subscription_paid_until || "—"}</div>
+                      </div>
+
+                      <div>
+                        <div className="ab-user-field-label">Bloqueado</div>
+                        <div className={`ab-user-field-value ${u.blocked ? "ab-blocked-yes" : "ab-blocked-no"}`}>
                           {u.blocked ? "Sí" : "No"}
-                        </span>
-                      </td>
-                      <td className="center">
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="ab-user-field-label">Editar stock</div>
                         <button
                           className={`ab-stock-btn ${u.can_edit_stock ? "ab-stock-on" : "ab-stock-off"}`}
                           title={u.can_edit_stock ? "Clic para quitar permiso" : "Clic para dar permiso"}
@@ -482,15 +620,87 @@ const AdminBilling = () => {
                         >
                           {u.can_edit_stock ? "Habilitado" : "Deshabilitado"}
                         </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      </div>
+
+                      <div>
+                        <div className="ab-user-field-label">Stock bajo</div>
+                        <button
+                          className={`ab-stock-btn ${u.notify_low_stock ? "ab-stock-on" : "ab-stock-off"}`}
+                          title={u.notify_low_stock ? "Clic para desactivar notificaciones de stock bajo" : "Clic para activar notificaciones de stock bajo"}
+                          onClick={async () => {
+                            const newVal = !u.notify_low_stock;
+                            try {
+                              await setNotificationPrefs({ user_ids: [u.id], notify_low_stock: newVal });
+                              setUsers(prev => prev.map(x => x.id === u.id ? { ...x, notify_low_stock: newVal } : x));
+                              setMsg(`Notificaciones de stock bajo ${newVal ? "activadas" : "desactivadas"} para ${u.name}.`);
+                            } catch {
+                              setMsg("Error al actualizar notificaciones de stock bajo");
+                            }
+                          }}
+                        >
+                          {u.notify_low_stock ? "Sí" : "No"}
+                        </button>
+                      </div>
+
+                      <div>
+                        <div className="ab-user-field-label">Despachos retrasados</div>
+                        <button
+                          className={`ab-stock-btn ${u.notify_pending_dispatches ? "ab-stock-on" : "ab-stock-off"}`}
+                          title={u.notify_pending_dispatches ? "Clic para desactivar notificaciones de despachos retrasados" : "Clic para activar notificaciones de despachos retrasados"}
+                          onClick={async () => {
+                            const newVal = !u.notify_pending_dispatches;
+                            try {
+                              await setNotificationPrefs({ user_ids: [u.id], notify_pending_dispatches: newVal });
+                              setUsers(prev => prev.map(x => x.id === u.id ? { ...x, notify_pending_dispatches: newVal } : x));
+                              setMsg(`Notificaciones de despachos retrasados ${newVal ? "activadas" : "desactivadas"} para ${u.name}.`);
+                            } catch {
+                              setMsg("Error al actualizar notificaciones de despachos retrasados");
+                            }
+                          }}
+                        >
+                          {u.notify_pending_dispatches ? "Sí" : "No"}
+                        </button>
+                      </div>
+
+                      <div>
+                        <div className="ab-user-field-label">Operario</div>
+                        <select
+                          className="ab-link-select"
+                          value={u.linked_operator_id ?? ""}
+                          onChange={(e) => handleSetOperatorLink(u.id, e.target.value)}
+                          style={{ width: "100%" }}
+                        >
+                          <option value="">— Ninguno —</option>
+                          {operators.map((op) => (
+                            <option key={op.id} value={op.id}>{op.name}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <div className="ab-user-field-label">Chofer</div>
+                        <select
+                          className="ab-link-select"
+                          value={u.linked_driver_id ?? ""}
+                          onChange={(e) => handleSetDriverLink(u.id, e.target.value)}
+                          style={{ width: "100%" }}
+                        >
+                          <option value="">— Ninguno —</option>
+                          {drivers.map((dr) => (
+                            <option key={dr.id} value={dr.id}>{dr.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
-
+        
+    {viewerIsSuperAdmin && (
+      <>
         {/* ── 3. Desbloquear no seleccionados ── */}
         <div className="ab-glass ab-fade-in" style={{ padding: "20px 24px", marginBottom: 16 }}>
           <p className="ab-section-title">Desbloquear usuarios no seleccionados</p>
@@ -570,7 +780,8 @@ const AdminBilling = () => {
               : `Eliminar ${selectedIds.length} usuario${selectedIds.length > 1 ? "s" : ""} permanentemente`}
           </button>
         </div>
-
+      </>      
+    )}
         {/* ── Mensaje ── */}
         {msg && (
           <div className="ab-msg ab-fade-in">

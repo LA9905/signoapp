@@ -32,7 +32,20 @@ def create_receipt():
         orden = data["orden"]
         supplier_name = data["supplier"]
         productos = data.get("productos", [])
-        force = data.get("force", False)  # Nuevo parámetro para forzar creación
+        force = data.get("force", False)  # Parámetro para forzar creación
+
+        # Fecha real a la que pertenece la recepción: por defecto "ahora",
+        # pero puede elegirse manualmente.
+        fecha_str = (data.get("fecha") or "").strip()
+        now_local = datetime.now(CL_TZ)
+        if fecha_str:
+            try:
+                chosen_date = datetime.strptime(fecha_str, "%Y-%m-%d").date()
+            except ValueError:
+                return jsonify({"error": "Formato de fecha inválido, use YYYY-MM-DD"}), 400
+            local_dt = datetime.combine(chosen_date, now_local.timetz())
+        else:
+            local_dt = now_local
 
         supplier_norm = " ".join((supplier_name or "").strip().split())
         supplier = Supplier.query.filter(func.lower(Supplier.name) == supplier_norm.lower()).first()
@@ -52,7 +65,7 @@ def create_receipt():
             supplier_name=supplier_norm,
             created_by=user_id,
         )
-        new_receipt.fecha = to_utc_naive(datetime.now(CL_TZ))
+        new_receipt.fecha = to_utc_naive(local_dt)
 
         db.session.add(new_receipt)
 
@@ -243,6 +256,16 @@ def update_receipt(receipt_id):
 
         if "status" in data:
             receipt.status = data["status"]
+
+        # Fecha real de la recepción: si se envía, reemplaza el día
+        # conservando la hora original del registro.
+        if "fecha" in data and data.get("fecha"):
+            try:
+                chosen_date = datetime.strptime(data["fecha"], "%Y-%m-%d").date()
+            except ValueError:
+                return jsonify({"error": "Formato de fecha inválido, use YYYY-MM-DD"}), 400
+            hora_actual = to_local(receipt.fecha).timetz()
+            receipt.fecha = to_utc_naive(datetime.combine(chosen_date, hora_actual))
 
         # Calcular cantidades antiguas sumadas por nombre
         old_qty_by_name = defaultdict(float)

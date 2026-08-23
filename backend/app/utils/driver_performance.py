@@ -28,25 +28,14 @@ def is_evaluable_driver(name: str) -> bool:
     return _normalizar_nombre(name) not in EXCLUDED_DRIVER_NAMES
 
 
-# Mapeo de correos de usuarios "chofer" (acceso limitado) al nombre EXACTO
-# del chofer correspondiente en la tabla Driver. Se usa para que estos
-# usuarios vean en su propio Dashboard las métricas de SU rendimiento
-# como chofer.
-LIMITED_USER_DRIVER_EMAIL_MAP = {
-    "alfonsomachado64@gmail.com": "Alfonso Machado",
-    "cocachaucono@gmail.com": "José Chaucono",
-    "jerrykalet@gmail.com": "Fernando Terrones",
-    "claudiogarbarino1966@gmail.com": "Claudio Garbarino",
-}
-
-
-def get_driver_for_user_email(email: str):
-    """Devuelve el Driver asociado a un correo de usuario limitado (chofer),
-    o None si el correo no está mapeado o el chofer no existe en la tabla."""
-    driver_name = LIMITED_USER_DRIVER_EMAIL_MAP.get((email or "").strip().lower())
-    if not driver_name:
+def get_driver_for_user(user):
+    """Devuelve el Driver vinculado a este usuario, asignado por un
+    administrador desde el panel de administración (User.linked_driver_id),
+    o None si el usuario no tiene ningún chofer vinculado (usuario
+    normal)."""
+    if not user or not user.linked_driver_id:
         return None
-    return Driver.query.filter(func.lower(Driver.name) == driver_name.lower()).first()
+    return Driver.query.get(user.linked_driver_id)
 
 
 def _month_utc_bounds(year: int, month: int):

@@ -58,7 +58,7 @@ const Tracking = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingUser, setIsLoadingUser] = useState(true);
   const [hasMore, setHasMore] = useState(true);
-  const [page, setPage] = useState(1);
+  const [afterId, setAfterId] = useState<number | null>(null);
   const [mensaje, setMensaje] = useState<string>("");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [draft, setDraft] = useState<{
@@ -68,6 +68,7 @@ const Tracking = () => {
     status: string;
     productos: ProductoRow[];
     factura_numero?: string;
+    fecha: string;
   } | null>(null);
   const [isLimited, setIsLimited] = useState(false);
 
@@ -77,6 +78,7 @@ const Tracking = () => {
   const { drivers } = useDrivers();
   const observer = useRef<IntersectionObserver | null>(null);
   const lastDispatchRef = useRef<HTMLDivElement | null>(null);
+  const loadingMoreRef = useRef(false);
 
   const [searchState, setSearchState] = useState<SearchState>({
     client: "",
@@ -135,7 +137,12 @@ const Tracking = () => {
 };
 
   const fetchDispatches = useCallback(
-    async (params: SearchState, pageNum: number, append: boolean = false, signal?: AbortSignal) => {
+    async (params: SearchState, afterIdParam: number | null, append: boolean = false, signal?: AbortSignal) => {
+      if (append) {
+        if (loadingMoreRef.current) return;
+        loadingMoreRef.current = true;
+      }
+
       let scrollPosition = 0;
       if (!append) {
         scrollPosition = window.pageYOffset;
@@ -154,13 +161,25 @@ const Tracking = () => {
       setIsLoading(true);
       try {
         const response = await api.get<DispatchSummary[]>("/dispatches", {
-          params: { ...params, page: pageNum, limit: 10 },
+          params: {
+            ...params,
+            limit: 10,
+            ...(afterIdParam ? { after_id: afterIdParam } : {}),
+          },
           headers: { "Cache-Control": "no-cache" },
           signal,
         });
         const newDispatches = response.data;
-        setDispatches((prev) => (append ? [...prev, ...newDispatches] : newDispatches));
+        setDispatches((prev) => {
+          if (!append) return newDispatches;
+          const existingIds = new Set(prev.map((d) => d.id));
+          const deduped = newDispatches.filter((d) => !existingIds.has(d.id));
+          return [...prev, ...deduped];
+        });
         setHasMore(newDispatches.length === 10);
+        if (newDispatches.length > 0) {
+          setAfterId(newDispatches[newDispatches.length - 1].id);
+        }
         setMensaje("");
       } catch (err: any) {
         if (err?.code === "ERR_CANCELED" || err?.name === "CanceledError" || err?.name === "AbortError") return;
@@ -168,7 +187,9 @@ const Tracking = () => {
         setMensaje("Error al cargar despachos");
       } finally {
         setIsLoading(false);
-        if (!append) {
+        if (append) {
+          loadingMoreRef.current = false;
+        } else {
           window.scrollTo(0, scrollPosition);
         }
       }
@@ -193,8 +214,8 @@ const Tracking = () => {
 
     observer.current = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting) {
-          setPage((prev) => prev + 1);
+        if (entries[0].isIntersecting && !loadingMoreRef.current) {
+          fetchDispatches(debouncedSearch, afterId, true);
         }
       },
       { threshold: 0.1 }
@@ -209,24 +230,19 @@ const Tracking = () => {
         observer.current.disconnect();
       }
     };
-  }, [isLoading, hasMore]);
+  }, [isLoading, hasMore, debouncedSearch, afterId, fetchDispatches]);
 
-  useEffect(() => {
-    if (page > 1) {
-      fetchDispatches(debouncedSearch, page, true);
-    }
-  }, [page, debouncedSearch, fetchDispatches]);
 
   useEffect(() => {
     const id = setTimeout(() => {
-      setPage(1);
+      setAfterId(null);
       setDebouncedSearch(searchState);
     }, 300);
     return () => clearTimeout(id);
   }, [searchState]);
 
   useEffect(() => {
-    fetchDispatches(debouncedSearch, 1, false);
+    fetchDispatches(debouncedSearch, null, false);
     return () => {
       if (fetchControllerRef.current) {
         fetchControllerRef.current.abort();
@@ -260,14 +276,14 @@ const Tracking = () => {
       setIsLoading(true);
       try {
         const response = await api.get<DispatchSummary[]>("/dispatches", {
-          params: { ...searchState, page: 1, limit: 10 },
+          params: { ...searchState, limit: 10 },
           headers: { "Cache-Control": "no-cache" },
           signal: controller.signal,
         });
         setDispatches(response.data);
         setHasMore(response.data.length === 10);
+        setAfterId(response.data.length > 0 ? response.data[response.data.length - 1].id : null);
         setMensaje("");
-        setPage(1);
         setDebouncedSearch(searchState);
       } catch (err: any) {
         if (err?.code === "ERR_CANCELED" || err?.name === "CanceledError" || err?.name === "AbortError") return;
@@ -288,6 +304,7 @@ const Tracking = () => {
       status: d.status || "pendiente",
       productos: d.productos.map((p) => ({ ...p })),
       factura_numero: d.factura_numero || "",
+      fecha: d.fecha.slice(0, 10),
     });
     setExistingImages(d.images || []);
     setNewImages([]);
@@ -370,6 +387,7 @@ const Tracking = () => {
         chofer: draft.chofer,
         status: draft.status,
         factura_numero: draft.factura_numero,
+        fecha: draft.fecha,
         productos: draft.productos.map((p) => ({
           nombre: p.nombre,
           cantidad: p.cantidad,
@@ -404,12 +422,13 @@ const Tracking = () => {
       if (error.response?.status === 409 && (errCode === "duplicate_order" || errCode === "duplicate_invoice" || errCode === "duplicate_both")) {
         if (window.confirm(errMsg)) {
           try {
-            const payload = {
+                        const payload = {
               orden: draft.orden,
               cliente: draft.cliente,
               chofer: draft.chofer,
               status: draft.status,
               factura_numero: draft.factura_numero,
+              fecha: draft.fecha,
               force: true,
               productos: draft.productos.map((p) => ({
                 nombre: p.nombre,
@@ -1126,6 +1145,15 @@ const Tracking = () => {
                             <option value="entregado_cliente">entregado_cliente</option>
                           </select>
                         </div>
+                        <div>
+                          <div className="field-label-tr">Fecha del despacho</div>
+                          <input
+                            type="date"
+                            className="input-tr w-full px-3 py-2.5"
+                            value={draft?.fecha || ""}
+                            onChange={(e) => setDraft((prev) => (prev ? { ...prev, fecha: e.target.value } : prev))}
+                          />
+                        </div>
                       </div>
 
                       {/* Products edit */}
@@ -1309,7 +1337,12 @@ const Tracking = () => {
         {/* Load more */}
         {hasMore && !isLoading && (
           <div className="text-center mt-6">
-            <button className="btn-load-more-tr" onClick={() => setPage((prev) => prev + 1)}>
+            <button
+              className="btn-load-more-tr"
+              onClick={() => {
+                if (!loadingMoreRef.current) fetchDispatches(debouncedSearch, afterId, true);
+              }}
+            >
               Cargar más
             </button>
           </div>

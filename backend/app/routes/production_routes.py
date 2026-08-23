@@ -13,6 +13,7 @@ from flask_cors import CORS
 from collections import defaultdict
 from app.routes.product_routes import normalize_product_name, normalize_search, normalize_db_column
 from app.models.operator_activity_model import OperatorActivity
+from app.utils.performance import invalidate_performance_caches
 
 production_bp = Blueprint("productions", __name__)
 CORS(
@@ -21,19 +22,13 @@ CORS(
     supports_credentials=True,
 )
 
-def _upsert_or_clear_operator_activity(operator_id: int, fecha, horas, nota, user_id):
+def _upsert_or_clear_operator_activity(operator_id: int, fecha, horas, nota, user_id, tipo: str = "otra"):
     """
-    Crea, actualiza o elimina el registro de OperatorActivity de un operario
-    para una fecha específica, según lo que se envíe desde el formulario de
-    producción (create/update). Mismo criterio que ya usa
-    create_operator_activity en operator_performance_routes.py: una sola
-    actividad por operario y día (se sobreescribe si ya existía).
-
-    - horas > 0: crea o actualiza el registro con esas horas y nota.
-    - horas es None, "" o 0: si existía un registro para ese día, se elimina
-      (permite "quitar" la actividad editando la producción).
+    Filtra también por 'tipo' ('otra' o
+    'extra'), para poder tener el mismo día un registro de otra actividad
+    Y uno de horas extra, de forma independiente.
     """
-    existing = OperatorActivity.query.filter_by(operator_id=operator_id, fecha=fecha).first()
+    existing = OperatorActivity.query.filter_by(operator_id=operator_id, fecha=fecha, tipo=tipo).first()
 
     if horas is None or horas == "" or float(horas) <= 0:
         if existing:
@@ -53,8 +48,28 @@ def _upsert_or_clear_operator_activity(operator_id: int, fecha, horas, nota, use
                 horas=horas_val,
                 nota=nota_val,
                 created_by=user_id,
+                tipo=tipo,
             )
         )
+
+
+def _parse_horas_producto(value):
+    """
+    Convierte el campo opcional 'horas' de una línea de producto (horas
+    reales dedicadas a ese producto ese día) a float, o None si no viene,
+    viene vacío, no es un número válido, o es <= 0. Con None, el cálculo
+    de rendimiento reparte las horas del día en partes iguales entre los
+    productos sin horas manuales, igual que se hacía antes de que
+    existiera este campo — así los registros históricos no cambian.
+    """
+    if value is None or value == "":
+        return None
+    try:
+        horas = float(value)
+    except (TypeError, ValueError):
+        return None
+    return horas if horas > 0 else None
+
 
 @production_bp.route("/productions", methods=["POST"])
 @jwt_required()
@@ -117,6 +132,7 @@ def create_production():
                     nombre=nombre,
                     cantidad=p["cantidad"],
                     unidad=p["unidad"],
+                    horas=_parse_horas_producto(p.get("horas")),
                     production=new_production,
                 )
             )
@@ -129,15 +145,20 @@ def create_production():
                     pass
 
         # Registrar de una vez, opcionalmente, las horas de otras
-        # actividades del operario para esa misma fecha (queda guardado en
+        # actividades o horas extras del operario para esa misma fecha (queda guardado en
         # el mismo registro de actividades que usa el rendimiento de
         # producción, sin necesidad de ir a otra pantalla).
         if "horas_otras" in data:
             _upsert_or_clear_operator_activity(
-                operator.id, chosen_date, data.get("horas_otras"), data.get("nota_otras"), user_id
+                operator.id, chosen_date, data.get("horas_otras"), data.get("nota_otras"), user_id, tipo="otra"
+            )
+        if "horas_extra" in data:
+            _upsert_or_clear_operator_activity(
+                operator.id, chosen_date, data.get("horas_extra"), data.get("nota_extra"), user_id, tipo="extra"
             )
 
         db.session.commit()
+        invalidate_performance_caches()
         return jsonify(new_production.to_dict()), 201
     except Exception as e:
         db.session.rollback()
@@ -213,8 +234,8 @@ def get_productions():
                     "operator_id": p.operator_id,
                     "created_by": creator.name if creator else p.created_by,
                     "fecha": to_local(p.fecha).isoformat(timespec="seconds"),
-                    "productos": [
-                        {"nombre": pr.nombre, "cantidad": pr.cantidad, "unidad": pr.unidad} for pr in p.productos
+                                        "productos": [
+                        {"nombre": pr.nombre, "cantidad": pr.cantidad, "unidad": pr.unidad, "horas": pr.horas} for pr in p.productos
                     ],
                 }
             )
@@ -245,6 +266,7 @@ def delete_production(production_id):
         # Eliminar la producción
         db.session.delete(production)
         db.session.commit()
+        invalidate_performance_caches()
 
         return jsonify({"message": "Producción eliminada y stock revertido"}), 200
     except IntegrityError:
@@ -325,7 +347,7 @@ def update_production(production_id):
                 if prod_row:
                     prod_row.stock = float(prod_row.stock or 0) + delta
 
-        # Agregar nuevos productos a la production
+                # Agregar nuevos productos a la production
         for p in data["productos"]:
             nombre = (p["nombre"] or "").strip()
             db.session.add(
@@ -333,6 +355,7 @@ def update_production(production_id):
                     nombre=nombre,
                     cantidad=p["cantidad"],
                     unidad=p["unidad"],
+                    horas=_parse_horas_producto(p.get("horas")),
                     production=production,
                 )
             )
@@ -342,10 +365,15 @@ def update_production(production_id):
         # esta producción, directamente desde el formulario de edición.
         if "horas_otras" in data:
             _upsert_or_clear_operator_activity(
-                operator.id, chosen_date, data.get("horas_otras"), data.get("nota_otras"), user_id
+                operator.id, chosen_date, data.get("horas_otras"), data.get("nota_otras"), user_id, tipo="otra"
             )
-
+        if "horas_extra" in data:
+            _upsert_or_clear_operator_activity(
+                operator.id, chosen_date, data.get("horas_extra"), data.get("nota_extra"), user_id, tipo="extra"
+            )
+            
         db.session.commit()
+        invalidate_performance_caches()
 
         creator = User.query.get(production.created_by)
         return jsonify({
@@ -354,8 +382,8 @@ def update_production(production_id):
             "operator_id": production.operator_id,
             "created_by": creator.name if creator else production.created_by,
             "fecha": to_local(production.fecha).isoformat(timespec="seconds"),
-            "productos": [
-                {"nombre": pr.nombre, "cantidad": pr.cantidad, "unidad": pr.unidad} for pr in production.productos
+                        "productos": [
+                {"nombre": pr.nombre, "cantidad": pr.cantidad, "unidad": pr.unidad, "horas": pr.horas} for pr in production.productos
             ],
         }), 200
     except Exception as e:

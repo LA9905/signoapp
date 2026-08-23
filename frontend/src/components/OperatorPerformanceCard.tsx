@@ -16,39 +16,31 @@ export interface OperatorPerformance {
   linea_base_historica: number | null;
   linea_base_fuente: "historica" | "producto" | "pares_mes" | "inicial" | null;
   ratio: number | null;
-  clasificacion: "muy_alta" | "alta" | "regular" | "baja" | "muy_baja" | "sin_datos";
+  clasificacion:
+    | "extraordinaria" | "muy_alta" | "alta" | "regular_alta"
+    | "regular" | "baja" | "muy_baja" | "critica" | "sin_datos";
   bono: boolean;
+  bono_extra?: boolean;
+  bono_extra_consideracion?: boolean;
+  bono_consideracion?: boolean;
+  premio?: boolean;
+  accion_requerida?: boolean;
+  accion_inmediata?: boolean;
   percentil: number | null;
   mes_en_curso?: boolean;
 }
 
 const CLASIFICACION_INFO: Record<string, { label: string; color: string }> = {
+  extraordinaria: { label: "Extraordinaria", color: "#C084FC" },
   muy_alta: { label: "Muy Alta", color: "#34D399" },
   alta: { label: "Alta", color: "#60A5FA" },
+  regular_alta: { label: "Regular", color: "#FDE68A" },
   regular: { label: "Regular", color: "#FBBF24" },
   baja: { label: "Baja", color: "#FB923C" },
   muy_baja: { label: "Muy Baja", color: "#F87171" },
+  critica: { label: "Crítica", color: "#DC2626" },
   sin_datos: { label: "Sin datos", color: "rgba(255,255,255,0.25)" },
 };
-
-const BANDAS_SIN_BONO: Record<string, [number, number, number, number]> = {
-  // clasificacion: [ratioMin, ratioMax, scoreMin, scoreMax]
-  regular: [0.85, 1.0, 70, 84],
-  baja: [0.65, 0.85, 50, 70],
-  muy_baja: [0, 0.65, 0, 50],
-};
-
-function calcularPorcentajeVisual(ratio: number, clasificacion: string): number {
-  if (ratio >= 1.0) {
-    // Zona de bono: se muestra el porcentaje real, siempre >= 100.
-    return Math.round(ratio * 100);
-  }
-  const banda = BANDAS_SIN_BONO[clasificacion];
-  if (!banda) return Math.round(ratio * 100);
-  const [rMin, rMax, sMin, sMax] = banda;
-  const t = rMax > rMin ? Math.min(Math.max((ratio - rMin) / (rMax - rMin), 0), 1) : 0;
-  return Math.round(sMin + t * (sMax - sMin));
-}
 
 // new Date().toISOString() devuelve la fecha en UTC
 function getLocalDateString(): string {
@@ -71,14 +63,15 @@ const OperatorPerformanceCard: React.FC<Props> = ({ op, monthLabel, onChanged, o
   const [actDate, setActDate] = useState<string>(getLocalDateString());
   const [actHours, setActHours] = useState<string>("");
   const [actNote, setActNote] = useState<string>("");
+  const [actType, setActType] = useState<"otra" | "extra">("otra");
   const [savingActivity, setSavingActivity] = useState(false);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   const info = CLASIFICACION_INFO[op.clasificacion] || CLASIFICACION_INFO.sin_datos;
 
-  // Número mostrado: coherente con la clasificación final (ver función arriba).
-  const pctDisplay = op.ratio !== null ? calcularPorcentajeVisual(op.ratio, op.clasificacion) : null;
-  // El anillo se llena sobre una escala de 0-100 del número YA visual (no del ratio crudo).
+  // Número mostrado: el ratio REAL, sin comprimir — coincide siempre con
+  // el promedio que se ve en "Ver detalle".
+  const pctDisplay = op.ratio !== null ? Math.round(op.ratio * 100) : null;
   const pctRing = pctDisplay !== null ? Math.min(pctDisplay, 100) : 0;
 
   const data = {
@@ -132,10 +125,12 @@ const OperatorPerformanceCard: React.FC<Props> = ({ op, monthLabel, onChanged, o
         fecha: actDate,
         horas: Number(actHours),
         nota: actNote,
+        tipo: actType,
       });
       setShowActivityForm(false);
       setActHours("");
       setActNote("");
+      setActType("otra");
       onChanged?.();
     } catch (err) {
       console.error("Error registrando actividad:", err);
@@ -184,7 +179,15 @@ const OperatorPerformanceCard: React.FC<Props> = ({ op, monthLabel, onChanged, o
       </div>
 
       <div className="opc-bono">
-        {op.bono ? "✓ Merece bono de producción" : "Sin bono este mes"}
+        {op.premio
+          ? "✓ Bono + bonificación extra y reconocimiento"
+          : op.bono_extra_consideracion
+          ? "✓ Merece bono (bonificación extra a consideración)"
+          : op.bono
+          ? "✓ Merece bono de producción"
+          : op.bono_consideracion
+          ? "Sin bono automático — a consideración de administración"
+          : "Sin bono este mes"}
       </div>
 
       {op.linea_base_fuente && op.linea_base_fuente !== "producto" && (
@@ -216,6 +219,10 @@ const OperatorPerformanceCard: React.FC<Props> = ({ op, monthLabel, onChanged, o
       {showActivityForm && (
         <div className="opc-activity-form">
           <input type="date" value={actDate} onChange={(e) => setActDate(e.target.value)} className="opc-input" />
+          <select value={actType} onChange={(e) => setActType(e.target.value as "otra" | "extra")} className="opc-input">
+            <option value="otra">Otra actividad (resta horas efectivas)</option>
+            <option value="extra">Horas extra / sobretiempo (suma horas efectivas)</option>
+          </select>
           <input
             type="number"
             min={0}

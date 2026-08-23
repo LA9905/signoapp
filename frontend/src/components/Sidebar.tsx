@@ -415,6 +415,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, isLimited = false })
           background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); color: white;
           border-radius: 8px; padding: 7px 9px; font-size: 12px; width: 100%; box-sizing: border-box;
         }
+          
+        select.opc-input option {
+          background: #111827;
+          color: white;
+        }
         .opc-save-btn {
           flex: 1; background: rgba(52,211,153,0.15); border: 1px solid rgba(52,211,153,0.3); color: #6EE7B7;
           border-radius: 8px; padding: 6px 0; font-size: 12px; font-weight: 600; cursor: pointer;
