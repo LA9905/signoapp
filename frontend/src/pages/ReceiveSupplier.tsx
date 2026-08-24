@@ -12,6 +12,7 @@ interface Producto {
   cantidad: number;
   unidad: string;
   category?: string;
+  imageFile?: File;
 }
 
 interface FormularioRecepcion {
@@ -114,10 +115,20 @@ const ReceiveSupplier = () => {
 
       for (const product of newProducts) {
         try {
-          await api.post("/products", {
-            name: product.name,
-            category: product.category || "Otros",
-          });
+          if (product.imageFile) {
+            const fd = new FormData();
+            fd.append("name", product.name);
+            fd.append("category", product.category || "Otros");
+            fd.append("image", product.imageFile);
+            await api.post("/products", fd, {
+              headers: { "Content-Type": "multipart/form-data" },
+            });
+          } else {
+            await api.post("/products", {
+              name: product.name,
+              category: product.category || "Otros",
+            });
+          }
         } catch (err: unknown) {
           if (err instanceof AxiosError) {
             const msg = err.response?.data?.error || "Error al crear producto";

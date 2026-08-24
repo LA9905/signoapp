@@ -12,6 +12,7 @@ interface Producto {
   category?: string;
   usage?: number;
   horas?: number;
+  imageFile?: File;
 }
 
 // DESPUÉS
@@ -37,6 +38,8 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
   const [showNewProduct, setShowNewProduct] = useState(false);
   const [searchProduct, setSearchProduct] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("Otros");
+  const [newProductImage, setNewProductImage] = useState<File | null>(null);
+  const [newProductImagePreview, setNewProductImagePreview] = useState<string | null>(null);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [tmpName, setTmpName] = useState("");
@@ -79,18 +82,25 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
     "Otros",
   ];
 
-  const handleAddProduct = () => {
+    const handleAddProduct = () => {
       if (newProduct.name && newProduct.cantidad > 0) {
+        // Solo adjuntamos la imagen si el producto es realmente nuevo (no
+        // tenía id de un producto existente); un producto ya existente en
+        // el inventario gestiona su imagen desde el módulo de Inventario.
+        const isNewProduct = !newProduct.id;
         const updatedProduct: Producto = {
           ...newProduct,
           id: newProduct.id || Date.now().toString(),
           category: selectedCategory,
           unidad: detectUnit(newProduct.name),
           horas: showHoras ? newProduct.horas : undefined,
+          imageFile: isNewProduct ? newProductImage || undefined : undefined,
         };
         setProductos([...productos, updatedProduct]);
         setNewProduct({ id: "", name: "", cantidad: 0, unidad: "unidades", horas: undefined });
         setSelectedCategory("Otros");
+        setNewProductImage(null);
+        setNewProductImagePreview(null);
         setShowNewProduct(false);
       }
     };
@@ -107,7 +117,7 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
     }
   };
 
-    const handleChangeProduct = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleChangeProduct = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setNewProduct((prev) => ({
       ...prev,
@@ -117,6 +127,19 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
         ? (value === "" ? undefined : parseFloat(value) || undefined)
         : value,
     }));
+  };
+
+  const handleNewProductImageChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setNewProductImage(file);
+      setNewProductImagePreview(URL.createObjectURL(file));
+    }
+  };
+
+  const handleRemoveNewProductImage = () => {
+    setNewProductImage(null);
+    setNewProductImagePreview(null);
   };
 
   const filteredProducts = existingProductos
@@ -570,7 +593,7 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
               </select>
               <span className="prd-select-arrow">▼</span>
             </div>
-            {showHoras && (
+                        {showHoras && (
               <input
                 type="number"
                 name="horas"
@@ -586,6 +609,44 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
                 style={{ flex: "0 0 100px", width: "100px" }}
               />
             )}
+
+            {/* Imagen opcional del producto nuevo */}
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", flex: "1 1 100%" }}>
+              {newProductImagePreview ? (
+                <img
+                  src={newProductImagePreview}
+                  alt="preview"
+                  style={{
+                    width: "40px",
+                    height: "40px",
+                    borderRadius: "8px",
+                    objectFit: "cover",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    flexShrink: 0,
+                  }}
+                />
+              ) : null}
+              <label
+                className="prd-btn-new"
+                style={{ cursor: "pointer" }}
+              >
+                <FiPlus size={13} /> {newProductImagePreview ? "Cambiar imagen" : "Imagen (opc.)"}
+                <input type="file" accept="image/*" className="hidden" onChange={handleNewProductImageChange} style={{ display: "none" }} />
+              </label>
+              {newProductImagePreview && (
+                <button
+                  type="button"
+                  className="prd-icon-btn prd-icon-btn-cancel"
+                  title="Quitar imagen"
+                  aria-label="Quitar imagen"
+                  onClick={handleRemoveNewProductImage}
+                  style={{ width: "auto", padding: "6px 10px" }}
+                >
+                  <FaTimes size={12} />
+                </button>
+              )}
+            </div>
+
             <button
               type="button"
               onClick={handleAddProduct}
@@ -596,7 +657,11 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
             </button>
             <button
               type="button"
-              onClick={() => setShowNewProduct(false)}
+              onClick={() => {
+                setShowNewProduct(false);
+                setNewProductImage(null);
+                setNewProductImagePreview(null);
+              }}
               className="prd-icon-btn prd-icon-btn-cancel"
               style={{ width: "auto", padding: "9px 12px", borderRadius: "9px" }}
             >

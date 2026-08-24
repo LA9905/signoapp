@@ -175,8 +175,10 @@ def get_stock_movements():
                 },
             })
 
-        # Ordenar por fecha ascendente
-        movements.sort(key=lambda x: x["fecha"])
+        # Ordenar por fecha descendente: los movimientos más recientes
+        # aparecen primero, para no tener que desplazarse hasta el final
+        # para ver lo último que ocurrió con el producto.
+        movements.sort(key=lambda x: x["fecha"], reverse=True)
 
         return jsonify(movements), 200
 
