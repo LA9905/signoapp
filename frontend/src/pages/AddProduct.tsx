@@ -61,22 +61,50 @@ export default function AddProduct() {
 
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
 
-  useEffect(() => {
+    useEffect(() => {
     if (import.meta.env.PROD) {
       console.log("AddProduct montado");
     }
   }, []);
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setImageFile(file);
+      setImagePreview(URL.createObjectURL(file));
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setImageFile(null);
+    setImagePreview(null);
+  };
 
   const onSubmit = async (data: ProductForm) => {
     setMessage("");
     setError("");
     try {
       const { subject, ...dataToSend } = data;
-      const res = await api.post("/products", dataToSend);
+      let res;
+      if (imageFile) {
+        const fd = new FormData();
+        fd.append("name", dataToSend.name);
+        fd.append("category", dataToSend.category);
+        fd.append("image", imageFile);
+        res = await api.post("/products", fd, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+      } else {
+        res = await api.post("/products", dataToSend);
+      }
       console.log("Respuesta del servidor:", res.data);
       setMessage("Producto agregado exitosamente");
       reset();
+      setImageFile(null);
+      setImagePreview(null);
     } catch (err: any) {
       const msg =
         err?.response?.data?.error ||
@@ -286,6 +314,44 @@ export default function AddProduct() {
                     <AlertCircle size={11} /> {errors.category.message}
                   </p>
                 )}
+              </div>
+
+              {/* Imagen (opcional) */}
+              <div className="fade-up fade-up-2">
+                <label className="block text-xs font-medium text-white/50 mb-1.5">
+                  Imagen del producto (opcional)
+                </label>
+                <div className="flex items-center gap-3 flex-wrap">
+                  {imagePreview ? (
+                    <img
+                      src={imagePreview}
+                      alt="preview"
+                      className="w-16 h-16 rounded-xl object-cover border border-white/10 flex-shrink-0"
+                    />
+                  ) : (
+                    <div className="w-16 h-16 rounded-xl flex items-center justify-center border border-dashed border-white/10 text-white/20 flex-shrink-0">
+                      <Package size={20} />
+                    </div>
+                  )}
+                  <div className="flex items-center gap-3">
+                    <label
+                      className="text-xs font-medium px-3 py-2 rounded-lg cursor-pointer transition-colors"
+                      style={{ background: "rgba(59,130,246,0.12)", border: "1px solid rgba(59,130,246,0.25)", color: "#93C5FD" }}
+                    >
+                      Subir imagen
+                      <input type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
+                    </label>
+                    {imagePreview && (
+                      <button
+                        type="button"
+                        onClick={handleRemoveImage}
+                        className="text-xs text-red-400 hover:text-red-300 transition-colors"
+                      >
+                        Quitar
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
 
               {/* Divider */}

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { normalizeSearch } from "../utils/normalizeSearch";
 import ArrowBackButton from "../components/ArrowBackButton";
 import { api } from "../services/http";
-
+import { FiChevronLeft, FiChevronRight } from "react-icons/fi";
 interface MovementDetail {
   // Despacho
   cliente?: string;
@@ -59,6 +59,10 @@ const StockMovements = () => {
   const [error, setError] = useState<string>("");
   const [clientsList, setClientsList] = useState<{ id: number; name: string }[]>([]);
   const [selectedClient, setSelectedClient] = useState<string>("");
+  const [clientSearch, setClientSearch] = useState<string>("");
+  const [showClientDropdown, setShowClientDropdown] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 15;
 
   useEffect(() => {
     api
@@ -84,6 +88,21 @@ const StockMovements = () => {
     setShowDropdown(false);
   };
 
+  const filteredClients = clientsList.filter((c) =>
+    normalizeSearch(c.name).includes(normalizeSearch(clientSearch))
+  );
+
+  const handleSelectClient = (name: string) => {
+    setSelectedClient(name);
+    setClientSearch(name);
+    setShowClientDropdown(false);
+  };
+
+    const handleClearClient = () => {
+    setSelectedClient("");
+    setClientSearch("");
+  };
+
   const handleSearch = async () => {
     if (!selectedProduct) {
       setError("Debes seleccionar un producto");
@@ -98,9 +117,10 @@ const StockMovements = () => {
       if (dateFrom) params.date_from = dateFrom;
       if (dateTo) params.date_to = dateTo;
 
-      const res = await api.get<StockMovement[]>("/stock-movements", { params });
+    const res = await api.get<StockMovement[]>("/stock-movements", { params });
       setMovements(res.data);
       setSearched(true);
+      setCurrentPage(1);
     } catch (err: any) {
       setError(err?.response?.data?.error || "Error al cargar los movimientos");
     } finally {
@@ -116,11 +136,29 @@ const StockMovements = () => {
     .filter((m) => m.tipo === "salida")
     .reduce((acc, m) => acc + m.cantidad, 0);
 
-  /* ── Detalle de cada movimiento ── */
-  const renderDetalle = (m: StockMovement) => {
+  const totalPages = Math.max(1, Math.ceil(movements.length / ITEMS_PER_PAGE));
+  const pagedMovements = movements.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
+  const getPageNumbers = (): (number | "...")[] => {
+    if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1);
+    const pages: (number | "...")[] = [1];
+    if (currentPage > 3) pages.push("...");
+    for (let p = Math.max(2, currentPage - 1); p <= Math.min(totalPages - 1, currentPage + 1); p++) {
+      pages.push(p);
+    }
+    if (currentPage < totalPages - 2) pages.push("...");
+    pages.push(totalPages);
+    return pages;
+  };
+
+  /* ── Detalle de cada movimiento (columnas de la tabla) ── */
+  const renderDetalleCell = (m: StockMovement) => {
     const d = m.detalle;
 
-    const Item = ({ label, value }: { label: string; value?: string }) =>
+    const Chip = ({ label, value }: { label: string; value?: string }) =>
       value ? (
         <span className="sm-meta-chip">
           <span style={{ color: "rgba(255,255,255,0.35)" }}>{label}</span>
@@ -130,45 +168,41 @@ const StockMovements = () => {
 
     if (m.origen === "Despacho") {
       return (
-        <div className="sm-detail-row">
-          <Item label="Centro de costo" value={d.cliente || "—"} />
-          <Item label="Orden" value={d.orden || "—"} />
-          {d.factura && <Item label="Factura" value={d.factura} />}
-        </div>
+        <>
+          <Chip label="Centro de costo" value={d.cliente || "—"} />
+          <Chip label="Orden" value={d.orden || "—"} />
+          {d.factura && <Chip label="Factura" value={d.factura} />}
+        </>
       );
     }
     if (m.origen === "Consumo Interno") {
       return (
-        <div className="sm-detail-row">
-          <Item label="Retirado por" value={d.nombre_retira || "—"} />
-          <Item label="Área" value={d.area || "—"} />
-          <Item label="Motivo" value={d.motivo || "—"} />
-        </div>
+        <>
+          <Chip label="Retirado por" value={d.nombre_retira || "—"} />
+          <Chip label="Área" value={d.area || "—"} />
+          <Chip label="Motivo" value={d.motivo || "—"} />
+        </>
       );
     }
     if (m.origen === "Recepción Proveedor") {
       return (
-        <div className="sm-detail-row">
-          <Item label="Proveedor" value={d.proveedor || "—"} />
-          <Item label="Factura" value={d.orden || "—"} />
-        </div>
+        <>
+          <Chip label="Proveedor" value={d.proveedor || "—"} />
+          <Chip label="Factura" value={d.orden || "—"} />
+        </>
       );
     }
     if (m.origen === "Producción") {
-      return (
-        <div className="sm-detail-row">
-          <Item label="Operario" value={d.operario || "—"} />
-        </div>
-      );
+      return <Chip label="Operario" value={d.operario || "—"} />;
     }
     if (m.origen === "Nota de Crédito") {
       return (
-        <div className="sm-detail-row">
-          <Item label="Cliente" value={d.cliente || "—"} />
-          <Item label="Orden" value={d.orden || "—"} />
-          <Item label="Factura" value={d.factura || "—"} />
-          <Item label="N° Nota" value={d.nota_credito || "—"} />
-        </div>
+        <>
+          <Chip label="Cliente" value={d.cliente || "—"} />
+          <Chip label="Orden" value={d.orden || "—"} />
+          <Chip label="Factura" value={d.factura || "—"} />
+          <Chip label="N° Nota" value={d.nota_credito || "—"} />
+        </>
       );
     }
     return null;
@@ -270,6 +304,109 @@ const StockMovements = () => {
         }
         .sm-dropdown-item:last-child { border-bottom: none; }
         .sm-dropdown-item:hover { background: rgba(99,102,241,0.15); color: white; }
+
+        .sm-search-wrap { position: relative; }
+        .sm-clear-btn {
+          position: absolute;
+          right: 8px;
+          top: 50%;
+          transform: translateY(-50%);
+          background: rgba(255,255,255,0.06);
+          border: none;
+          color: rgba(255,255,255,0.5);
+          width: 20px;
+          height: 20px;
+          border-radius: 50%;
+          font-size: 14px;
+          line-height: 1;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all .15s;
+        }
+        .sm-clear-btn:hover { background: rgba(255,255,255,0.14); color: white; }
+
+        .sm-table-wrap {
+          overflow-x: auto;
+          border-radius: 16px;
+          border: 1px solid rgba(99,102,241,0.18);
+          background: rgba(30,40,80,0.2);
+        }
+        .sm-table {
+          width: 100%;
+          border-collapse: collapse;
+          min-width: 720px;
+        }
+        .sm-table thead th {
+          text-align: left;
+          font-size: 11px;
+          font-weight: 600;
+          letter-spacing: .06em;
+          text-transform: uppercase;
+          color: rgba(255,255,255,0.35);
+          padding: 12px 16px;
+          border-bottom: 1px solid rgba(99,102,241,0.18);
+          white-space: nowrap;
+        }
+        .sm-table tbody td {
+          padding: 12px 16px;
+          font-size: 13px;
+          border-bottom: 1px solid rgba(255,255,255,0.05);
+          vertical-align: top;
+        }
+        .sm-table tbody tr:last-child td { border-bottom: none; }
+        .sm-table tbody tr { transition: background .12s; }
+        .sm-table tbody tr:hover { background: rgba(99,102,241,0.06); }
+        .sm-table tbody tr.entrada { border-left: 3px solid rgba(52,211,153,0.65); }
+        .sm-table tbody tr.salida { border-left: 3px solid rgba(248,113,113,0.65); }
+
+        .sm-td-fecha { white-space: nowrap; color: rgba(255,255,255,0.55); }
+        .sm-td-cantidad { white-space: nowrap; font-weight: 600; }
+        .sm-td-detalle { display: flex; flex-wrap: wrap; gap: 6px; max-width: 420px; }
+
+        .sm-pagination {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          flex-wrap: wrap;
+          margin-top: 20px;
+        }
+        .sm-page-btn {
+          min-width: 34px;
+          height: 34px;
+          padding: 0 10px;
+          border-radius: 8px;
+          background: rgba(255,255,255,0.04);
+          border: 1px solid rgba(255,255,255,0.08);
+          color: rgba(255,255,255,0.6);
+          font-size: 13px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all .15s;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .sm-page-btn:hover:not(:disabled) { background: rgba(99,102,241,0.15); border-color: rgba(99,102,241,0.3); color: white; }
+        .sm-page-btn:disabled { opacity: .35; cursor: not-allowed; }
+        .sm-page-btn.active {
+          background: linear-gradient(135deg, #4F46E5, #6366F1);
+          border-color: transparent;
+          color: white;
+        }
+        .sm-page-ellipsis {
+          color: rgba(255,255,255,0.25);
+          font-size: 13px;
+          padding: 0 4px;
+        }
+
+        .sm-results-count {
+          font-size: 12px;
+          color: rgba(255,255,255,0.3);
+          margin: 0 0 12px;
+        }
 
         .sm-metrics-grid {
           display: grid;
@@ -400,8 +537,7 @@ const StockMovements = () => {
         .sm-fade-in { animation: sm-fade-in .25s ease both; }
       `}</style>
 
-      <div style={{ maxWidth: 760, margin: "0 auto", padding: "32px 16px" }}>
-
+        <div style={{ maxWidth: 1180, margin: "0 auto", padding: "32px 20px" }}>
         {/* Volver */}
         <div style={{ marginBottom: 32 }}>
           <ArrowBackButton />
@@ -479,20 +615,48 @@ const StockMovements = () => {
           </div>
 
           {/* Cliente */}
-          <div>
+          <div style={{ position: "relative" }}>
             <label className="sm-field-label">Cliente (opcional)</label>
-            <select
-              className="sm-select"
-              value={selectedClient}
-              onChange={(e) => setSelectedClient(e.target.value)}
-            >
-              <option value="">Todos los clientes</option>
-              {clientsList.map((c) => (
-                <option key={c.id} value={c.name}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+            <div className="sm-search-wrap">
+              <input
+                type="text"
+                className="sm-input"
+                placeholder="Todos los clientes (escribe para buscar)..."
+                value={clientSearch}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setClientSearch(val);
+                  setSelectedClient("");
+                  setShowClientDropdown(true);
+                }}
+                onFocus={() => setShowClientDropdown(true)}
+                onBlur={() => setTimeout(() => setShowClientDropdown(false), 150)}
+              />
+              {clientSearch && (
+                <button
+                  type="button"
+                  className="sm-clear-btn"
+                  onClick={handleClearClient}
+                  title="Ver todos los clientes"
+                  aria-label="Limpiar filtro de cliente"
+                >
+                  ×
+                </button>
+              )}
+            </div>
+            {showClientDropdown && clientSearch && filteredClients.length > 0 && (
+              <ul className="sm-dropdown-list">
+                {filteredClients.map((c) => (
+                  <li
+                    key={c.id}
+                    className="sm-dropdown-item"
+                    onMouseDown={() => handleSelectClient(c.name)}
+                  >
+                    {c.name}
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
 
           {/* Error */}
@@ -538,7 +702,7 @@ const StockMovements = () => {
 
             <hr className="sm-divider" />
 
-            {/* Lista o vacío */}
+            {/* Tabla o vacío */}
             {movements.length === 0 ? (
               <div className="sm-empty">
                 <p style={{ fontSize: 13, color: "rgba(255,255,255,0.25)", margin: 0 }}>
@@ -547,45 +711,90 @@ const StockMovements = () => {
                 </p>
               </div>
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {movements.map((m, i) => {
-                  const esEntrada = m.tipo === "entrada";
-                  return (
-                    <div
-                      key={i}
-                      className={`sm-card sm-fade-in ${esEntrada ? "entrada" : "salida"}`}
-                      style={{ animationDelay: `${Math.min(i, 8) * 0.03}s` }}
+              <>
+                <p className="sm-results-count">
+                  Mostrando {(currentPage - 1) * ITEMS_PER_PAGE + 1}–
+                  {Math.min(currentPage * ITEMS_PER_PAGE, movements.length)} de {movements.length} movimientos · más reciente primero
+                </p>
+
+                <div className="sm-table-wrap">
+                  <table className="sm-table">
+                    <thead>
+                      <tr>
+                        <th>Fecha</th>
+                        <th>Origen</th>
+                        <th>Tipo</th>
+                        <th>Cantidad</th>
+                        <th>Detalle</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pagedMovements.map((m, i) => {
+                        const esEntrada = m.tipo === "entrada";
+                        return (
+                          <tr key={i} className={esEntrada ? "entrada" : "salida"}>
+                            <td className="sm-td-fecha">{new Date(m.fecha).toLocaleString("es-CL")}</td>
+                            <td>
+                              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                <span className={`sm-icon-circle ${esEntrada ? "entrada" : "salida"}`} style={{ width: 22, height: 22 }}>
+                                  {esEntrada ? <IconUp /> : <IconDown />}
+                                </span>
+                                {m.origen}
+                              </div>
+                            </td>
+                            <td>
+                              <span className={`sm-badge ${esEntrada ? "entrada" : "salida"}`}>
+                                {esEntrada ? "entrada" : "salida"}
+                              </span>
+                            </td>
+                            <td className="sm-td-cantidad" style={{ color: esEntrada ? "#6EE7B7" : "#FCA5A5" }}>
+                              {esEntrada ? "+" : "-"}{m.cantidad.toLocaleString("es-CL")} {m.unidad}
+                            </td>
+                            <td>
+                              <div className="sm-td-detalle">{renderDetalleCell(m)}</div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {totalPages > 1 && (
+                  <div className="sm-pagination">
+                    <button
+                      type="button"
+                      className="sm-page-btn"
+                      disabled={currentPage === 1}
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                     >
-                      {/* Fila principal */}
-                      <div className="sm-card-top">
-                        <div className="sm-card-left">
-                          <span className={`sm-icon-circle ${esEntrada ? "entrada" : "salida"}`}>
-                            {esEntrada ? <IconUp /> : <IconDown />}
-                          </span>
-                          <span className={`sm-badge ${esEntrada ? "entrada" : "salida"}`}>
-                            {esEntrada ? "entrada" : "salida"}
-                          </span>
-                          <span style={{ fontSize: 14, fontWeight: 500, color: "rgba(255,255,255,0.9)" }}>
-                            {m.origen}
-                          </span>
-                        </div>
-
-                        <div className="sm-card-right">
-                          <span style={{ fontSize: 15, fontWeight: 500, color: esEntrada ? "#6EE7B7" : "#FCA5A5" }}>
-                            {esEntrada ? "+" : "-"}{m.cantidad.toLocaleString("es-CL")} {m.unidad}
-                          </span>
-                          <span style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", whiteSpace: "nowrap" }}>
-                            {new Date(m.fecha).toLocaleString("es-CL")}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Detalle */}
-                      {renderDetalle(m)}
-                    </div>
-                  );
-                })}
-              </div>
+                      <FiChevronLeft size={14} /> Anterior
+                    </button>
+                    {getPageNumbers().map((p, idx) =>
+                      p === "..." ? (
+                        <span key={`ellipsis-${idx}`} className="sm-page-ellipsis">…</span>
+                      ) : (
+                        <button
+                          key={p}
+                          type="button"
+                          className={`sm-page-btn ${currentPage === p ? "active" : ""}`}
+                          onClick={() => setCurrentPage(p)}
+                        >
+                          {p}
+                        </button>
+                      )
+                    )}
+                    <button
+                      type="button"
+                      className="sm-page-btn"
+                      disabled={currentPage === totalPages}
+                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    >
+                      Siguiente <FiChevronRight size={14} />
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}

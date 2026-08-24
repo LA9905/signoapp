@@ -15,6 +15,7 @@ interface Producto {
   cantidad: number;
   unidad: string;
   category?: string;
+  imageFile?: File;
 }
 interface FormularioDespacho {
   orden: string;
@@ -151,7 +152,17 @@ const CreateDispatch = () => {
       const newProducts = form.productos.filter((p) => !productos.some((ep) => ep.id === p.id));
       for (const product of newProducts) {
         try {
-          await api.post("/products", { name: product.name, category: product.category || "Otros" });
+          if (product.imageFile) {
+            const fd = new FormData();
+            fd.append("name", product.name);
+            fd.append("category", product.category || "Otros");
+            fd.append("image", product.imageFile);
+            await api.post("/products", fd, {
+              headers: { "Content-Type": "multipart/form-data" },
+            });
+          } else {
+            await api.post("/products", { name: product.name, category: product.category || "Otros" });
+          }
         } catch (err: unknown) {
           const error = err as AxiosError<ApiError>;
           const msg = error.response?.data?.error || error.response?.data?.msg || "Error al crear producto";
