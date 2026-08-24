@@ -13,6 +13,12 @@ interface Product {
   name: string;
   category: string;
   created_by: string;
+  created_by_name?: string | null;
+  created_at?: string | null;
+  edited_by?: string | null;
+  edited_by_name?: string | null;
+  edited_at?: string | null;
+  image_url?: string | null;
   stock: number;
   usage?: number;
 }
@@ -62,6 +68,10 @@ const ProductList = () => {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editName, setEditName] = useState("");
   const [editCategory, setEditCategory] = useState("");
+  const [editImageFile, setEditImageFile] = useState<File | null>(null);
+  const [editImagePreview, setEditImagePreview] = useState<string | null>(null);
+  const [editRemoveImage, setEditRemoveImage] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [canEditStock, setCanEditStock] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState<string>("");
@@ -131,6 +141,9 @@ const ProductList = () => {
     setEditingId(p.id);
     setEditName(p.name);
     setEditCategory(p.category);
+    setEditImageFile(null);
+    setEditImagePreview(p.image_url ?? null);
+    setEditRemoveImage(false);
     saveScrollPosition();
   };
 
@@ -138,6 +151,24 @@ const ProductList = () => {
     setEditingId(null);
     setEditName("");
     setEditCategory("");
+    setEditImageFile(null);
+    setEditImagePreview(null);
+    setEditRemoveImage(false);
+  };
+
+  const handleEditImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setEditImageFile(file);
+      setEditRemoveImage(false);
+      setEditImagePreview(URL.createObjectURL(file));
+    }
+  };
+
+  const handleRemoveEditImage = () => {
+    setEditImageFile(null);
+    setEditRemoveImage(true);
+    setEditImagePreview(null);
   };
 
   const saveScrollPosition = () => {
@@ -156,7 +187,19 @@ const ProductList = () => {
     const scrollBefore = containerRef.current?.scrollTop ?? 0;
 
     try {
-      const resp = await api.put<Product>(`/products/${id}`, { name, category: editCategory });
+      let resp;
+      if (editImageFile || editRemoveImage) {
+        const fd = new FormData();
+        fd.append("name", name);
+        fd.append("category", editCategory);
+        if (editImageFile) fd.append("image", editImageFile);
+        if (editRemoveImage) fd.append("delete_image", "1");
+        resp = await api.put<Product>(`/products/${id}`, fd, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+      } else {
+        resp = await api.put<Product>(`/products/${id}`, { name, category: editCategory });
+      }
       const updated = resp.data;
       justSavedRef.current = true;
 
@@ -166,6 +209,9 @@ const ProductList = () => {
         setEditingId(null);
         setEditName("");
         setEditCategory("");
+        setEditImageFile(null);
+        setEditImagePreview(null);
+        setEditRemoveImage(false);
       });
 
       justSavedRef.current = false;
@@ -615,42 +661,145 @@ const ProductList = () => {
                           </div>
                         </div>
                       </div>
-                    ) : (
+                                        ) : (
                       /* ── Edit mode ── */
-                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
-                        <input
-                          value={editName}
-                          onChange={(e) => setEditName(e.target.value)}
-                          className="input-dark font-ui flex-1 w-full px-3 py-2 rounded-xl text-sm"
-                          placeholder="Nombre del producto"
-                        />
-                        <select
-                          value={editCategory}
-                          onChange={(e) => setEditCategory(e.target.value)}
-                          className="select-dark font-ui flex-1 w-full px-3 py-2 rounded-xl text-sm"
+                      <div className="flex flex-col gap-3">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                          <input
+                            value={editName}
+                            onChange={(e) => setEditName(e.target.value)}
+                            className="input-dark font-ui flex-1 w-full px-3 py-2 rounded-xl text-sm"
+                            placeholder="Nombre del producto"
+                          />
+                          <select
+                            value={editCategory}
+                            onChange={(e) => setEditCategory(e.target.value)}
+                            className="select-dark font-ui flex-1 w-full px-3 py-2 rounded-xl text-sm"
+                          >
+                            {categories.map((c) => (
+                              <option key={c} value={c}>{c}</option>
+                            ))}
+                          </select>
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            <button className="icon-btn icon-btn-save" title="Guardar" aria-label="Guardar" onClick={() => saveEdit(product.id)}>
+                              <FaSave size={13} />
+                            </button>
+                            <button className="icon-btn" title="Cancelar" aria-label="Cancelar" onClick={cancelEdit}>
+                              <FaTimes size={13} />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Auditoría (creación / edición) + imagen del producto — solo visible al editar */}
+                        <div
+                          className="rounded-xl p-3 flex flex-col sm:flex-row gap-4"
+                          style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}
                         >
-                          {categories.map((c) => (
-                            <option key={c} value={c}>{c}</option>
-                          ))}
-                        </select>
-                        <div className="flex items-center gap-1 flex-shrink-0">
-                          <button className="icon-btn icon-btn-save" title="Guardar" aria-label="Guardar" onClick={() => saveEdit(product.id)}>
-                            <FaSave size={13} />
-                          </button>
-                          <button className="icon-btn" title="Cancelar" aria-label="Cancelar" onClick={cancelEdit}>
-                            <FaTimes size={13} />
-                          </button>
+                          <div className="flex-1 min-w-0 space-y-1.5 font-mono text-xs text-white/40">
+                            <p>
+                              <span className="text-white/25">Creado por: </span>
+                              <span className="text-white/60">{product.created_by_name || "—"}</span>
+                            </p>
+                            <p>
+                              <span className="text-white/25">Fecha de creación: </span>
+                              <span className="text-white/60">
+                                {product.created_at
+                                  ? new Date(product.created_at).toLocaleString("es-CL", {
+                                      day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit",
+                                    })
+                                  : "—"}
+                              </span>
+                            </p>
+                            <p>
+                              <span className="text-white/25">Editado por: </span>
+                              <span className="text-white/60">{product.edited_by_name || "—"}</span>
+                            </p>
+                            <p>
+                              <span className="text-white/25">Última edición: </span>
+                              <span className="text-white/60">
+                                {product.edited_at
+                                  ? new Date(product.edited_at).toLocaleString("es-CL", {
+                                      day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit",
+                                    })
+                                  : "—"}
+                              </span>
+                            </p>
+                          </div>
+
+                          <div className="flex flex-col items-start gap-2 flex-shrink-0">
+                            <span className="font-mono text-xs text-white/25">Imagen del producto (opcional)</span>
+                            <div className="flex items-center gap-3">
+                              {editImagePreview ? (
+                                <img
+                                  src={editImagePreview}
+                                  alt={editName}
+                                  className="w-16 h-16 rounded-lg object-cover border border-white/10 flex-shrink-0 cursor-pointer hover:border-white/30 transition-colors"
+                                  onClick={() => setSelectedImage(editImagePreview)}
+                                  title="Ver imagen en grande"
+                                />
+                              ) : (
+                                <div className="w-16 h-16 rounded-lg flex items-center justify-center border border-dashed border-white/10 text-white/15 flex-shrink-0">
+                                  <FiPackage size={20} />
+                                </div>
+                              )}
+                              <div className="flex flex-col gap-1.5">
+                                <label
+                                  className="icon-btn icon-btn-edit cursor-pointer text-xs font-ui flex items-center justify-center px-2"
+                                  style={{ width: "auto" }}
+                                >
+                                  Subir
+                                  <input type="file" accept="image/*" className="hidden" onChange={handleEditImageChange} />
+                                </label>
+                                {editImagePreview && (
+                                  <button
+                                    type="button"
+                                    className="icon-btn icon-btn-del text-xs font-ui flex items-center justify-center px-2"
+                                    style={{ width: "auto" }}
+                                    onClick={handleRemoveEditImage}
+                                  >
+                                    Quitar
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     )}
                   </div>
                 );
               })}
-            </div>
+                        </div>
           </div>
         ))}
 
       </div>
+
+      {/* Image lightbox */}
+      {selectedImage && (
+        <div
+          className="fixed inset-0 flex items-center justify-center z-50 px-4"
+          style={{ background: "rgba(0,0,0,0.85)", backdropFilter: "blur(6px)" }}
+          onClick={() => setSelectedImage(null)}
+        >
+          <div className="relative max-w-full max-h-full">
+            <img
+              src={selectedImage}
+              alt="Imagen en grande"
+              style={{ maxWidth: "90vw", maxHeight: "90vh", objectFit: "contain", borderRadius: "16px" }}
+            />
+            <button
+              className="absolute top-3 right-3 flex items-center justify-center w-8 h-8 rounded-full"
+              style={{ background: "rgba(248,113,113,0.9)", minWidth: "32px", minHeight: "32px" }}
+              onClick={() => setSelectedImage(null)}
+            >
+              <span style={{ display: "flex", alignItems: "center", justifyContent: "center", color: "white", lineHeight: 0 }}>
+                <FaTimes size={16} color="white" />
+              </span>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

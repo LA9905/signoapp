@@ -1,10 +1,14 @@
 from flask import Blueprint, request, jsonify, current_app
 from app.models.product_model import Product
+from app.models.user_model import User
 from app import db
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from jwt import decode
 from sqlalchemy import func
+from app.utils.timezone import utcnow
 import unicodedata
+import cloudinary
+import cloudinary.uploader
 
 def normalize_product_name(name: str) -> str:
     """Elimina acentos y espacios internos para comparar nombres de productos."""
@@ -37,20 +41,62 @@ def normalize_db_column(col):
         col = f.replace(col, accented, plain)
     return col
 
+def get_product_image_public_id(url):
+    """Extrae el public_id de Cloudinary a partir de la URL de la imagen del producto."""
+    try:
+        parts = url.split('/')
+        if len(parts) > 7:
+            folder = parts[-2]
+            filename = parts[-1].split('.')[0]
+            return f"{folder}/{filename}"
+    except Exception:
+        pass
+    return None
+
+
+def _serialize_product(product):
+    """Serializa un producto agregando el nombre de quien lo creó y de quien editó el nombre."""
+    d = product.to_dict()
+    ids = {product.created_by, product.edited_by} - {None}
+    users_by_id = {}
+    if ids:
+        int_ids = []
+        for uid in ids:
+            try:
+                int_ids.append(int(uid))
+            except (TypeError, ValueError):
+                pass
+        if int_ids:
+            for u in User.query.filter(User.id.in_(int_ids)).all():
+                users_by_id[str(u.id)] = u.name
+    d["created_by_name"] = users_by_id.get(str(product.created_by)) if product.created_by else None
+    d["edited_by_name"] = users_by_id.get(str(product.edited_by)) if product.edited_by else None
+    return d
+
+
 product_bp = Blueprint('products', __name__)
 
 @product_bp.route('/products', methods=['POST'])
 @jwt_required()
 def create_product():
     try:
-        data = request.get_json()
-        if not data:
-            return jsonify({"error": "No se recibió un cuerpo JSON válido"}), 400
+        is_multipart = bool(request.content_type) and request.content_type.startswith("multipart/form-data")
+        image_file = None
 
-        name_raw = (data.get("name") or "").strip()
-        category = (data.get("category") or "").strip() or "Otros"
+        if is_multipart:
+            name_raw = (request.form.get("name") or "").strip()
+            category = (request.form.get("category") or "").strip() or "Otros"
+            stock = float(request.form.get("stock") or 0)
+            image_file = request.files.get("image")
+        else:
+            data = request.get_json()
+            if not data:
+                return jsonify({"error": "No se recibió un cuerpo JSON válido"}), 400
+            name_raw = (data.get("name") or "").strip()
+            category = (data.get("category") or "").strip() or "Otros"
+            stock = float(data.get("stock") or 0)
+
         user = get_jwt_identity()
-        stock = float(data.get("stock") or 0)
 
         if not name_raw:
             return jsonify({"error": "El campo 'name' es requerido"}), 400
@@ -65,9 +111,15 @@ def create_product():
             return jsonify({"error": "Ya existe un producto con ese nombre"}), 409
 
         new_product = Product(name=name_norm, category=category, created_by=user, stock=stock)
+
+        # Imagen opcional del producto (solo si viene un archivo real)
+        if image_file:
+            upload_result = cloudinary.uploader.upload(image_file, folder="products")
+            new_product.image_url = upload_result.get("secure_url")
+
         db.session.add(new_product)
         db.session.commit()
-        return jsonify(new_product.to_dict()), 201
+        return jsonify(_serialize_product(new_product)), 201
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": "Error interno del servidor", "details": str(e)}), 500
@@ -88,10 +140,30 @@ def list_products():
 
     usage_dict = {lower_name: float(usage or 0) for lower_name, usage in usages}
 
+    # Resolver en un solo query los nombres de quienes crearon/editaron productos
+    user_ids = set()
+    for p in products:
+        if p.created_by:
+            user_ids.add(p.created_by)
+        if p.edited_by:
+            user_ids.add(p.edited_by)
+    int_ids = []
+    for uid in user_ids:
+        try:
+            int_ids.append(int(uid))
+        except (TypeError, ValueError):
+            pass
+    users_by_id = {}
+    if int_ids:
+        for u in User.query.filter(User.id.in_(int_ids)).all():
+            users_by_id[str(u.id)] = u.name
+
     result = []
     for p in products:
         dict_p = p.to_dict()
         dict_p['usage'] = usage_dict.get(p.name.lower(), 0.0)
+        dict_p['created_by_name'] = users_by_id.get(str(p.created_by)) if p.created_by else None
+        dict_p['edited_by_name'] = users_by_id.get(str(p.edited_by)) if p.edited_by else None
         result.append(dict_p)
 
     if search:
@@ -111,10 +183,22 @@ def update_product(product_id):
         from app.models.credit_note_model import CreditNoteProduct
         from app.models.internal_consumption_model import InternalConsumptionProduct
 
-        data = request.get_json() or {}
-        name = data.get("name")
-        category = data.get("category")
-        stock = data.get("stock")  # opcional
+        is_multipart = bool(request.content_type) and request.content_type.startswith("multipart/form-data")
+        image_file = None
+        delete_image = False
+
+        if is_multipart:
+            name = request.form.get("name")
+            category = request.form.get("category")
+            stock = request.form.get("stock")
+            delete_image = request.form.get("delete_image") == "1"
+            image_file = request.files.get("image")
+        else:
+            data = request.get_json() or {}
+            name = data.get("name")
+            category = data.get("category")
+            stock = data.get("stock")  # opcional
+            delete_image = bool(data.get("delete_image"))
 
         if not name or not category:
             return jsonify({"error": "Los campos 'name' y 'category' son requeridos"}), 400
@@ -132,6 +216,7 @@ def update_product(product_id):
 
         old_name = product.name
         new_name = (name or "").strip()
+        name_changed = old_name.lower() != new_name.lower()
 
         product.name = new_name
         product.category = category
@@ -140,6 +225,33 @@ def update_product(product_id):
                 product.stock = float(stock)
             except Exception:
                 pass
+
+        # Registrar quién y cuándo editó el nombre del producto
+        if name_changed:
+            product.edited_by = get_jwt_identity()
+            product.edited_at = utcnow()
+
+        # Imagen: eliminar si se solicitó explícitamente
+        if delete_image and product.image_url:
+            old_public_id = get_product_image_public_id(product.image_url)
+            if old_public_id:
+                try:
+                    cloudinary.uploader.destroy(old_public_id)
+                except Exception:
+                    pass
+            product.image_url = None
+
+        # Imagen: subir una nueva (reemplaza la anterior si existía)
+        if image_file:
+            if product.image_url:
+                old_public_id = get_product_image_public_id(product.image_url)
+                if old_public_id:
+                    try:
+                        cloudinary.uploader.destroy(old_public_id)
+                    except Exception:
+                        pass
+            upload_result = cloudinary.uploader.upload(image_file, folder="products")
+            product.image_url = upload_result.get("secure_url")
 
         # Propagar el nuevo nombre a todas las tablas relacionadas
         if old_name.lower() != new_name.lower():
@@ -164,7 +276,7 @@ def update_product(product_id):
             ).update({"nombre": new_name}, synchronize_session=False)
 
         db.session.commit()
-        return jsonify(product.to_dict()), 200
+        return jsonify(_serialize_product(product)), 200
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": "Error actualizando producto", "details": str(e)}), 500
