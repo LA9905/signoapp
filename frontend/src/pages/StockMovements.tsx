@@ -61,6 +61,10 @@ const StockMovements = () => {
   const [selectedClient, setSelectedClient] = useState<string>("");
   const [clientSearch, setClientSearch] = useState<string>("");
   const [showClientDropdown, setShowClientDropdown] = useState(false);
+  const [suppliersList, setSuppliersList] = useState<{ id: number; name: string }[]>([]);
+  const [selectedSupplier, setSelectedSupplier] = useState<string>("");
+  const [supplierSearch, setSupplierSearch] = useState<string>("");
+  const [showSupplierDropdown, setShowSupplierDropdown] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 15;
 
@@ -75,6 +79,13 @@ const StockMovements = () => {
     api
       .get<{ id: number; name: string }[]>("/clients")
       .then((res) => setClientsList(res.data))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    api
+      .get<{ id: number; name: string }[]>("/suppliers")
+      .then((res) => setSuppliersList(res.data))
       .catch(() => {});
   }, []);
 
@@ -98,9 +109,24 @@ const StockMovements = () => {
     setShowClientDropdown(false);
   };
 
-    const handleClearClient = () => {
+  const handleClearClient = () => {
     setSelectedClient("");
     setClientSearch("");
+  };
+
+  const filteredSuppliers = suppliersList.filter((s) =>
+    normalizeSearch(s.name).includes(normalizeSearch(supplierSearch))
+  );
+
+  const handleSelectSupplier = (name: string) => {
+    setSelectedSupplier(name);
+    setSupplierSearch(name);
+    setShowSupplierDropdown(false);
+  };
+
+  const handleClearSupplier = () => {
+    setSelectedSupplier("");
+    setSupplierSearch("");
   };
 
   const handleSearch = async () => {
@@ -114,6 +140,7 @@ const StockMovements = () => {
     try {
       const params: Record<string, string> = { product: selectedProduct };
       if (selectedClient) params.client = selectedClient;
+      if (selectedSupplier) params.supplier = selectedSupplier;
       if (dateFrom) params.date_from = dateFrom;
       if (dateTo) params.date_to = dateTo;
 
@@ -680,6 +707,51 @@ const StockMovements = () => {
                     onMouseDown={() => handleSelectClient(c.name)}
                   >
                     {c.name}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {/* Proveedor */}
+          <div style={{ position: "relative" }}>
+            <label className="sm-field-label">Proveedor (opcional)</label>
+            <div className="sm-search-wrap">
+              <input
+                type="text"
+                className="sm-input"
+                placeholder="Todos los proveedores (escribe para buscar)..."
+                value={supplierSearch}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setSupplierSearch(val);
+                  setSelectedSupplier("");
+                  setShowSupplierDropdown(true);
+                }}
+                onFocus={() => setShowSupplierDropdown(true)}
+                onBlur={() => setTimeout(() => setShowSupplierDropdown(false), 150)}
+              />
+              {supplierSearch && (
+                <button
+                  type="button"
+                  className="sm-clear-btn"
+                  onClick={handleClearSupplier}
+                  title="Ver todos los proveedores"
+                  aria-label="Limpiar filtro de proveedor"
+                >
+                  ×
+                </button>
+              )}
+            </div>
+            {showSupplierDropdown && supplierSearch && filteredSuppliers.length > 0 && (
+              <ul className="sm-dropdown-list">
+                {filteredSuppliers.map((s) => (
+                  <li
+                    key={s.id}
+                    className="sm-dropdown-item"
+                    onMouseDown={() => handleSelectSupplier(s.name)}
+                  >
+                    {s.name}
                   </li>
                 ))}
               </ul>
