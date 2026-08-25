@@ -408,11 +408,38 @@ const StockMovements = () => {
           margin: 0 0 12px;
         }
 
+        .sm-mobile-card {
+          border-radius: 12px;
+          padding: 12px 14px;
+          background: rgba(30,40,80,0.3);
+          border: 1px solid rgba(99,102,241,0.15);
+          border-left-width: 3px;
+        }
+        .sm-mobile-card.entrada { border-left-color: rgba(52,211,153,0.65); }
+        .sm-mobile-card.salida { border-left-color: rgba(248,113,113,0.65); }
+        .sm-mobile-card-top {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          flex-wrap: wrap;
+        }
+        .sm-mobile-card-fecha {
+          font-size: 11px;
+          color: rgba(255,255,255,0.4);
+          margin: 6px 0 10px;
+        }
+
         .sm-metrics-grid {
           display: grid;
           grid-template-columns: repeat(3, minmax(0,1fr));
-          gap: 12px;
+          gap: 8px;
           margin-bottom: 20px;
+        }
+        @media (max-width: 480px) {
+          .sm-metrics-grid { gap: 6px; }
+          .sm-metric { padding: 10px 10px; }
+          .sm-metric-value { font-size: 18px; }
         }
         .sm-metric {
           border-radius: 12px;
@@ -593,7 +620,7 @@ const StockMovements = () => {
           </div>
 
           {/* Fechas */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: 12 }}>
             <div>
               <label className="sm-field-label">Desde (opcional)</label>
               <input
@@ -717,7 +744,7 @@ const StockMovements = () => {
                   {Math.min(currentPage * ITEMS_PER_PAGE, movements.length)} de {movements.length} movimientos · más reciente primero
                 </p>
 
-                <div className="sm-table-wrap">
+                <div className="sm-table-wrap hidden md:block">
                   <table className="sm-table">
                     <thead>
                       <tr>
@@ -756,8 +783,39 @@ const StockMovements = () => {
                           </tr>
                         );
                       })}
-                    </tbody>
+                                        </tbody>
                   </table>
+                </div>
+
+                {/* Vista móvil: tarjetas apiladas, sin scroll horizontal */}
+                <div className="md:hidden flex flex-col gap-3">
+                  {pagedMovements.map((m, i) => {
+                    const esEntrada = m.tipo === "entrada";
+                    return (
+                      <div key={i} className={`sm-mobile-card ${esEntrada ? "entrada" : "salida"}`}>
+                        <div className="sm-mobile-card-top">
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <span className={`sm-icon-circle ${esEntrada ? "entrada" : "salida"}`} style={{ width: 24, height: 24 }}>
+                              {esEntrada ? <IconUp /> : <IconDown />}
+                            </span>
+                            <span style={{ fontSize: 14, fontWeight: 500, color: "rgba(255,255,255,0.9)" }}>
+                              {m.origen}
+                            </span>
+                            <span className={`sm-badge ${esEntrada ? "entrada" : "salida"}`}>
+                              {esEntrada ? "entrada" : "salida"}
+                            </span>
+                          </div>
+                          <span className="sm-td-cantidad" style={{ color: esEntrada ? "#6EE7B7" : "#FCA5A5" }}>
+                            {esEntrada ? "+" : "-"}{m.cantidad.toLocaleString("es-CL")} {m.unidad}
+                          </span>
+                        </div>
+                        <p className="sm-mobile-card-fecha">{new Date(m.fecha).toLocaleString("es-CL")}</p>
+                        <div className="sm-td-detalle" style={{ maxWidth: "none" }}>
+                          {renderDetalleCell(m)}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
 
                 {totalPages > 1 && (

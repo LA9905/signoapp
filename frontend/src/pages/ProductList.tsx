@@ -360,6 +360,8 @@ const ProductList = () => {
 
         .adj-btn {
           width: 28px; height: 28px;
+          padding: 0;
+          line-height: 1;
           display: flex; align-items: center; justify-content: center;
           border-radius: 6px;
           border: 1px solid rgba(255,255,255,0.3);
@@ -373,8 +375,10 @@ const ProductList = () => {
         .adj-btn-sub:hover { background: rgba(248,113,113,0.15); border-color: rgba(248,113,113,0.4); color: #F87171; }
         .adj-btn-add:hover { background: rgba(52,211,153,0.15); border-color: rgba(52,211,153,0.4); color: #34D399; }
 
-        icon-btn {
+        .icon-btn {
           width: 28px; height: 28px;
+          padding: 0;
+          line-height: 0;
           display: flex; align-items: center; justify-content: center;
           border-radius: 7px;
           border: 1px solid rgba(255,255,255,0.3); /* Borde más visible */
@@ -383,6 +387,16 @@ const ProductList = () => {
           transition: all 0.15s;
           cursor: pointer;
           flex-shrink: 0;
+        }
+        .icon-btn svg {
+          display: block;
+          flex-shrink: 0;
+        }
+
+        @media (max-width: 420px) {
+          .adj-btn { width: 24px; height: 24px; font-size: 13px; }
+          .icon-btn { width: 24px; height: 24px; }
+          .icon-btn svg { width: 12px; height: 12px; }
         }
 
         .icon-btn:hover { background: rgba(255,255,255,0.65); color: white; border-color: rgba(255,255,255,0.65); }
@@ -601,9 +615,9 @@ const ProductList = () => {
                           </span>
                         </div>
 
-                          <div className="flex items-center justify-between gap-3">
+                          <div className="flex items-center justify-between gap-1 sm:gap-3">
                           {/* Stock controls */}
-                          <div className="flex items-center gap-2 flex-shrink-0">
+                          <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0 min-w-0">
                             {canEditStock && (!adj || adj.mode !== "sub") && (
                               <button className="adj-btn adj-btn-sub" title="Restar" onClick={() => beginAdjust(product.id, "sub")}>−</button>
                             )}
@@ -612,7 +626,7 @@ const ProductList = () => {
                                 autoFocus
                                 inputMode="decimal"
                                 type="number"
-                                className="input-dark font-mono w-20 px-3 py-1.5 rounded-xl text-sm text-right"
+                                className="input-dark font-mono w-14 sm:w-20 px-1.5 sm:px-3 py-1.5 rounded-xl text-xs sm:text-sm text-right"
                                 value={adj.value}
                                 onChange={(e) => setAdjust((prev) => ({ ...prev, [product.id]: { ...prev[product.id], value: e.target.value } }))}
                                 onBlur={() => commitAdjust(product)}
@@ -623,14 +637,14 @@ const ProductList = () => {
                               <input
                                 type="text"
                                 inputMode="decimal"
-                                className={`input-dark font-mono w-24 px-3 py-1.5 rounded-xl text-sm text-right ${stockColorClass}`}
+                                className={`input-dark font-mono w-16 sm:w-24 px-1.5 sm:px-3 py-1.5 rounded-xl text-xs sm:text-sm text-right ${stockColorClass}`}
                                 value={stockValue}
                                 onChange={(e) => setStockDraft(product.id, e.target.value)}
                                 onBlur={() => commitSetStock(product)}
                               />
                             ) : (
-                              <span className={`stock-chip font-mono w-24 text-right inline-block ${stockColorClass}`}>
-                                Stock: {stockValue}
+                              <span className={`stock-chip font-mono w-16 sm:w-24 text-right inline-block ${stockColorClass}`} style={{ fontSize: "11px" }}>
+                                <span className="hidden sm:inline">Stock: </span>{stockValue}
                               </span>
                             )}
 
@@ -642,7 +656,7 @@ const ProductList = () => {
                                 autoFocus
                                 inputMode="decimal"
                                 type="number"
-                                className="input-dark font-mono w-20 px-3 py-1.5 rounded-xl text-sm text-right"
+                                className="input-dark font-mono w-14 sm:w-20 px-1.5 sm:px-3 py-1.5 rounded-xl text-xs sm:text-sm text-right"
                                 value={adj.value}
                                 onChange={(e) => setAdjust((prev) => ({ ...prev, [product.id]: { ...prev[product.id], value: e.target.value } }))}
                                 onBlur={() => commitAdjust(product)}
@@ -651,7 +665,7 @@ const ProductList = () => {
                           </div>
 
                           {/* Action buttons */}
-                          <div className="flex items-center gap-2 flex-shrink-0">
+                          <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
                             <button className="icon-btn icon-btn-edit" onClick={() => startEdit(product)}>
                               <FaRegEdit size={14} />
                             </button>
