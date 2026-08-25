@@ -6,6 +6,16 @@ import ArrowBackButton from "../components/ArrowBackButton";
 import { api } from "../services/http";
 import type { AxiosError } from "axios";
 
+// new Date().toISOString() devuelve la fecha en UTC, no en hora local de
+// Chile — se usa la fecha local para que el valor por defecto del selector
+// coincida con "hoy" en Chile, sin importar la hora del navegador.
+function getLocalDateString(): string {
+  const now = new Date();
+  const offsetMs = now.getTimezoneOffset() * 60000;
+  const local = new Date(now.getTime() - offsetMs);
+  return local.toISOString().slice(0, 10);
+}
+
 interface Producto {
   id: string;
   name: string;
@@ -14,12 +24,12 @@ interface Producto {
   category?: string;
   imageFile?: File;
 }
-
 interface FormularioConsumo {
   nombre_retira: string;
   area: string;
   motivo: string;
   productos: Producto[];
+  fecha: string;
 }
 
 const areas = [
@@ -29,7 +39,7 @@ const areas = [
   "Facturación",
   "Atención al Cliente",
   "Recursos Humanos",
-  "Almacén",
+  "Almacén - Bodega",
   "Ventas",
   "Mantenimiento",
   "Impresión",
@@ -45,6 +55,7 @@ const CreateInternalConsumption = () => {
     area: "",
     motivo: "",
     productos: [],
+    fecha: getLocalDateString(),
   });
   const [mensaje, setMensaje] = useState<string>("");
 
@@ -95,6 +106,7 @@ const CreateInternalConsumption = () => {
           cantidad: p.cantidad,
           unidad: p.unidad,
         })),
+        fecha: form.fecha,
       };
 
       const newProducts = form.productos.filter(
@@ -479,6 +491,19 @@ const CreateInternalConsumption = () => {
                     ))}
                   </select>
                 </div>
+              </div>
+              <div>
+                <div className="field-label-ic">
+                  <FiFileText size={11} />
+                  Fecha del consumo <span style={{ color: "rgba(248,113,113,0.8)" }}>*</span>
+                </div>
+                <input
+                  type="date"
+                  name="fecha"
+                  value={form.fecha}
+                  onChange={handleChange}
+                  className="input-ic"
+                />
               </div>
             </div>
           </div>

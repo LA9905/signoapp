@@ -47,7 +47,7 @@ const areas: string[] = [
   "Facturación",
   "Atención al Cliente",
   "Recursos Humanos",
-  "Almacén",
+  "Almacén - Bodega",
   "Ventas",
   "Mantenimiento",
   "Impresión",
@@ -67,6 +67,7 @@ const InternalTracking = () => {
     area: string;
     motivo: string;
     productos: ProductoRow[];
+    fecha: string;
   } | null>(null);
   const [productNames, setProductNames] = useState<string[]>([]);
   const [productList, setProductList] = useState<{ name: string; usage: number }[]>([]);
@@ -244,6 +245,7 @@ const InternalTracking = () => {
       area: c.area,
       motivo: c.motivo,
       productos: c.productos.map((p) => ({ ...p })),
+      fecha: c.fecha.slice(0, 10),
     });
   };
 
@@ -277,6 +279,7 @@ const InternalTracking = () => {
         nombre_retira: draft.nombre_retira,
         area: draft.area,
         motivo: draft.motivo,
+        fecha: draft.fecha,
         productos: draft.productos.map((p) => ({
           nombre: p.nombre,
           cantidad: p.cantidad,
@@ -775,6 +778,15 @@ const InternalTracking = () => {
                               <option key={a} value={a}>{a}</option>
                             ))}
                           </select>
+                        </div>
+                        <div>
+                          <div className="field-label-it">Fecha del consumo</div>
+                          <input
+                            type="date"
+                            className="input-it w-full px-3 py-2.5"
+                            value={draft?.fecha || ""}
+                            onChange={(e) => setDraft((prev) => prev ? { ...prev, fecha: e.target.value } : prev)}
+                          />
                         </div>
                         <div className="sm:col-span-2">
                           <div className="field-label-it">Motivo</div>

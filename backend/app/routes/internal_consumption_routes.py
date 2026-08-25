@@ -28,13 +28,28 @@ def create_internal_consumption():
         motivo = data["motivo"]
         productos = data.get("productos", [])
 
+        # Fecha real a la que pertenece el consumo interno: por defecto
+        # "ahora", pero puede elegirse manualmente.
+        # Se conserva la hora actual del reloj y solo se
+        # reemplaza el día, para que el registro siga teniendo un timestamp realista.
+        fecha_str = (data.get("fecha") or "").strip()
+        now_local = datetime.now(CL_TZ)
+        if fecha_str:
+            try:
+                chosen_date = datetime.strptime(fecha_str, "%Y-%m-%d").date()
+            except ValueError:
+                return jsonify({"error": "Formato de fecha inválido, use YYYY-MM-DD"}), 400
+            local_dt = datetime.combine(chosen_date, now_local.timetz())
+        else:
+            local_dt = now_local
+
         new_consumption = InternalConsumption(
             nombre_retira=nombre_retira,
             area=area,
             motivo=motivo,
             created_by=user_id,
         )
-        new_consumption.fecha = to_utc_naive(datetime.now(CL_TZ))
+        new_consumption.fecha = to_utc_naive(local_dt)
 
         db.session.add(new_consumption)
 
@@ -184,6 +199,16 @@ def update_internal_consumption(id):
 
         if "motivo" in data and data["motivo"]:
             c.motivo = data["motivo"]
+
+        # Fecha real del consumo interno: si se envía, reemplaza el día
+        # conservando la hora original del registro.
+        if "fecha" in data and data.get("fecha"):
+            try:
+                chosen_date = datetime.strptime(data["fecha"], "%Y-%m-%d").date()
+            except ValueError:
+                return jsonify({"error": "Formato de fecha inválido, use YYYY-MM-DD"}), 400
+            hora_actual = to_local(c.fecha).timetz()
+            c.fecha = to_utc_naive(datetime.combine(chosen_date, hora_actual))
 
         if "productos" in data and isinstance(data["productos"], list):
             # Lógica de deltas de stock similar a update_dispatch
