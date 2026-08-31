@@ -7,6 +7,7 @@ import { FiDownload, FiPackage, FiSearch, FiFilter, FiArrowLeft } from "react-ic
 import { api } from "../services/http";
 import { me } from "../services/authService";
 import * as XLSX from "xlsx";
+import { useTheme } from "../context/ThemeContext";
 
 interface Product {
   id: number;
@@ -63,6 +64,8 @@ type AdjustState = Record<number, { mode: AdjustMode; value: string }>;
 type StockDraftState = Record<number, string | undefined>;
 
 const ProductList = () => {
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
   const [products, setProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -306,7 +309,7 @@ const ProductList = () => {
   const totalStock = filtered.reduce((sum, p) => sum + (p.stock ?? 0), 0);
 
   return (
-    <div className="bg-[#0A0D13] text-white min-h-[100dvh]" style={{ fontFamily: "'DM Mono', 'Fira Code', monospace" }}>
+    <div className="page-shell bg-[#0A0D13] text-white min-h-[100dvh]" style={{ fontFamily: "'DM Mono', 'Fira Code', monospace" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Barlow:wght@400;500;600;700;800&display=swap');
 
@@ -463,6 +466,110 @@ const ProductList = () => {
           }
         }
 
+        /* ─── Modo claro ─── */
+        body[data-theme="light"] .glass {
+          background: #FFFFFF;
+          border: 1px solid rgba(15,23,42,0.08);
+          box-shadow: 0 1px 3px rgba(15,23,42,0.04);
+        }
+        body[data-theme="light"] .glass-hover:hover {
+          background: rgba(99,102,241,0.04);
+          border-color: rgba(15,23,42,0.14);
+        }
+        body[data-theme="light"] .input-dark {
+          background: #FFFFFF;
+          border: 1px solid rgba(15,23,42,0.12);
+          color: #0F172A;
+        }
+        body[data-theme="light"] .input-dark::placeholder { color: rgba(15,23,42,0.3); }
+        body[data-theme="light"] .input-dark:focus {
+          border-color: rgba(59,130,246,0.6);
+          box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
+        }
+        body[data-theme="light"] .select-dark {
+          background: #FFFFFF;
+          border: 1px solid rgba(15,23,42,0.12);
+          color: rgba(15,23,42,0.75);
+        }
+        body[data-theme="light"] .select-dark option {
+          background: #FFFFFF;
+          color: #0F172A;
+        }
+        body[data-theme="light"] .cat-header {
+          color: rgba(15,23,42,0.7);
+        }
+        body[data-theme="light"] .cat-tag {
+          background: rgba(59,130,246,0.08);
+          color: #2563EB;
+          border: 1px solid rgba(59,130,246,0.2);
+        }
+        body[data-theme="light"] .row-product:hover {
+          background: rgba(15,23,42,0.02);
+        }
+        body[data-theme="light"] .icon-btn {
+          background: rgba(15,23,42,0.03);
+          border: 1px solid rgba(15,23,42,0.15);
+          color: rgba(15,23,42,0.7);
+        }
+        body[data-theme="light"] .icon-btn:hover {
+          background: rgba(15,23,42,0.5);
+          color: #FFFFFF;
+          border-color: rgba(15,23,42,0.5);
+        }
+        body[data-theme="light"] .icon-btn-edit {
+          color: #2563EB;
+          border-color: rgba(37,99,235,0.4);
+          background: rgba(37,99,235,0.06);
+        }
+        body[data-theme="light"] .icon-btn-edit:hover {
+          background: rgba(37,99,235,0.15);
+          border-color: #2563EB;
+          color: #2563EB;
+        }
+        body[data-theme="light"] .icon-btn-del {
+          color: #DC2626;
+          border-color: rgba(220,38,38,0.4);
+          background: rgba(220,38,38,0.06);
+        }
+        body[data-theme="light"] .icon-btn-del:hover {
+          background: rgba(220,38,38,0.15);
+          border-color: #DC2626;
+          color: #DC2626;
+        }
+        body[data-theme="light"] .icon-btn-save {
+          color: #059669;
+          border-color: rgba(5,150,105,0.35);
+          background: rgba(5,150,105,0.06);
+        }
+        body[data-theme="light"] .icon-btn-save:hover {
+          background: rgba(5,150,105,0.14);
+          border-color: #059669;
+          color: #059669;
+        }
+        body[data-theme="light"] .adj-btn {
+          border: 1px solid rgba(15,23,42,0.25);
+          color: rgba(15,23,42,0.75);
+          background: rgba(15,23,42,0.03);
+        }
+        body[data-theme="light"] .adj-btn-sub:hover {
+          background: rgba(220,38,38,0.12);
+          border-color: rgba(220,38,38,0.4);
+          color: #DC2626;
+        }
+        body[data-theme="light"] .adj-btn-add:hover {
+          background: rgba(5,150,105,0.12);
+          border-color: rgba(5,150,105,0.4);
+          color: #059669;
+        }
+        body[data-theme="light"] .stock-ok { color: #059669; }
+        body[data-theme="light"] .stock-low { color: #D97706; }
+        body[data-theme="light"] .stock-zero { color: #DC2626; }
+        body[data-theme="light"] .scrollbar-thin::-webkit-scrollbar-thumb {
+          background: rgba(15,23,42,0.2);
+        }
+        body[data-theme="light"] .border-white\/\[0\.045\] {
+          border-color: rgba(15,23,42,0.08);
+        }
       `}</style>
 
             <div 
@@ -707,7 +814,7 @@ const ProductList = () => {
                         {/* Auditoría (creación / edición) + imagen del producto — solo visible al editar */}
                         <div
                           className="rounded-xl p-3 flex flex-col sm:flex-row gap-4"
-                          style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}
+                          style={{ background: isDark ? "rgba(255,255,255,0.02)" : "rgba(15,23,42,0.02)", border: isDark ? "1px solid rgba(255,255,255,0.06)" : "1px solid rgba(15,23,42,0.08)" }}
                         >
                           <div className="flex-1 min-w-0 space-y-1.5 font-mono text-xs text-white/40">
                             <p>

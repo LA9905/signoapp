@@ -3,6 +3,7 @@ import { normalizeSearch } from "../utils/normalizeSearch";
 import ArrowBackButton from "../components/ArrowBackButton";
 import { api } from "../services/http";
 import { FiChevronLeft, FiChevronRight } from "react-icons/fi";
+import { useTheme } from "../context/ThemeContext";
 interface MovementDetail {
   // Despacho
   cliente?: string;
@@ -47,6 +48,8 @@ const IconDown = () => (
 );
 
 const StockMovements = () => {
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<string>("");
   const [productSearch, setProductSearch] = useState<string>("");
@@ -188,8 +191,8 @@ const StockMovements = () => {
     const Chip = ({ label, value }: { label: string; value?: string }) =>
       value ? (
         <span className="sm-meta-chip">
-          <span style={{ color: "rgba(255,255,255,0.35)" }}>{label}</span>
-          <strong style={{ color: "rgba(255,255,255,0.85)", fontWeight: 500 }}>{value}</strong>
+          <span style={{ color: isDark ? "rgba(255,255,255,0.35)" : "rgba(15,23,42,0.45)" }}>{label}</span>
+          <strong style={{ color: isDark ? "rgba(255,255,255,0.85)" : "rgba(15,23,42,0.85)", fontWeight: 500 }}>{value}</strong>
         </span>
       ) : null;
 
@@ -238,7 +241,7 @@ const StockMovements = () => {
   return (
     <div
       className="min-h-screen"
-      style={{ background: "#080C14", color: "white", fontFamily: "'DM Sans', sans-serif" }}
+      style={{ background: isDark ? "#080C14" : "#F4F6FD", color: isDark ? "white" : "#0F172A", fontFamily: "'DM Sans', sans-serif" }}
     >
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
@@ -589,6 +592,120 @@ const StockMovements = () => {
           to   { opacity: 1; transform: translateY(0); }
         }
         .sm-fade-in { animation: sm-fade-in .25s ease both; }
+
+        /* ─── Modo claro ─── */
+        body[data-theme="light"] .sm-glass {
+          background: #FFFFFF;
+          border: 1px solid rgba(99,102,241,0.18);
+        }
+        body[data-theme="light"] .sm-input {
+          background: #FFFFFF;
+          border: 1px solid rgba(15,23,42,0.12);
+          color: #0F172A;
+        }
+        body[data-theme="light"] .sm-input::placeholder { color: rgba(15,23,42,0.3); }
+        body[data-theme="light"] .sm-input:focus {
+          border-color: rgba(99,102,241,0.6);
+          box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
+        }
+        body[data-theme="light"] .sm-select {
+          background: #FFFFFF;
+          border: 1px solid rgba(15,23,42,0.12);
+          color: rgba(15,23,42,0.75);
+        }
+        body[data-theme="light"] .sm-select option {
+          background: #FFFFFF;
+          color: #0F172A;
+        }
+        body[data-theme="light"] .sm-field-label {
+          color: rgba(15,23,42,0.5);
+        }
+        body[data-theme="light"] .sm-dropdown-list {
+          background: #FFFFFF;
+          border: 1px solid rgba(99,102,241,0.25);
+          box-shadow: 0 16px 40px rgba(15,23,42,0.15);
+        }
+        body[data-theme="light"] .sm-dropdown-item {
+          color: rgba(15,23,42,0.75);
+          border-bottom: 1px solid rgba(15,23,42,0.06);
+        }
+        body[data-theme="light"] .sm-dropdown-item:hover {
+          background: rgba(99,102,241,0.1);
+          color: #0F172A;
+        }
+        body[data-theme="light"] .sm-clear-btn {
+          background: rgba(15,23,42,0.06);
+          color: rgba(15,23,42,0.5);
+        }
+        body[data-theme="light"] .sm-clear-btn:hover {
+          background: rgba(15,23,42,0.12);
+          color: #0F172A;
+        }
+        body[data-theme="light"] .sm-table-wrap {
+          border: 1px solid rgba(99,102,241,0.18);
+          background: #FFFFFF;
+        }
+        body[data-theme="light"] .sm-table thead th {
+          color: rgba(15,23,42,0.5);
+          border-bottom: 1px solid rgba(99,102,241,0.18);
+        }
+        body[data-theme="light"] .sm-table tbody td {
+          border-bottom: 1px solid rgba(15,23,42,0.06);
+        }
+        body[data-theme="light"] .sm-table tbody tr:hover {
+          background: rgba(99,102,241,0.05);
+        }
+        body[data-theme="light"] .sm-td-fecha {
+          color: rgba(15,23,42,0.5);
+        }
+        body[data-theme="light"] .sm-results-count {
+          color: rgba(15,23,42,0.4);
+        }
+        body[data-theme="light"] .sm-mobile-card {
+          background: #FFFFFF;
+          border: 1px solid rgba(99,102,241,0.15);
+        }
+        body[data-theme="light"] .sm-mobile-card-fecha {
+          color: rgba(15,23,42,0.4);
+        }
+        body[data-theme="light"] .sm-metric-neutral {
+          background: rgba(15,23,42,0.03);
+          border: 1px solid rgba(15,23,42,0.08);
+        }
+        body[data-theme="light"] .sm-card {
+          background: #FFFFFF;
+          border: 1px solid rgba(99,102,241,0.18);
+        }
+        body[data-theme="light"] .sm-card:hover {
+          background: rgba(99,102,241,0.04);
+        }
+        body[data-theme="light"] .sm-meta-chip {
+          background: rgba(15,23,42,0.03);
+          border: 1px solid rgba(15,23,42,0.08);
+        }
+        body[data-theme="light"] .sm-detail-row {
+          border-top: 1px solid rgba(15,23,42,0.06);
+        }
+        body[data-theme="light"] .sm-divider {
+          border-top: 1px solid rgba(15,23,42,0.08);
+        }
+        body[data-theme="light"] .sm-empty {
+          background: #FFFFFF;
+          border: 1px solid rgba(99,102,241,0.18);
+        }
+        body[data-theme="light"] .sm-page-btn {
+          background: rgba(15,23,42,0.03);
+          border: 1px solid rgba(15,23,42,0.1);
+          color: rgba(15,23,42,0.6);
+        }
+        body[data-theme="light"] .sm-page-btn:hover:not(:disabled) {
+          background: rgba(99,102,241,0.1);
+          border-color: rgba(99,102,241,0.25);
+          color: #0F172A;
+        }
+        body[data-theme="light"] .sm-page-ellipsis {
+          color: rgba(15,23,42,0.3);
+        }
       `}</style>
 
         <div style={{ maxWidth: 1180, margin: "0 auto", padding: "32px 20px" }}>
@@ -605,7 +722,7 @@ const StockMovements = () => {
           >
             Movimientos de Stock
           </h1>
-          <p style={{ fontSize: 13, color: "rgba(255,255,255,0.3)", margin: 0 }}>
+          <p style={{ fontSize: 13, color: isDark ? "rgba(255,255,255,0.3)" : "rgba(15,23,42,0.5)", margin: 0 }}>
             Trazabilidad por producto y cliente
           </p>
         </div>
@@ -782,7 +899,7 @@ const StockMovements = () => {
             {/* Métricas */}
             <div className="sm-metrics-grid">
               <div className="sm-metric sm-metric-neutral">
-                <p className="sm-metric-label" style={{ color: "rgba(255,255,255,0.35)" }}>Movimientos</p>
+                <p className="sm-metric-label" style={{ color: isDark ? "rgba(255,255,255,0.35)" : "rgba(15,23,42,0.5)" }}>Movimientos</p>
                 <p className="sm-metric-value">{movements.length}</p>
               </div>
               <div className="sm-metric sm-metric-entrada">

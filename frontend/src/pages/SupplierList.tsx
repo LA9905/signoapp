@@ -3,8 +3,11 @@ import { useSuppliers } from "../context/SuppliersContext";
 import ArrowBackButton from "../components/ArrowBackButton";
 import { FaRegEdit, FaTrashAlt, FaSave, FaTimes } from "react-icons/fa";
 import { normalizeSearch } from "../utils/normalizeSearch";
+import { useTheme } from "../context/ThemeContext";
 
 const SupplierList: React.FC = () => {
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
   const { suppliers, refresh, createSupplier, updateSupplier, deleteSupplier } = useSuppliers();
 
   const [name, setName] = useState("");
@@ -76,8 +79,8 @@ const SupplierList: React.FC = () => {
 
   return (
     <div
-      className="min-h-screen"
-      style={{ background: "#080C14", color: "white", fontFamily: "'DM Sans', sans-serif" }}
+      className="page-shell min-h-screen"
+      style={{ background: isDark ? "#080C14" : "#F4F6FD", color: isDark ? "white" : "#0F172A", fontFamily: "'DM Sans', sans-serif" }}
     >
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
@@ -334,6 +337,46 @@ ls-action-btn {
           .ls-add-row .ls-btn { width: 100%; }
           .ls-item { flex-wrap: wrap; }
         }
+
+        /* ─── Modo claro ─── */
+        body[data-theme="light"] .ls-glass {
+          background: #FFFFFF;
+          border: 1px solid rgba(99,102,241,0.18);
+          box-shadow: 0 4px 24px rgba(15,23,42,0.06);
+        }
+        body[data-theme="light"] .ls-input {
+          background: #FFFFFF;
+          border: 1px solid rgba(15,23,42,0.12);
+          color: #0F172A;
+        }
+        body[data-theme="light"] .ls-input::placeholder { color: rgba(15,23,42,0.3); }
+        body[data-theme="light"] .ls-input:focus {
+          border-color: rgba(99,102,241,0.6);
+          box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
+        }
+        body[data-theme="light"] .ls-field-label {
+          color: rgba(15,23,42,0.5);
+        }
+        body[data-theme="light"] .ls-item {
+          background: rgba(99,102,241,0.04);
+          border: 1px solid rgba(99,102,241,0.15);
+        }
+        body[data-theme="light"] .ls-item:hover {
+          background: rgba(99,102,241,0.08);
+        }
+        body[data-theme="light"] .ls-item-name {
+          color: rgba(15,23,42,0.85);
+        }
+        body[data-theme="light"] .ls-empty {
+          background: rgba(99,102,241,0.03);
+          border: 1px solid rgba(99,102,241,0.12);
+          color: rgba(15,23,42,0.35);
+        }
+        body[data-theme="light"] .ls-count {
+          background: rgba(99,102,241,0.1);
+          border: 1px solid rgba(99,102,241,0.22);
+          color: #4338CA;
+        }
       `}</style>
 
       <div className="ls-container">
@@ -351,7 +394,7 @@ ls-action-btn {
           >
             Lista de Proveedores
           </h1>
-          <p style={{ fontSize: 13, color: "rgba(255,255,255,0.3)", margin: 0 }}>
+          <p style={{ fontSize: 13, color: isDark ? "rgba(255,255,255,0.3)" : "rgba(15,23,42,0.5)", margin: 0 }}>
             Gestión de proveedores del sistema
           </p>
         </div>
@@ -395,11 +438,11 @@ ls-action-btn {
           </div>
 
           {/* Divisor */}
-          <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", marginBottom: 16 }} />
+          <div style={{ borderTop: isDark ? "1px solid rgba(255,255,255,0.06)" : "1px solid rgba(15,23,42,0.08)", marginBottom: 16 }} />
 
           {/* Encabezado de lista */}
           <div style={{ display: "flex", alignItems: "center", marginBottom: 12 }}>
-            <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: ".06em", textTransform: "uppercase", color: "rgba(255,255,255,0.35)" }}>
+            <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: ".06em", textTransform: "uppercase", color: isDark ? "rgba(255,255,255,0.35)" : "rgba(15,23,42,0.5)" }}>
               Lista
             </span>
             <span className="ls-count">{filteredSuppliers.length}</span>

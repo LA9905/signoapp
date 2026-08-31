@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import ArrowBackButton from "../components/ArrowBackButton";
 import { api } from "../services/http";
 import { Package, Tag, CheckCircle2, AlertCircle, ChevronDown } from "lucide-react";
+import { useTheme } from "../context/ThemeContext";
 
 const schema = z.object({
   name: z.string().min(1, "El nombre es requerido"),
@@ -50,6 +51,8 @@ const categories = [
 ];
 
 export default function AddProduct() {
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
   const {
     register,
     handleSubmit,
@@ -123,7 +126,7 @@ export default function AddProduct() {
 
   return (
     <div
-      className="min-h-screen bg-[#080C14] text-white flex flex-col"
+      className="page-shell min-h-screen bg-[#080C14] text-white flex flex-col"
       style={{ fontFamily: "'DM Sans', sans-serif" }}
     >
       <style>{`
@@ -211,6 +214,32 @@ export default function AddProduct() {
 
         @keyframes spin { to { transform: rotate(360deg); } }
         .spin { animation: spin 0.8s linear infinite; }
+
+        /* ─── Modo claro ─── */
+        body[data-theme="light"] .ap-input {
+          background: #FFFFFF;
+          border: 1px solid rgba(15,23,42,0.12);
+          color: #0F172A;
+        }
+        body[data-theme="light"] .ap-input::placeholder { color: rgba(15,23,42,0.3); }
+        body[data-theme="light"] .ap-input:focus {
+          background: #FFFFFF;
+          border-color: rgba(59,130,246,0.6);
+        }
+        body[data-theme="light"] .ap-select {
+          background: #FFFFFF;
+          border: 1px solid rgba(15,23,42,0.12);
+          color: rgba(15,23,42,0.75);
+        }
+        body[data-theme="light"] .ap-select:focus {
+          background: #FFFFFF;
+          border-color: rgba(59,130,246,0.5);
+          color: #0F172A;
+        }
+        body[data-theme="light"] .ap-select option {
+          background: #FFFFFF;
+          color: #0F172A;
+        }
       `}</style>
 
       {/* Top bar */}
@@ -243,8 +272,9 @@ export default function AddProduct() {
           <div
             className="rounded-2xl p-7"
             style={{
-              background: "rgba(255,255,255,0.03)",
-              border: "1px solid rgba(255,255,255,0.07)",
+              background: isDark ? "rgba(255,255,255,0.03)" : "#FFFFFF",
+              border: isDark ? "1px solid rgba(255,255,255,0.07)" : "1px solid rgba(15,23,42,0.08)",
+              boxShadow: isDark ? "none" : "0 4px 24px rgba(15,23,42,0.06)",
               backdropFilter: "blur(20px)",
             }}
           >

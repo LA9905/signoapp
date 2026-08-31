@@ -6,6 +6,7 @@ import {
 } from "../services/billingService";
 import { me } from "../services/authService";
 import ArrowBackButton from "../components/ArrowBackButton";
+import { useTheme } from "../context/ThemeContext";
 
 function nextCutDate(dueDay = 8): string {
   const now = new Date();
@@ -15,6 +16,8 @@ function nextCutDate(dueDay = 8): string {
 }
 
 const AdminBilling = () => {
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
   const [viewerIsAdmin, setViewerIsAdmin] = useState(false);
   const [viewerIsSuperAdmin, setViewerIsSuperAdmin] = useState(false);
   const [email, setEmail] = useState("");
@@ -193,7 +196,7 @@ const AdminBilling = () => {
     return (
       <div
         className="min-h-screen"
-        style={{ background: "#080C14", color: "white", fontFamily: "'DM Sans', sans-serif" }}
+        style={{ background: isDark ? "#080C14" : "#F4F6FD", color: isDark ? "white" : "#0F172A", fontFamily: "'DM Sans', sans-serif" }}
       >
         <style>{`@import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@300;400;500&display=swap');`}</style>
         <div style={{ maxWidth: 720, margin: "0 auto", padding: "32px 16px" }}>
@@ -201,7 +204,7 @@ const AdminBilling = () => {
           <h2 style={{ fontFamily: "'Syne', sans-serif", fontSize: 26, fontWeight: 700, marginBottom: 8 }}>
             Administración de pagos
           </h2>
-          <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 14 }}>No autorizado. Debes ser administrador.</p>
+          <p style={{ color: isDark ? "rgba(255,255,255,0.4)" : "rgba(15,23,42,0.5)", fontSize: 14 }}>No autorizado. Debes ser administrador.</p>
         </div>
       </div>
     );
@@ -210,7 +213,7 @@ const AdminBilling = () => {
   return (
     <div
       className="min-h-screen"
-      style={{ background: "#080C14", color: "white", fontFamily: "'DM Sans', sans-serif" }}
+      style={{ background: isDark ? "#080C14" : "#F4F6FD", color: isDark ? "white" : "#0F172A", fontFamily: "'DM Sans', sans-serif" }}
     >
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
@@ -458,6 +461,78 @@ const AdminBilling = () => {
 
         .ab-user-card-fullrow { grid-column: 1 / -1; }
 
+        /* ─── Modo claro ─── */
+        body[data-theme="light"] .ab-glass {
+          background: #FFFFFF;
+          border: 1px solid rgba(99,102,241,0.18);
+          box-shadow: 0 4px 24px rgba(15,23,42,0.06);
+        }
+        body[data-theme="light"] .ab-section-title {
+          color: rgba(15,23,42,0.5);
+        }
+        body[data-theme="light"] .ab-field-label {
+          color: rgba(15,23,42,0.5);
+        }
+        body[data-theme="light"] .ab-input {
+          background: #FFFFFF;
+          border: 1px solid rgba(15,23,42,0.12);
+          color: #0F172A;
+        }
+        body[data-theme="light"] .ab-input::placeholder { color: rgba(15,23,42,0.3); }
+        body[data-theme="light"] .ab-input:focus {
+          border-color: rgba(99,102,241,0.6);
+          box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
+        }
+        body[data-theme="light"] .ab-btn-gray {
+          background: rgba(15,23,42,0.04);
+          border: 1px solid rgba(15,23,42,0.12);
+          color: rgba(15,23,42,0.7);
+        }
+        body[data-theme="light"] .ab-btn-gray:hover:not(:disabled) {
+          background: rgba(15,23,42,0.08);
+          color: #0F172A;
+        }
+        body[data-theme="light"] .ab-info-card {
+          background: rgba(15,23,42,0.02);
+          border: 1px solid rgba(15,23,42,0.08);
+        }
+        body[data-theme="light"] .ab-info-row {
+          color: rgba(15,23,42,0.6);
+        }
+        body[data-theme="light"] .ab-info-row strong {
+          color: rgba(15,23,42,0.85);
+        }
+        body[data-theme="light"] .ab-user-card {
+          background: rgba(15,23,42,0.02);
+          border: 1px solid rgba(15,23,42,0.08);
+        }
+        body[data-theme="light"] .ab-user-card:hover {
+          border-color: rgba(99,102,241,0.3);
+          background: rgba(99,102,241,0.04);
+        }
+        body[data-theme="light"] .ab-user-card-name {
+          color: #0F172A;
+        }
+        body[data-theme="light"] .ab-user-card-email {
+          color: rgba(15,23,42,0.4);
+        }
+        body[data-theme="light"] .ab-user-field-label {
+          color: rgba(15,23,42,0.4);
+        }
+        body[data-theme="light"] .ab-link-select {
+          background: #FFFFFF;
+          border: 1px solid rgba(15,23,42,0.12);
+          color: rgba(15,23,42,0.85);
+        }
+        body[data-theme="light"] .ab-link-select option {
+          background: #FFFFFF;
+          color: #0F172A;
+        }
+        body[data-theme="light"] .ab-stock-off {
+          background: rgba(15,23,42,0.03);
+          border-color: rgba(15,23,42,0.1);
+          color: rgba(15,23,42,0.45);
+        }
       `}</style>
 
       <div className="ab-container">
@@ -475,7 +550,7 @@ const AdminBilling = () => {
           >
             Administración de usuarios
           </h1>
-          <p style={{ fontSize: 13, color: "rgba(255,255,255,0.3)", margin: 0 }}>
+          <p style={{ fontSize: 13, color: isDark ? "rgba(255,255,255,0.3)" : "rgba(15,23,42,0.5)", margin: 0 }}>
             Gestión de acceso y suscripciones de usuarios
           </p>
         </div>
@@ -537,10 +612,10 @@ const AdminBilling = () => {
             <div>
               {viewerIsSuperAdmin && (
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
-                  <p style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", margin: 0 }}>
+                  <p style={{ fontSize: 12, color: isDark ? "rgba(255,255,255,0.3)" : "rgba(15,23,42,0.5)", margin: 0 }}>
                     Selecciona los usuarios que deseas mantener bloqueados
                   </p>
-                  <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "rgba(255,255,255,0.5)", cursor: "pointer" }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: isDark ? "rgba(255,255,255,0.5)" : "rgba(15,23,42,0.6)", cursor: "pointer" }}>
                     <input
                       type="checkbox"
                       className="ab-checkbox"
