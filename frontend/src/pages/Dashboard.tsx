@@ -221,9 +221,9 @@ const Dashboard: React.FC = () => {
     { title: "Crear Nota de Crédito", route: "/create-credit-note" },
     { title: "Seguimiento de Notas de Crédito", route: "/credit-note-tracking" },
     { title: "Choferes", route: "/drivers" },
-    { title: "Consumo Interno", route: "/create-internal" },
+    { title: "Guardar Consumo Interno", route: "/create-internal" },
     { title: "Seguimiento de Registros de Consumos Internos", route: "/internal-tracking" },
-    { title: "Récords de Producción", route: "/product-records" },
+    { title: "Récords de Producción de cada producto", route: "/product-records" },
   ];
 
   if (isLimited) {
