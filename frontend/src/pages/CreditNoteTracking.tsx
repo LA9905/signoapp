@@ -284,7 +284,7 @@ const CreditNoteTracking = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#080C14] text-white" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+    <div className="page-shell min-h-screen bg-[#080C14] text-white" style={{ fontFamily: "'DM Sans', sans-serif" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
 
@@ -415,6 +415,31 @@ const CreditNoteTracking = () => {
         .suggestion-list {
         isolation: isolate;
         }
+
+        /* ─── Modo claro ─── */
+        body[data-theme="light"] .glass { background: #FFFFFF; border: 1px solid rgba(99,102,241,0.15); box-shadow: 0 1px 3px rgba(15,23,42,0.04); }
+        body[data-theme="light"] .glass-hover:hover { background: rgba(99,102,241,0.04); border-color: rgba(99,102,241,0.25); }
+        body[data-theme="light"] .input-cn { background: #FFFFFF; border: 1px solid rgba(15,23,42,0.12); color: #0F172A; }
+        body[data-theme="light"] .input-cn::placeholder { color: rgba(15,23,42,0.3); }
+        body[data-theme="light"] .input-cn:focus { border-color: rgba(99,102,241,0.6); box-shadow: 0 0 0 3px rgba(99,102,241,0.1); }
+        body[data-theme="light"] .select-cn { background: #FFFFFF; border: 1px solid rgba(15,23,42,0.12); color: rgba(15,23,42,0.75); }
+        body[data-theme="light"] .select-cn option { background: #FFFFFF; color: #0F172A; }
+        body[data-theme="light"] .field-label { color: rgba(15,23,42,0.5); }
+        body[data-theme="light"] .meta-chip { background: rgba(15,23,42,0.03); border: 1px solid rgba(15,23,42,0.08); color: rgba(15,23,42,0.7); }
+        body[data-theme="light"] .meta-chip strong { color: #0F172A; }
+        body[data-theme="light"] .folio-badge { background: rgba(99,102,241,0.08); border-color: rgba(99,102,241,0.22); color: #4338CA; }
+        body[data-theme="light"] .cn-card:hover { background: rgba(99,102,241,0.05); }
+        body[data-theme="light"] .btn-pdf { background: rgba(37,99,235,0.06); border-color: rgba(37,99,235,0.2); color: #2563EB; }
+        body[data-theme="light"] .btn-print { background: rgba(5,150,105,0.08); border-color: rgba(5,150,105,0.2); color: #059669; }
+        body[data-theme="light"] .btn-edit { background: rgba(37,99,235,0.06); border-color: rgba(37,99,235,0.3); color: #2563EB; }
+        body[data-theme="light"] .btn-del { background: rgba(220,38,38,0.06); border-color: rgba(220,38,38,0.3); color: #DC2626; }
+        body[data-theme="light"] .btn-save { background: rgba(5,150,105,0.08); border-color: rgba(5,150,105,0.25); color: #059669; }
+        body[data-theme="light"] .btn-cancel { background: rgba(15,23,42,0.04); border-color: rgba(15,23,42,0.12); color: rgba(15,23,42,0.7); }
+        body[data-theme="light"] .btn-add-prod { background: rgba(99,102,241,0.08); border-color: rgba(99,102,241,0.25); color: #4338CA; }
+        body[data-theme="light"] .btn-rem-prod { background: rgba(220,38,38,0.06); border-color: rgba(220,38,38,0.2); color: #DC2626; }
+        body[data-theme="light"] .btn-excel { background: rgba(5,150,105,0.08); border-color: rgba(5,150,105,0.2); color: #059669; }
+        body[data-theme="light"] .filter-toggle { background: rgba(15,23,42,0.04); border-color: rgba(15,23,42,0.1); color: rgba(15,23,42,0.55); }
+        body[data-theme="light"] .filter-toggle.active { background: rgba(99,102,241,0.08); border-color: rgba(99,102,241,0.25); color: #4338CA; }
       `}</style>
 
       <div className="max-w-4xl mx-auto px-4 py-8">

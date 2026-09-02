@@ -398,7 +398,7 @@ const InternalTracking = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#080C14] text-white" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+    <div className="page-shell min-h-screen bg-[#080C14] text-white" style={{ fontFamily: "'DM Sans', sans-serif" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
 
@@ -516,6 +516,30 @@ const InternalTracking = () => {
         .fade-in { animation: fade-in .25s ease both; }
 
         .textarea-it { resize: vertical; min-height: 80px; }
+
+        /* ─── Modo claro ─── */
+        body[data-theme="light"] .glass { background: #FFFFFF; border: 1px solid rgba(99,102,241,0.15); box-shadow: 0 1px 3px rgba(15,23,42,0.04); }
+        body[data-theme="light"] .glass-hover:hover { background: rgba(99,102,241,0.04); border-color: rgba(99,102,241,0.25); }
+        body[data-theme="light"] .input-it { background: #FFFFFF; border: 1px solid rgba(15,23,42,0.12); color: #0F172A; }
+        body[data-theme="light"] .input-it::placeholder { color: rgba(15,23,42,0.3); }
+        body[data-theme="light"] .input-it:focus { border-color: rgba(99,102,241,0.6); box-shadow: 0 0 0 3px rgba(99,102,241,0.1); }
+        body[data-theme="light"] .select-it { background: #FFFFFF; border: 1px solid rgba(15,23,42,0.12); color: rgba(15,23,42,0.75); }
+        body[data-theme="light"] .select-it option { background: #FFFFFF; color: #0F172A; }
+        body[data-theme="light"] .field-label-it { color: rgba(15,23,42,0.5); }
+        body[data-theme="light"] .meta-chip-it { background: rgba(15,23,42,0.03); border: 1px solid rgba(15,23,42,0.08); color: rgba(15,23,42,0.7); }
+        body[data-theme="light"] .meta-chip-it strong { color: #0F172A; }
+        body[data-theme="light"] .folio-badge-it { background: rgba(99,102,241,0.08); border-color: rgba(99,102,241,0.22); color: #4338CA; }
+        body[data-theme="light"] .area-badge-it { background: rgba(5,150,105,0.1); border-color: rgba(5,150,105,0.25); color: #059669; }
+        body[data-theme="light"] .it-card:hover { background: rgba(99,102,241,0.05); }
+        body[data-theme="light"] .btn-pdf-it { background: rgba(37,99,235,0.06); border-color: rgba(37,99,235,0.2); color: #2563EB; }
+        body[data-theme="light"] .btn-print-it { background: rgba(5,150,105,0.08); border-color: rgba(5,150,105,0.2); color: #059669; }
+        body[data-theme="light"] .btn-edit-it { background: rgba(37,99,235,0.06); border-color: rgba(37,99,235,0.3); color: #2563EB; }
+        body[data-theme="light"] .btn-del-it { background: rgba(220,38,38,0.06); border-color: rgba(220,38,38,0.3); color: #DC2626; }
+        body[data-theme="light"] .btn-save-it { background: rgba(5,150,105,0.08); border-color: rgba(5,150,105,0.25); color: #059669; }
+        body[data-theme="light"] .btn-cancel-it { background: rgba(15,23,42,0.04); border-color: rgba(15,23,42,0.12); color: rgba(15,23,42,0.7); }
+        body[data-theme="light"] .btn-add-prod-it { background: rgba(99,102,241,0.08); border-color: rgba(99,102,241,0.25); color: #4338CA; }
+        body[data-theme="light"] .btn-rem-prod-it { background: rgba(220,38,38,0.06); border-color: rgba(220,38,38,0.2); color: #DC2626; }
+        body[data-theme="light"] .btn-excel-it { background: rgba(5,150,105,0.08); border-color: rgba(5,150,105,0.2); color: #059669; }
       `}</style>
 
       <div className="max-w-4xl mx-auto px-4 py-8">
