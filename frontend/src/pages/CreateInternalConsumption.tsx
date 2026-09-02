@@ -5,6 +5,17 @@ import ProductSelector from "../components/ProductSelector.tsx";
 import ArrowBackButton from "../components/ArrowBackButton";
 import { api } from "../services/http";
 import type { AxiosError } from "axios";
+import { useTheme } from "../context/ThemeContext";
+
+// new Date().toISOString() devuelve la fecha en UTC, no en hora local de
+// Chile — se usa la fecha local para que el valor por defecto del selector
+// coincida con "hoy" en Chile, sin importar la hora del navegador.
+function getLocalDateString(): string {
+  const now = new Date();
+  const offsetMs = now.getTimezoneOffset() * 60000;
+  const local = new Date(now.getTime() - offsetMs);
+  return local.toISOString().slice(0, 10);
+}
 
 interface Producto {
   id: string;
@@ -14,12 +25,12 @@ interface Producto {
   category?: string;
   imageFile?: File;
 }
-
 interface FormularioConsumo {
   nombre_retira: string;
   area: string;
   motivo: string;
   productos: Producto[];
+  fecha: string;
 }
 
 const areas = [
@@ -29,7 +40,7 @@ const areas = [
   "Facturación",
   "Atención al Cliente",
   "Recursos Humanos",
-  "Almacén",
+  "Almacén - Bodega",
   "Ventas",
   "Mantenimiento",
   "Impresión",
@@ -39,12 +50,15 @@ const areas = [
 
 const CreateInternalConsumption = () => {
   const navigate = useNavigate();
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
   const [productos, setProductos] = useState<Producto[]>([]);
   const [form, setForm] = useState<FormularioConsumo>({
     nombre_retira: "",
     area: "",
     motivo: "",
     productos: [],
+    fecha: getLocalDateString(),
   });
   const [mensaje, setMensaje] = useState<string>("");
 
@@ -95,6 +109,7 @@ const CreateInternalConsumption = () => {
           cantidad: p.cantidad,
           unidad: p.unidad,
         })),
+        fecha: form.fecha,
       };
 
       const newProducts = form.productos.filter(
@@ -174,7 +189,7 @@ const CreateInternalConsumption = () => {
     mensaje.toLowerCase().includes("desconocido");
 
   return (
-    <div className="min-h-screen bg-[#080C14] text-white" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+    <div className="page-shell min-h-screen bg-[#080C14] text-white" style={{ fontFamily: "'DM Sans', sans-serif" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
 
@@ -391,6 +406,65 @@ const CreateInternalConsumption = () => {
           color: white;
           background: rgba(255,255,255,0.1);
         }
+
+        /* ─── Modo claro ─── */
+        body[data-theme="light"] .section-card-ic {
+          background: #FFFFFF;
+          border: 1px solid rgba(99,102,241,0.15);
+          box-shadow: 0 1px 3px rgba(15,23,42,0.04);
+        }
+        body[data-theme="light"] .input-ic {
+          background: #FFFFFF;
+          border: 1px solid rgba(15,23,42,0.12);
+          color: #0F172A;
+        }
+        body[data-theme="light"] .input-ic::placeholder { color: rgba(15,23,42,0.3); }
+        body[data-theme="light"] .input-ic:focus {
+          border-color: rgba(99,102,241,0.6);
+          box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
+        }
+        body[data-theme="light"] .select-ic {
+          background: #FFFFFF;
+          border: 1px solid rgba(15,23,42,0.12);
+          color: rgba(15,23,42,0.75);
+        }
+        body[data-theme="light"] .select-ic:focus {
+          border-color: rgba(99,102,241,0.6);
+          box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
+          color: #0F172A;
+        }
+        body[data-theme="light"] .select-ic option {
+          background: #FFFFFF;
+          color: #0F172A;
+        }
+        body[data-theme="light"] .select-ic-wrapper::after {
+          border-top-color: rgba(15,23,42,0.35);
+        }
+        body[data-theme="light"] .field-label-ic {
+          color: rgba(15,23,42,0.5);
+        }
+        body[data-theme="light"] .section-title-ic {
+          color: #4338CA;
+        }
+        body[data-theme="light"] .input-ic-wrapper input,
+        body[data-theme="light"] .input-ic-wrapper select {
+          background: #FFFFFF !important;
+          border: 1px solid rgba(15,23,42,0.12) !important;
+          color: #0F172A !important;
+        }
+        body[data-theme="light"] .input-ic-wrapper input::placeholder,
+        body[data-theme="light"] .input-ic-wrapper select::placeholder {
+          color: rgba(15,23,42,0.3) !important;
+        }
+        body[data-theme="light"] .input-ic-wrapper input:focus,
+        body[data-theme="light"] .input-ic-wrapper select:focus {
+          border-color: rgba(99,102,241,0.6) !important;
+          box-shadow: 0 0 0 3px rgba(99,102,241,0.1) !important;
+        }
+        body[data-theme="light"] .input-ic-wrapper select option {
+          background: #FFFFFF !important;
+          color: #0F172A !important;
+        }
       `}</style>
 
       <div className="max-w-2xl mx-auto px-4 py-8">
@@ -405,7 +479,7 @@ const CreateInternalConsumption = () => {
           <h1 className="font-display text-3xl font-bold tracking-tight mb-1">
             Consumo Interno
           </h1>
-          <p className="text-sm" style={{ color: "rgba(255,255,255,0.3)" }}>
+          <p className="text-sm" style={{ color: isDark ? "rgba(255,255,255,0.3)" : "rgba(15,23,42,0.5)" }}>
             Registra el retiro de productos para uso interno
           </p>
         </div>
@@ -479,6 +553,19 @@ const CreateInternalConsumption = () => {
                     ))}
                   </select>
                 </div>
+              </div>
+              <div>
+                <div className="field-label-ic">
+                  <FiFileText size={11} />
+                  Fecha del consumo <span style={{ color: "rgba(248,113,113,0.8)" }}>*</span>
+                </div>
+                <input
+                  type="date"
+                  name="fecha"
+                  value={form.fecha}
+                  onChange={handleChange}
+                  className="input-ic"
+                />
               </div>
             </div>
           </div>

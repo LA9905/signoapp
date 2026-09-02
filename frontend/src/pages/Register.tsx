@@ -3,9 +3,12 @@ import { useNavigate, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { api } from "../services/http";
 import { NavBar, Footer } from "./Home";
+import { useTheme } from "../context/ThemeContext";
 
 const Register: React.FC = () => {
   const navigate = useNavigate();
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
   const [form, setForm] = useState({ name: "", email: "", password: "", confirm: "", gender: "" });
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -36,7 +39,7 @@ const Register: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#080C14] text-white" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+      <div className="page-shell min-h-screen flex flex-col bg-[#080C14] text-white" style={{ fontFamily: "'DM Sans', sans-serif" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500&display=swap');
         .input-field {
@@ -93,6 +96,34 @@ const Register: React.FC = () => {
           background: rgba(255,255,255,0.05);
           border-color: rgba(255,255,255,0.25);
         }
+
+        /* ─── Modo claro ─── */
+        body[data-theme="light"] .input-field {
+          background: #ffffff;
+          border: 1px solid rgba(15,23,42,0.12);
+          color: #0F172A;
+        }
+        body[data-theme="light"] .input-field:focus {
+          background: #ffffff;
+          border-color: rgba(59,130,246,0.6);
+        }
+        body[data-theme="light"] .select-field {
+          background-color: #ffffff;
+          border: 1px solid rgba(15,23,42,0.12);
+          color: #0F172A;
+        }
+        body[data-theme="light"] .select-field:focus {
+          background-color: #ffffff;
+          border-color: rgba(59,130,246,0.6);
+        }
+        body[data-theme="light"] .btn-ghost {
+          border: 1px solid rgba(15,23,42,0.15);
+          color: #0F172A;
+        }
+        body[data-theme="light"] .btn-ghost:hover {
+          background: rgba(15,23,42,0.05);
+          border-color: rgba(15,23,42,0.3);
+        }
       `}</style>
 
       <NavBar hideRegister />
@@ -111,8 +142,9 @@ const Register: React.FC = () => {
         >
           {/* Card */}
           <div className="rounded-2xl p-8" style={{
-            background: "rgba(255,255,255,0.03)",
-            border: "1px solid rgba(255,255,255,0.07)",
+            background: isDark ? "rgba(255,255,255,0.03)" : "#FFFFFF",
+            border: isDark ? "1px solid rgba(255,255,255,0.07)" : "1px solid rgba(15,23,42,0.08)",
+            boxShadow: isDark ? "none" : "0 4px 24px rgba(15,23,42,0.06)",
             backdropFilter: "blur(20px)"
           }}>
             {/* Logo */}

@@ -2,9 +2,12 @@ import { useState, type FormEvent, type ChangeEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import ArrowBackLogin from "../components/ArrowBackLogin";
 import { api } from "../services/http";
+import { useTheme } from "../context/ThemeContext";
 
 const Recover: React.FC = () => {
   const navigate = useNavigate();
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
   const [email, setEmail] = useState<string>("");
   const [msg, setMsg] = useState<string>("");
   const [error, setError] = useState<string>("");
@@ -25,7 +28,7 @@ const Recover: React.FC = () => {
   return (
     <div
       className="min-h-screen"
-      style={{ background: "#080C14", color: "white", fontFamily: "'DM Sans', sans-serif" }}
+      style={{ background: isDark ? "#080C14" : "#F4F6FD", color: isDark ? "white" : "#0F172A", fontFamily: "'DM Sans', sans-serif" }}
     >
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
@@ -115,6 +118,26 @@ const Recover: React.FC = () => {
           flex-direction: column;
           justify-content: center;
         }
+
+        /* ─── Modo claro ─── */
+        body[data-theme="light"] .rc-glass {
+          background: #FFFFFF;
+          border: 1px solid rgba(99,102,241,0.18);
+          box-shadow: 0 4px 24px rgba(15,23,42,0.06);
+        }
+        body[data-theme="light"] .rc-input {
+          background: #FFFFFF;
+          border: 1px solid rgba(15,23,42,0.12);
+          color: #0F172A;
+        }
+        body[data-theme="light"] .rc-input::placeholder { color: rgba(15,23,42,0.3); }
+        body[data-theme="light"] .rc-input:focus {
+          border-color: rgba(99,102,241,0.6);
+          box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
+        }
+        body[data-theme="light"] .rc-field-label {
+          color: rgba(15,23,42,0.5);
+        }
       `}</style>
 
       <div className="rc-container">
@@ -148,7 +171,7 @@ const Recover: React.FC = () => {
           >
             Recuperar contraseña
           </h1>
-          <p style={{ fontSize: 13, color: "rgba(255,255,255,0.3)", margin: 0, lineHeight: 1.6 }}>
+          <p style={{ fontSize: 13, color: isDark ? "rgba(255,255,255,0.3)" : "rgba(15,23,42,0.5)", margin: 0, lineHeight: 1.6 }}>
             Ingresa tu correo y te enviaremos un código para restablecer tu contraseña.
           </p>
         </div>

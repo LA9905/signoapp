@@ -3,6 +3,7 @@ import { FiSearch, FiAward, FiTrendingUp, FiFileText, FiDownload } from "react-i
 import ArrowBackButton from "../components/ArrowBackButton";
 import { api } from "../services/http";
 import * as XLSX from "xlsx";
+import { useTheme } from "../context/ThemeContext";
 
 interface ProductRecord {
   rate: number;
@@ -22,6 +23,8 @@ interface ProductRecordRow {
 }
 
 const ProductRecords = () => {
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
   const [rows, setRows] = useState<ProductRecordRow[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -57,7 +60,7 @@ const ProductRecords = () => {
   }, [search]);
 
   return (
-    <div className="min-h-screen bg-[#080C14] text-white" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+    <div className="page-shell min-h-screen bg-[#080C14] text-white" style={{ fontFamily: "'DM Sans', sans-serif" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
         .font-display { font-family: 'Syne', sans-serif; }
@@ -96,6 +99,36 @@ const ProductRecords = () => {
         .pr-card:hover { background: rgba(99,102,241,0.06); }
         @keyframes fade-in { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
         .fade-in { animation: fade-in .25s ease both; }
+
+        /* ─── Modo claro ─── */
+        body[data-theme="light"] .glass {
+          background: #FFFFFF;
+          border: 1px solid rgba(99,102,241,0.18);
+          box-shadow: 0 1px 3px rgba(15,23,42,0.04);
+        }
+        body[data-theme="light"] .input-pr {
+          background: #FFFFFF;
+          border: 1px solid rgba(15,23,42,0.12);
+          color: #0F172A;
+        }
+        body[data-theme="light"] .input-pr::placeholder { color: rgba(15,23,42,0.3); }
+        body[data-theme="light"] .input-pr:focus {
+          border-color: rgba(99,102,241,0.6);
+          box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
+        }
+        body[data-theme="light"] .cat-tag-pr {
+          background: rgba(99,102,241,0.08);
+          color: #4338CA;
+          border: 1px solid rgba(99,102,241,0.2);
+        }
+        body[data-theme="light"] .no-record-box {
+          background: rgba(15,23,42,0.03);
+          border: 1px solid rgba(15,23,42,0.08);
+          color: rgba(15,23,42,0.4);
+        }
+        body[data-theme="light"] .pr-card:hover {
+          background: rgba(99,102,241,0.05);
+        }
       `}</style>
 
       <div className="max-w-3xl mx-auto px-4 py-8">
@@ -108,7 +141,7 @@ const ProductRecords = () => {
             <h1 className="font-display text-3xl font-bold tracking-tight mb-1">
               Récords de Producción
             </h1>
-            <p className="text-sm" style={{ color: "rgba(255,255,255,0.3)" }}>
+            <p className="text-sm" style={{ color: isDark ? "rgba(255,255,255,0.3)" : "rgba(15,23,42,0.5)" }}>
               Busca un producto y mira cuál es la marca actual a superar por hora.
             </p>
           </div>
@@ -201,8 +234,8 @@ const ProductRecords = () => {
                     <div className="font-display font-semibold text-base text-white/90 mb-1">{row.name}</div>
                     <span className="cat-tag-pr">{row.category}</span>
                   </div>
-                 <span
-                    style={{ color: row.record ? "#34D399" : "rgba(255,255,255,0.15)", flexShrink: 0, display: "flex" }}
+                  <span
+                    style={{ color: row.record ? "#34D399" : isDark ? "rgba(255,255,255,0.15)" : "rgba(15,23,42,0.2)", flexShrink: 0, display: "flex" }}
                   >
                     <FiAward size={18} />
                   </span>
@@ -218,7 +251,7 @@ const ProductRecords = () => {
                         {row.record.rate} {row.unidad || ""}/hora
                       </span>
                     </div>
-                    <div style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", lineHeight: 1.5 }}>
+                    <div style={{ fontSize: 12, color: isDark ? "rgba(255,255,255,0.55)" : "rgba(15,23,42,0.6)", lineHeight: 1.5 }}>
                       Récord establecido {row.record.operator_name ? `por ${row.record.operator_name}` : ""} el{" "}
                       {row.record.fecha} — produjo {row.record.cantidad} {row.unidad || ""} en {row.record.horas}h
                     </div>

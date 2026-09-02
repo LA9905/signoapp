@@ -3,6 +3,7 @@ import { Bar } from "react-chartjs-2";
 import "chart.js/auto";
 import { FiX, FiTrash2, FiEdit2 } from "react-icons/fi";
 import { api } from "../services/http";
+import { useTheme } from "../context/ThemeContext";
 
 interface DiaDetalle {
   fecha: string;
@@ -69,6 +70,8 @@ interface Props {
 }
 
 const OperatorDetailModal: React.FC<Props> = ({ operatorId, year, month, monthLabel, onClose, onActivityChanged }) => {
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
   const [data, setData] = useState<DetailResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -216,12 +219,12 @@ const OperatorDetailModal: React.FC<Props> = ({ operatorId, year, month, monthLa
     plugins: {
       legend: {
         display: true,
-        labels: { color: "rgba(255,255,255,0.6)", font: { size: 10 }, boxWidth: 10 },
+        labels: { color: isDark ? "rgba(255,255,255,0.6)" : "rgba(15,23,42,0.6)", font: { size: 10 }, boxWidth: 10 },
       },
     },
     scales: {
-      x: { stacked: true, grid: { display: false }, ticks: { color: "rgba(255,255,255,0.35)", font: { size: 10 } } },
-      y: { stacked: true, grid: { color: "rgba(255,255,255,0.05)" }, ticks: { color: "rgba(255,255,255,0.35)", font: { size: 10 } } },
+      x: { stacked: true, grid: { display: false }, ticks: { color: isDark ? "rgba(255,255,255,0.35)" : "rgba(15,23,42,0.5)", font: { size: 10 } } },
+      y: { stacked: true, grid: { color: isDark ? "rgba(255,255,255,0.05)" : "rgba(15,23,42,0.08)" }, ticks: { color: isDark ? "rgba(255,255,255,0.35)" : "rgba(15,23,42,0.5)", font: { size: 10 } } },
     },
   };
 
@@ -253,6 +256,44 @@ const OperatorDetailModal: React.FC<Props> = ({ operatorId, year, month, monthLa
         .odm-resumen-value { font-size: 13px; font-weight: 600; color: white; }
         .odm-act-row { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; padding: 7px 10px; border-radius: 8px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); margin-bottom: 6px; }
         .odm-act-empty { font-size: 12px; color: rgba(255,255,255,0.3); text-align: center; padding: 12px 0; }
+
+        /* ─── Modo claro ─── */
+        body[data-theme="light"] .odm-panel {
+          background: #FFFFFF;
+          border: 1px solid rgba(99,102,241,0.25);
+          color: #0F172A;
+          box-shadow: 0 12px 40px rgba(15,23,42,0.18);
+        }
+        body[data-theme="light"] .odm-close {
+          background: rgba(99,102,241,0.1);
+          border: 1px solid rgba(99,102,241,0.35);
+          color: #4338CA;
+        }
+        body[data-theme="light"] .odm-section-title {
+          color: #4338CA;
+        }
+        body[data-theme="light"] .odm-explicacion {
+          color: rgba(15,23,42,0.65);
+          background: rgba(15,23,42,0.03);
+          border: 1px solid rgba(15,23,42,0.08);
+        }
+        body[data-theme="light"] .odm-resumen-item {
+          background: rgba(15,23,42,0.03);
+          border: 1px solid rgba(15,23,42,0.08);
+        }
+        body[data-theme="light"] .odm-resumen-label {
+          color: rgba(15,23,42,0.45);
+        }
+        body[data-theme="light"] .odm-resumen-value {
+          color: #0F172A;
+        }
+        body[data-theme="light"] .odm-act-row {
+          background: rgba(15,23,42,0.03);
+          border: 1px solid rgba(15,23,42,0.08);
+        }
+        body[data-theme="light"] .odm-act-empty {
+          color: rgba(15,23,42,0.4);
+        }
       `}</style>
       <div className="odm-panel" onClick={(e) => e.stopPropagation()}>
         <div className="odm-header">
@@ -336,21 +377,21 @@ const OperatorDetailModal: React.FC<Props> = ({ operatorId, year, month, monthLa
                       <div
                         key={i}
                         style={{
-                          background: "rgba(255,255,255,0.03)",
-                          border: "1px solid rgba(255,255,255,0.06)",
+                          background: isDark ? "rgba(255,255,255,0.03)" : "rgba(15,23,42,0.03)",
+                          border: isDark ? "1px solid rgba(255,255,255,0.06)" : "1px solid rgba(15,23,42,0.08)",
                           borderRadius: 10,
                           padding: "8px 10px",
                           fontSize: 12,
                         }}
                       >
-                        <div style={{ fontWeight: 600, color: "white", marginBottom: 4 }}>{d.nombre}</div>
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4, color: "rgba(255,255,255,0.55)" }}>
+                        <div style={{ fontWeight: 600, color: isDark ? "white" : "#0F172A", marginBottom: 4 }}>{d.nombre}</div>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4, color: isDark ? "rgba(255,255,255,0.55)" : "rgba(15,23,42,0.6)" }}>
                           <span>Cant: {d.cantidad} {d.unidad || ""}</span>
                           <span>Horas: {d.horas}h</span>
                           <span>Prod/h: {d.produccion_por_hora}</span>
                           <span>Línea base: {d.linea_base ?? "—"}</span>
                           <span>Fuente: {fuenteLabel}</span>
-                          <span style={{ color: "white", fontWeight: 600 }}>
+                          <span style={{ color: isDark ? "white" : "#0F172A", fontWeight: 600 }}>
                             Ratio: {d.ratio !== null ? `${Math.round(d.ratio * 100)}%` : "—"}
                           </span>
                         </div>
@@ -390,9 +431,9 @@ const OperatorDetailModal: React.FC<Props> = ({ operatorId, year, month, monthLa
                         value={editFecha}
                         onChange={(e) => setEditFecha(e.target.value)}
                         style={{
-                          background: "rgba(255,255,255,0.04)",
-                          border: "1px solid rgba(255,255,255,0.08)",
-                          color: "white",
+                          background: isDark ? "rgba(255,255,255,0.04)" : "#FFFFFF",
+                          border: isDark ? "1px solid rgba(255,255,255,0.08)" : "1px solid rgba(15,23,42,0.12)",
+                          color: isDark ? "white" : "#0F172A",
                           borderRadius: 6,
                           padding: "5px 8px",
                           fontSize: 12,
@@ -406,9 +447,9 @@ const OperatorDetailModal: React.FC<Props> = ({ operatorId, year, month, monthLa
                         onChange={(e) => setEditHoras(e.target.value)}
                         placeholder="Horas"
                         style={{
-                          background: "rgba(255,255,255,0.04)",
-                          border: "1px solid rgba(255,255,255,0.08)",
-                          color: "white",
+                          background: isDark ? "rgba(255,255,255,0.04)" : "#FFFFFF",
+                          border: isDark ? "1px solid rgba(255,255,255,0.08)" : "1px solid rgba(15,23,42,0.12)",
+                          color: isDark ? "white" : "#0F172A",
                           borderRadius: 6,
                           padding: "5px 8px",
                           fontSize: 12,
@@ -420,9 +461,9 @@ const OperatorDetailModal: React.FC<Props> = ({ operatorId, year, month, monthLa
                         onChange={(e) => setEditNota(e.target.value)}
                         placeholder="Motivo (opcional)"
                         style={{
-                          background: "rgba(255,255,255,0.04)",
-                          border: "1px solid rgba(255,255,255,0.08)",
-                          color: "white",
+                          background: isDark ? "rgba(255,255,255,0.04)" : "#FFFFFF",
+                          border: isDark ? "1px solid rgba(255,255,255,0.08)" : "1px solid rgba(15,23,42,0.12)",
+                          color: isDark ? "white" : "#0F172A",
                           borderRadius: 6,
                           padding: "5px 8px",
                           fontSize: 12,
@@ -452,9 +493,9 @@ const OperatorDetailModal: React.FC<Props> = ({ operatorId, year, month, monthLa
                           type="button"
                           style={{
                             flex: 1,
-                            background: "rgba(255,255,255,0.04)",
-                            border: "1px solid rgba(255,255,255,0.1)",
-                            color: "rgba(255,255,255,0.6)",
+                            background: isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.04)",
+                            border: isDark ? "1px solid rgba(255,255,255,0.1)" : "1px solid rgba(15,23,42,0.12)",
+                            color: isDark ? "rgba(255,255,255,0.6)" : "rgba(15,23,42,0.6)",
                             borderRadius: 6,
                             padding: "6px 0",
                             fontSize: 12,
@@ -469,7 +510,7 @@ const OperatorDetailModal: React.FC<Props> = ({ operatorId, year, month, monthLa
                     <div className="odm-act-row" key={a.id}>
                       <span>{a.fecha}</span>
                       <span>{a.horas}h</span>
-                      <span style={{ color: "rgba(255,255,255,0.4)", flex: 1 }}>{a.nota || "—"}</span>
+                      <span style={{ color: isDark ? "rgba(255,255,255,0.4)" : "rgba(15,23,42,0.5)", flex: 1 }}>{a.nota || "—"}</span>
                       <button
                         className="odm-icon-btn"
                         onClick={() => startEditActivity(a)}

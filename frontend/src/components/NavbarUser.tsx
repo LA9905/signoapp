@@ -1,107 +1,7 @@
-// import React, { useState, useEffect, useRef } from "react";
-// import { useNavigate } from "react-router-dom";
-
-// interface NavbarUserProps {
-//   avatarUrl: string | null;
-// }
-
-// const NavbarUser: React.FC<NavbarUserProps> = ({ avatarUrl }) => {
-//   const navigate = useNavigate();
-//   const [open, setOpen] = useState(false);
-//   const name = localStorage.getItem("name") || "Usuario";
-//   const dropdownRef = useRef<HTMLDivElement>(null);
-
-//   const handleLogout = () => {
-//     localStorage.removeItem("token");
-//     localStorage.removeItem("name");
-//     navigate("/login");
-//   };
-
-//   useEffect(() => {
-//     const handleClickOutside = (e: MouseEvent) => {
-//       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-//         setOpen(false);
-//       }
-//     };
-//     document.addEventListener("mousedown", handleClickOutside);
-//     return () => document.removeEventListener("mousedown", handleClickOutside);
-//   }, []);
-
-//   return (
-//     <div className="flex items-center justify-between bg-blue-100 px-4 sm:px-8 lg:px-10 py-3 shadow w-full">
-      
-//       {/* Logo + SignoApp - responsive */}
-//       <div className="flex items-center gap-3 flex-shrink-0">
-//         <img
-//           src="/SignoApp.svg"
-//           alt="Logo SignoApp"
-//           className="h-10 w-auto sm:h-12"
-//         />
-//         <span className="text-lg sm:text-2xl font-bold text-gray-900 whitespace-nowrap">
-//           SignoApp
-//         </span>
-//       </div>
-
-//       {/* Botón de perfil */}
-//       <div className="relative" ref={dropdownRef}>
-//         <button
-//           onClick={() => setOpen(!open)}
-//           className="user-chip flex items-center gap-2.5 bg-white rounded-full pl-1 pr-4 py-1.5 shadow-sm hover:shadow-md transition-all focus:outline-none"
-//         >
-//           <img
-//             src={avatarUrl || "/avatar3.png"}
-//             alt="Perfil"
-//             className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover border-2 border-gray-300 flex-shrink-0"
-//             onError={(e) => {
-//               e.currentTarget.src = "/avatar3.png";
-//             }}
-//           />
-//           <span className="font-medium text-sm sm:text-base truncate sm:truncate-none max-w-[140px] sm:max-w-none">
-//             {name}
-//           </span>
-//           <svg
-//             className={`w-4 h-4 flex-shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
-//             viewBox="0 0 20 20"
-//             fill="none"
-//             stroke="currentColor"
-//             strokeWidth="2"
-//           >
-//             <path d="M6 9l4 4 4-4" strokeLinecap="round" strokeLinejoin="round" />
-//           </svg>
-//         </button>
-
-//         {/* MENÚ */}
-//         {open && (
-//           <div className="user-menu absolute right-0 mt-2 w-56 z-50">
-//             <button
-//               type="button"
-//               onClick={() => {
-//                 setOpen(false);
-//                 navigate("/edit-profile");
-//               }}
-//               className="block w-full text-left px-5 py-3 hover:bg-gray-100 border-b border-gray-200 font-medium"
-//             >
-//               Editar perfil
-//             </button>
-//             <button
-//               type="button"
-//               onClick={handleLogout}
-//               className="block w-full text-left px-5 py-3 hover:bg-red-50 text-red-600 font-medium"
-//             >
-//               Cerrar sesión
-//             </button>
-//           </div>
-//         )}
-//       </div>
-//     </div>
-//   );
-// };
-
-// export default NavbarUser;
-
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { FiMenu } from "react-icons/fi";
+import { FiMenu, FiSun, FiMoon } from "react-icons/fi";
+import { useTheme } from "../context/ThemeContext";
 
 interface NavbarUserProps {
   avatarUrl: string | null;
@@ -111,6 +11,8 @@ interface NavbarUserProps {
 const NavbarUser: React.FC<NavbarUserProps> = ({ avatarUrl, onMenuClick }) => {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  const { theme, toggleTheme } = useTheme();
+  const darkMode = theme === "dark";
   const name = localStorage.getItem("name") || "Usuario";
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -137,8 +39,8 @@ const NavbarUser: React.FC<NavbarUserProps> = ({ avatarUrl, onMenuClick }) => {
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
-        background: "rgba(8,12,20,0.95)",
-        borderBottom: "1px solid rgba(99,102,241,0.18)",
+        background: darkMode ? "rgba(8,12,20,0.95)" : "rgba(255,255,255,0.95)",
+        borderBottom: darkMode ? "1px solid rgba(99,102,241,0.18)" : "1px solid rgba(15,23,42,0.1)",
         padding: "10px 16px",
         gap: "10px",
         width: "100%",
@@ -196,7 +98,7 @@ const NavbarUser: React.FC<NavbarUserProps> = ({ avatarUrl, onMenuClick }) => {
           style={{
             fontSize: "clamp(16px, 3vw, 20px)",
             fontWeight: 700,
-            color: "white",
+            color: darkMode ? "white" : "#0F172A",
             whiteSpace: "nowrap",
             fontFamily: "'Syne', sans-serif",
             letterSpacing: "-0.01em",
@@ -257,7 +159,7 @@ const NavbarUser: React.FC<NavbarUserProps> = ({ avatarUrl, onMenuClick }) => {
             style={{
               fontWeight: 500,
               fontSize: "14px",
-              color: "rgba(255,255,255,0.85)",
+              color: darkMode ? "rgba(255,255,255,0.85)" : "rgba(15,23,42,0.85)",
               maxWidth: "clamp(90px, 18vw, 180px)",
               overflow: "hidden",
               textOverflow: "ellipsis",
@@ -289,20 +191,20 @@ const NavbarUser: React.FC<NavbarUserProps> = ({ avatarUrl, onMenuClick }) => {
 
         {/* Dropdown */}
         {open && (
-          <div
-            style={{
-              position: "absolute",
-              right: 0,
-              marginTop: "8px",
-              width: "200px",
-              background: "#0F172A",
-              border: "1px solid rgba(99,102,241,0.2)",
-              borderRadius: "14px",
-              overflow: "hidden",
-              zIndex: 50,
-              boxShadow: "0 20px 40px rgba(0,0,0,0.6)",
-            }}
-          >
+        <div
+          style={{
+            position: "absolute",
+            right: 0,
+            marginTop: "8px",
+            width: "200px",
+            background: darkMode ? "#0F172A" : "#FFFFFF",
+            border: darkMode ? "1px solid rgba(99,102,241,0.2)" : "1px solid rgba(15,23,42,0.12)",
+            borderRadius: "14px",
+            overflow: "hidden",
+            zIndex: 50,
+            boxShadow: "0 20px 40px rgba(0,0,0,0.6)",
+          }}
+        >
             <button
               type="button"
               onClick={() => {
@@ -316,53 +218,87 @@ const NavbarUser: React.FC<NavbarUserProps> = ({ avatarUrl, onMenuClick }) => {
                 padding: "12px 18px",
                 background: "none",
                 border: "none",
-                borderBottom: "1px solid rgba(255,255,255,0.07)",
+                borderBottom: darkMode ? "1px solid rgba(255,255,255,0.07)" : "1px solid rgba(15,23,42,0.08)",
                 fontSize: "14px",
                 fontWeight: 500,
-                color: "rgba(255,255,255,0.75)",
+                color: darkMode ? "rgba(255,255,255,0.75)" : "rgba(15,23,42,0.75)",
                 cursor: "pointer",
                 fontFamily: "'DM Sans', sans-serif",
                 transition: "background .12s, color .12s",
               }}
               onMouseEnter={(e) => {
                 (e.currentTarget as HTMLButtonElement).style.background = "rgba(99,102,241,0.1)";
-                (e.currentTarget as HTMLButtonElement).style.color = "white";
+                (e.currentTarget as HTMLButtonElement).style.color = darkMode ? "white" : "#0F172A";
               }}
               onMouseLeave={(e) => {
                 (e.currentTarget as HTMLButtonElement).style.background = "none";
-                (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.75)";
+                (e.currentTarget as HTMLButtonElement).style.color = darkMode ? "rgba(255,255,255,0.75)" : "rgba(15,23,42,0.75)";
               }}
             >
               Editar perfil
             </button>
-            <button
-              type="button"
-              onClick={handleLogout}
-              style={{
-                display: "block",
-                width: "100%",
-                textAlign: "left",
-                padding: "12px 18px",
-                background: "none",
-                border: "none",
-                fontSize: "14px",
-                fontWeight: 500,
-                color: "#F87171",
-                cursor: "pointer",
-                fontFamily: "'DM Sans', sans-serif",
-                transition: "background .12s",
-              }}
-              onMouseEnter={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.background = "rgba(248,113,113,0.08)";
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.background = "none";
-              }}
-            >
-              Cerrar sesión
-            </button>
-          </div>
-        )}
+
+          <button
+            type="button"
+            onClick={toggleTheme}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              width: "100%",
+              textAlign: "left",
+              padding: "12px 18px",
+              background: "none",
+              border: "none",
+              borderBottom: darkMode ? "1px solid rgba(255,255,255,0.07)" : "1px solid rgba(15,23,42,0.08)",
+              fontSize: "14px",
+              fontWeight: 500,
+              color: darkMode ? "rgba(255,255,255,0.75)" : "rgba(15,23,42,0.75)",
+              cursor: "pointer",
+              fontFamily: "'DM Sans', sans-serif",
+              transition: "background .12s, color .12s",
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.background = "rgba(99,102,241,0.1)";
+              (e.currentTarget as HTMLButtonElement).style.color = darkMode ? "white" : "#0F172A";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.background = "none";
+              (e.currentTarget as HTMLButtonElement).style.color = darkMode ? "rgba(255,255,255,0.75)" : "rgba(15,23,42,0.75)";
+            }}
+          >
+            {darkMode ? "Modo claro" : "Modo oscuro"}
+            {darkMode ? <FiSun size={16} /> : <FiMoon size={16} />}
+          </button>
+
+          <button
+            type="button"
+            onClick={handleLogout}
+            style={{
+              display: "block",
+              width: "100%",
+              textAlign: "left",
+              padding: "12px 18px",
+              background: "none",
+              border: "none",
+              fontSize: "14px",
+              fontWeight: 500,
+              color: "#F87171",
+              cursor: "pointer",
+              fontFamily: "'DM Sans', sans-serif",
+              transition: "background .12s",
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.background = "rgba(248,113,113,0.08)";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.background = "none";
+            }}
+          >
+            Cerrar sesión
+          </button>
+        </div>
+      )}
       </div>
     </div>
   );
