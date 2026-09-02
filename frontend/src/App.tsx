@@ -1,7 +1,7 @@
 import React, { useEffect } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { api } from "./services/http";
-
+import ThemeFeatureModal from "./components/ThemeFeatureModal";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -51,6 +51,7 @@ const App: React.FC = () => {
   return (
     <BrowserRouter>
       <WarmBoot />
+      <ThemeFeatureModal />
       <Routes>
         {/* Públicas */}
         <Route path="/" element={<Home />} />
