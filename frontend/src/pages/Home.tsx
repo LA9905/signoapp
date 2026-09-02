@@ -193,7 +193,7 @@ export function NavBar({ hideRegister, hideLogin }: { hideRegister?: boolean; hi
     <nav className={`nav-shell fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
       scrolled ? "nav-shell-scrolled shadow-xl shadow-black/20" : ""
     }`}>
-      <div className="mx-auto max-w-7xl flex items-center justify-between px-6 py-4">
+      <div className="mx-auto max-w-7xl flex items-center justify-between gap-2 px-4 sm:px-6 py-3 sm:py-4">
         <Link to="/" className="flex items-center gap-3 group">
           <div className="relative">
             <img src="/SignoApp.png" alt="SignoApp" className="h-10 w-auto object-contain" />
@@ -207,23 +207,24 @@ export function NavBar({ hideRegister, hideLogin }: { hideRegister?: boolean; hi
           <a href="#how" className="hover:text-white transition-colors">Cómo funciona</a>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1.5 sm:gap-3 flex-shrink-0">
           <button
             onClick={toggleTheme}
             aria-label="Cambiar tema"
             type="button"
-            className="btn-ghost rounded-xl p-2.5 text-white/70 hover:text-white transition-colors"
+            className="btn-ghost rounded-lg sm:rounded-xl p-1.5 sm:p-2.5 text-white/70 hover:text-white transition-colors flex-shrink-0"
           >
-            {darkMode ? <Sun size={18} /> : <Moon size={18} />}
+            {darkMode ? <Sun size={15} className="sm:hidden" /> : <Moon size={15} className="sm:hidden" />}
+            {darkMode ? <Sun size={18} className="hidden sm:block" /> : <Moon size={18} className="hidden sm:block" />}
           </button>
 
           {!hideLogin && (
-            <Link to="/login" className="btn-ghost rounded-xl px-4 py-2 text-sm font-medium">
+            <Link to="/login" className="btn-ghost rounded-lg sm:rounded-xl px-2.5 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium whitespace-nowrap">
               Iniciar sesión
             </Link>
           )}
           {!hideRegister && (
-            <Link to="/register" className="btn-primary rounded-xl px-5 py-2 text-sm font-semibold text-white">
+            <Link to="/register" className="btn-primary rounded-lg sm:rounded-xl px-3 sm:px-5 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-white whitespace-nowrap">
               Registrarse
             </Link>
           )}
