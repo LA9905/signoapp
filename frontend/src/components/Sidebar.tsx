@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { FiX, FiMoon, FiSun, FiVideo, FiBarChart2, FiTruck, FiUsers, FiChevronLeft, FiChevronRight, FiChevronDown, FiPlayCircle, FiMaximize2, FiMinimize2 } from "react-icons/fi";
 import { api } from "../services/http";
+import { useTheme } from "../context/ThemeContext";
 import OperatorPerformanceCard, { type OperatorPerformance } from "./OperatorPerformanceCard";
 import DriverPerformanceCard, { type DriverPerformance } from "./DriverPerformanceCard";
 import UserPerformanceCard, { type UserPerformance } from "./UserPerformanceCard";
@@ -33,7 +34,8 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, isLimited = false }) => {
   const [expanded, setExpanded] = useState(false);
-  const [isDark, setIsDark] = useState(true);
+  const { theme, toggleTheme } = useTheme();
+  const isDark = theme === "dark";
   const [year, setYear] = useState(new Date().getFullYear());
   const [month, setMonth] = useState(new Date().getMonth() + 1);
 
@@ -351,7 +353,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, isLimited = false })
 
         .sb-month-picker::-webkit-calendar-picker-indicator {
           filter: invert(1);
-          opacity: 0.65;
+          opacity: 0.95;
           cursor: pointer;
         }
 
@@ -439,6 +441,116 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, isLimited = false })
           color: rgba(255,255,255,0.75); cursor: pointer; transition: all .15s;
         }
         .sb-theme-btn:hover { background: rgba(99,102,241,0.12); border-color: rgba(99,102,241,0.3); }
+
+        /* ─── Modo claro ─── */
+        body[data-theme="light"] .sb-panel {
+          background: #FFFFFF;
+          border-right: 1px solid rgba(15,23,42,0.08);
+          color: #0F172A;
+        }
+        body[data-theme="light"] .sb-header {
+          border-bottom: 1px solid rgba(15,23,42,0.08);
+        }
+        body[data-theme="light"] .sb-title {
+          color: #0F172A;
+        }
+        body[data-theme="light"] .sb-section-btn {
+          background: rgba(15,23,42,0.03);
+          border: 1px solid rgba(15,23,42,0.1);
+        }
+        body[data-theme="light"] .sb-section-btn:hover {
+          background: rgba(99,102,241,0.08);
+          border-color: rgba(99,102,241,0.3);
+        }
+        body[data-theme="light"] .sb-section-btn-label {
+          color: #4338CA;
+        }
+        body[data-theme="light"] .sb-section-chevron {
+          color: #6366F1;
+        }
+        body[data-theme="light"] .sb-section-content {
+          background: rgba(15,23,42,0.015);
+          border-color: rgba(99,102,241,0.25);
+        }
+        body[data-theme="light"] .opc-card {
+          background: rgba(99,102,241,0.04);
+          border: 1px solid rgba(99,102,241,0.15);
+        }
+        body[data-theme="light"] .sb-month-nav {
+          background: rgba(15,23,42,0.03);
+          border-color: rgba(15,23,42,0.08);
+        }
+        body[data-theme="light"] .sb-theme-btn {
+          background: rgba(15,23,42,0.03);
+          border-color: rgba(15,23,42,0.1);
+          color: rgba(15,23,42,0.75);
+        }
+        body[data-theme="light"] .sb-backdrop {
+          background: rgba(15,23,42,0.35);
+        }
+        body[data-theme="light"] .sb-panel {
+          box-shadow: 20px 0 60px rgba(15,23,42,0.12);
+        }
+        body[data-theme="light"] .sb-tuto-item {
+          background: rgba(15,23,42,0.03);
+          border: 1px solid rgba(15,23,42,0.08);
+          color: rgba(15,23,42,0.7);
+        }
+        body[data-theme="light"] .sb-tuto-item span.soon {
+          color: rgba(15,23,42,0.35);
+          border: 1px solid rgba(15,23,42,0.15);
+        }
+        body[data-theme="light"] .sb-loading {
+          color: rgba(15,23,42,0.4);
+        }
+        body[data-theme="light"] .sb-empty {
+          color: rgba(15,23,42,0.35);
+        }
+        body[data-theme="light"] .sb-month-picker {
+          color: rgba(15,23,42,0.85);
+        }
+        body[data-theme="light"] .sb-month-picker::-webkit-calendar-picker-indicator {
+          filter: none;
+          opacity: 0.65;
+        }
+        body[data-theme="light"] .sb-month-picker::-webkit-calendar-picker-indicator:hover {
+          opacity: 1;
+        }
+        body[data-theme="light"] .opc-name {
+          color: #0F172A;
+        }
+        body[data-theme="light"] .opc-month {
+          color: rgba(15,23,42,0.4);
+        }
+        body[data-theme="light"] .opc-bono {
+          color: rgba(15,23,42,0.55);
+        }
+        body[data-theme="light"] .opc-source {
+          color: rgba(15,23,42,0.4);
+        }
+        body[data-theme="light"] .opc-input {
+          background: #FFFFFF;
+          border: 1px solid rgba(15,23,42,0.12);
+          color: #0F172A;
+        }
+        body[data-theme="light"] select.opc-input option {
+          background: #FFFFFF;
+          color: #0F172A;
+        }
+        body[data-theme="light"] .opc-activity-btn {
+          background: rgba(15,23,42,0.03);
+          border: 1px solid rgba(15,23,42,0.1);
+          color: rgba(15,23,42,0.55);
+        }
+        body[data-theme="light"] .opc-activity-btn:hover {
+          background: rgba(15,23,42,0.06);
+          color: #0F172A;
+        }
+        body[data-theme="light"] .opc-cancel-btn {
+          background: rgba(15,23,42,0.03);
+          border: 1px solid rgba(15,23,42,0.1);
+          color: rgba(15,23,42,0.55);
+        }
       `}</style>
 
       {isOpen && (
@@ -465,7 +577,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, isLimited = false })
 
             <div className="sb-body">
               <div className="sb-section">
-                <div className="sb-section-title" style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                <div className="sb-section-title" style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, fontSize: "11px", fontWeight: 700, letterSpacing: ".08em", textTransform: "uppercase", color: isDark ? "rgba(165,180,252,0.85)" : "#4338CA" }}>
                   <FiVideo size={13} /> Tutoriales
                 </div>
                 <div className="sb-tutoriales-grid">
@@ -607,7 +719,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, isLimited = false })
             </div>
 
             <div className="sb-footer">
-              <button className="sb-theme-btn" onClick={() => setIsDark((d) => !d)} type="button">
+              <button className="sb-theme-btn" onClick={toggleTheme} type="button">
                 {isDark ? <FiMoon size={15} /> : <FiSun size={15} />}
                 {isDark ? "Modo oscuro" : "Modo claro"}
               </button>

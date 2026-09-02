@@ -3,6 +3,7 @@ import { Bar } from "react-chartjs-2";
 import "chart.js/auto";
 import { FiX } from "react-icons/fi";
 import { api } from "../services/http";
+import { useTheme } from "../context/ThemeContext";
 
 interface DiaDetalle {
   fecha: string;
@@ -39,6 +40,8 @@ interface Props {
 }
 
 const DriverDetailModal: React.FC<Props> = ({ driverId, year, month, monthLabel, onClose }) => {
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
   const [data, setData] = useState<DetailResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -93,12 +96,12 @@ const DriverDetailModal: React.FC<Props> = ({ driverId, year, month, monthLabel,
     plugins: {
       legend: {
         display: true,
-        labels: { color: "rgba(255,255,255,0.6)", font: { size: 10 }, boxWidth: 10 },
+        labels: { color: isDark ? "rgba(255,255,255,0.6)" : "rgba(15,23,42,0.6)", font: { size: 10 }, boxWidth: 10 },
       },
     },
     scales: {
-      x: { stacked: true, grid: { display: false }, ticks: { color: "rgba(255,255,255,0.35)", font: { size: 10 } } },
-      y: { stacked: true, grid: { color: "rgba(255,255,255,0.05)" }, ticks: { color: "rgba(255,255,255,0.35)", font: { size: 10 }, precision: 0 } },
+      x: { stacked: true, grid: { display: false }, ticks: { color: isDark ? "rgba(255,255,255,0.35)" : "rgba(15,23,42,0.5)", font: { size: 10 } } },
+      y: { stacked: true, grid: { color: isDark ? "rgba(255,255,255,0.05)" : "rgba(15,23,42,0.08)" }, ticks: { color: isDark ? "rgba(255,255,255,0.35)" : "rgba(15,23,42,0.5)", font: { size: 10 }, precision: 0 } },
     },
   };
 
@@ -129,6 +132,40 @@ const DriverDetailModal: React.FC<Props> = ({ driverId, year, month, monthLabel,
         .odm-resumen-label { font-size: 10px; color: rgba(255,255,255,0.35); }
         .odm-resumen-value { font-size: 13px; font-weight: 600; color: white; }
         .odm-act-empty { font-size: 12px; color: rgba(255,255,255,0.3); text-align: center; padding: 12px 0; }
+
+        /* ─── Modo claro ─── */
+        body[data-theme="light"] .odm-panel {
+          background: #FFFFFF;
+          border: 1px solid rgba(99,102,241,0.25);
+          color: #0F172A;
+          box-shadow: 0 12px 40px rgba(15,23,42,0.18);
+        }
+        body[data-theme="light"] .odm-close {
+          background: rgba(99,102,241,0.1);
+          border: 1px solid rgba(99,102,241,0.35);
+          color: #4338CA;
+        }
+        body[data-theme="light"] .odm-section-title {
+          color: #4338CA;
+        }
+        body[data-theme="light"] .odm-explicacion {
+          color: rgba(15,23,42,0.65);
+          background: rgba(15,23,42,0.03);
+          border: 1px solid rgba(15,23,42,0.08);
+        }
+        body[data-theme="light"] .odm-resumen-item {
+          background: rgba(15,23,42,0.03);
+          border: 1px solid rgba(15,23,42,0.08);
+        }
+        body[data-theme="light"] .odm-resumen-label {
+          color: rgba(15,23,42,0.45);
+        }
+        body[data-theme="light"] .odm-resumen-value {
+          color: #0F172A;
+        }
+        body[data-theme="light"] .odm-act-empty {
+          color: rgba(15,23,42,0.4);
+        }
       `}</style>
       <div className="odm-panel" onClick={(e) => e.stopPropagation()}>
         <div className="odm-header">

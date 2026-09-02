@@ -5,6 +5,7 @@ import SupplierSelector from "../components/SupplierSelector.tsx";
 import ArrowBackButton from "../components/ArrowBackButton";
 import { api } from "../services/http";
 import { AxiosError } from "axios";
+import { useTheme } from "../context/ThemeContext";
 
 interface Producto {
   id: string;
@@ -41,6 +42,8 @@ function getLocalDateString(): string {
 }
 
 const ReceiveSupplier = () => {
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
   const [productos, setProductos] = useState<Producto[]>([]);
   const [form, setForm] = useState<FormularioRecepcion>({
     orden: "",
@@ -164,7 +167,7 @@ const ReceiveSupplier = () => {
     mensaje.toLowerCase().includes("desconocido");
 
   return (
-    <div className="min-h-screen bg-[#080C14] text-white" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+    <div className="page-shell min-h-screen bg-[#080C14] text-white" style={{ fontFamily: "'DM Sans', sans-serif" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
 
@@ -342,6 +345,48 @@ const ReceiveSupplier = () => {
           color: white;
           background: rgba(255,255,255,0.1);
         }
+
+        /* ─── Modo claro ─── */
+        body[data-theme="light"] .section-card-rs {
+          background: #FFFFFF;
+          border: 1px solid rgba(99,102,241,0.15);
+          box-shadow: 0 1px 3px rgba(15,23,42,0.04);
+        }
+        body[data-theme="light"] .input-rs {
+          background: #FFFFFF;
+          border: 1px solid rgba(15,23,42,0.12);
+          color: #0F172A;
+        }
+        body[data-theme="light"] .input-rs::placeholder { color: rgba(15,23,42,0.3); }
+        body[data-theme="light"] .input-rs:focus {
+          border-color: rgba(99,102,241,0.6);
+          box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
+        }
+        body[data-theme="light"] .field-label-rs {
+          color: rgba(15,23,42,0.5);
+        }
+        body[data-theme="light"] .section-title-rs {
+          color: #4338CA;
+        }
+        body[data-theme="light"] .input-rs-wrapper input,
+        body[data-theme="light"] .input-rs-wrapper select {
+          background: #FFFFFF !important;
+          border: 1px solid rgba(15,23,42,0.12) !important;
+          color: #0F172A !important;
+        }
+        body[data-theme="light"] .input-rs-wrapper input::placeholder,
+        body[data-theme="light"] .input-rs-wrapper select::placeholder {
+          color: rgba(15,23,42,0.3) !important;
+        }
+        body[data-theme="light"] .input-rs-wrapper input:focus,
+        body[data-theme="light"] .input-rs-wrapper select:focus {
+          border-color: rgba(99,102,241,0.6) !important;
+          box-shadow: 0 0 0 3px rgba(99,102,241,0.1) !important;
+        }
+        body[data-theme="light"] .input-rs-wrapper select option {
+          background: #FFFFFF !important;
+          color: #0F172A !important;
+        }
       `}</style>
 
       <div className="max-w-2xl mx-auto px-4 py-8">
@@ -356,7 +401,7 @@ const ReceiveSupplier = () => {
           <h1 className="font-display text-3xl font-bold tracking-tight mb-1">
             Recepción de Proveedores
           </h1>
-          <p className="text-sm" style={{ color: "rgba(255,255,255,0.3)" }}>
+          <p className="text-sm" style={{ color: isDark ? "rgba(255,255,255,0.3)" : "rgba(15,23,42,0.5)" }}>
             Registra los productos recibidos desde un proveedor
           </p>
         </div>

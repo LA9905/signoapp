@@ -8,6 +8,7 @@ import ArrowBackButton from "../components/ArrowBackButton";
 import Webcam from "react-webcam";
 import { api } from "../services/http";
 import type { AxiosError } from "axios";
+import { useTheme } from "../context/ThemeContext";
 
 interface Producto {
   id: string;
@@ -53,6 +54,8 @@ function getLocalDateString(): string {
 
 const CreateDispatch = () => {
   const navigate = useNavigate();
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
   const [productos, setProductos] = useState<Producto[]>([]);
     const [form, setForm] = useState<FormularioDespacho>({
     orden: "",
@@ -228,7 +231,7 @@ const CreateDispatch = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#080C14] text-white" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+    <div className="page-shell min-h-screen bg-[#080C14] text-white" style={{ fontFamily: "'DM Sans', sans-serif" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
 
@@ -497,6 +500,60 @@ const CreateDispatch = () => {
           color: white;
           background: rgba(255,255,255,0.1);
         }
+
+        /* ─── Modo claro ─── */
+        body[data-theme="light"] .section-card {
+          background: #FFFFFF;
+          border: 1px solid rgba(99,102,241,0.15);
+          box-shadow: 0 1px 3px rgba(15,23,42,0.04);
+        }
+        body[data-theme="light"] .input-cd {
+          background: #FFFFFF;
+          border: 1px solid rgba(15,23,42,0.12);
+          color: #0F172A;
+        }
+        body[data-theme="light"] .input-cd::placeholder { color: rgba(15,23,42,0.3); }
+        body[data-theme="light"] .input-cd:focus {
+          border-color: rgba(99,102,241,0.6);
+          box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
+        }
+        body[data-theme="light"] .field-label-cd {
+          color: rgba(15,23,42,0.5);
+        }
+        body[data-theme="light"] .section-title-cd {
+          color: #4338CA;
+        }
+        body[data-theme="light"] .img-thumb-cd {
+          border: 1px solid rgba(15,23,42,0.12);
+        }
+        body[data-theme="light"] .btn-camera-cd {
+          color: #059669;
+        }
+        body[data-theme="light"] .btn-upload-cd {
+          color: #4338CA;
+        }
+        body[data-theme="light"] .btn-capture-cd {
+          color: #2563EB;
+        }
+        body[data-theme="light"] .input-cd-wrapper input,
+        body[data-theme="light"] .input-cd-wrapper select {
+          background: #FFFFFF !important;
+          border: 1px solid rgba(15,23,42,0.12) !important;
+          color: #0F172A !important;
+        }
+        body[data-theme="light"] .input-cd-wrapper input::placeholder,
+        body[data-theme="light"] .input-cd-wrapper select::placeholder {
+          color: rgba(15,23,42,0.3) !important;
+        }
+        body[data-theme="light"] .input-cd-wrapper input:focus,
+        body[data-theme="light"] .input-cd-wrapper select:focus {
+          border-color: rgba(99,102,241,0.6) !important;
+          box-shadow: 0 0 0 3px rgba(99,102,241,0.1) !important;
+        }
+        body[data-theme="light"] .input-cd-wrapper select option {
+          background: #FFFFFF !important;
+          color: #0F172A !important;
+        }
       `}</style>
 
       <div className="max-w-2xl mx-auto px-4 py-8">
@@ -511,7 +568,7 @@ const CreateDispatch = () => {
           <h1 className="font-display text-3xl font-bold tracking-tight mb-1">
             Crear Despacho
           </h1>
-          <p className="text-sm" style={{ color: "rgba(255,255,255,0.3)" }}>
+          <p className="text-sm" style={{ color: isDark ? "rgba(255,255,255,0.3)" : "rgba(15,23,42,0.5)" }}>
             Completa los datos para registrar un nuevo despacho
           </p>
         </div>
@@ -673,7 +730,7 @@ const CreateDispatch = () => {
             <div className="section-title-cd">
               <FiCamera size={13} />
               Imágenes
-              <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.25)", textTransform: "none", letterSpacing: "normal", fontWeight: 400 }}>
+              <span style={{ fontSize: "11px", color: isDark ? "rgba(255,255,255,0.25)" : "rgba(15,23,42,0.35)", textTransform: "none", letterSpacing: "normal", fontWeight: 400 }}>
                 opcional
               </span>
             </div>
@@ -735,11 +792,11 @@ const CreateDispatch = () => {
             {images.length === 0 && !showCamera && (
               <div
                 style={{
-                  border: "1px dashed rgba(255,255,255,0.08)",
+                  border: isDark ? "1px dashed rgba(255,255,255,0.08)" : "1px dashed rgba(15,23,42,0.15)",
                   borderRadius: "12px",
                   padding: "24px",
                   textAlign: "center",
-                  color: "rgba(255,255,255,0.2)",
+                  color: isDark ? "rgba(255,255,255,0.2)" : "rgba(15,23,42,0.3)",
                   fontSize: "13px",
                 }}
               >

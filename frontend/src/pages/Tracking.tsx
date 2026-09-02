@@ -604,7 +604,7 @@ const Tracking = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#080C14] text-white" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+    <div className="page-shell min-h-screen bg-[#080C14] text-white" style={{ fontFamily: "'DM Sans', sans-serif" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
 
@@ -773,6 +773,38 @@ const Tracking = () => {
 
         @keyframes fade-in { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
         .fade-in { animation: fade-in .25s ease both; }
+
+        /* ─── Modo claro ─── */
+        body[data-theme="light"] .glass { background: #FFFFFF; border: 1px solid rgba(99,102,241,0.15); box-shadow: 0 1px 3px rgba(15,23,42,0.04); }
+        body[data-theme="light"] .glass-hover:hover { background: rgba(99,102,241,0.04); border-color: rgba(99,102,241,0.25); }
+        body[data-theme="light"] .input-tr { background: #FFFFFF; border: 1px solid rgba(15,23,42,0.12); color: #0F172A; }
+        body[data-theme="light"] .input-tr::placeholder { color: rgba(15,23,42,0.3); }
+        body[data-theme="light"] .input-tr:focus { border-color: rgba(99,102,241,0.6); box-shadow: 0 0 0 3px rgba(99,102,241,0.1); }
+        body[data-theme="light"] .select-tr { background: #FFFFFF; border: 1px solid rgba(15,23,42,0.12); color: rgba(15,23,42,0.75); }
+        body[data-theme="light"] .select-tr option { background: #FFFFFF; color: #0F172A; }
+        body[data-theme="light"] .field-label-tr { color: rgba(15,23,42,0.5); }
+        body[data-theme="light"] .meta-chip-tr { background: rgba(15,23,42,0.03); border: 1px solid rgba(15,23,42,0.08); color: rgba(15,23,42,0.7); }
+        body[data-theme="light"] .meta-chip-tr strong { color: #0F172A; }
+        body[data-theme="light"] .folio-badge-tr { background: rgba(99,102,241,0.08); border-color: rgba(99,102,241,0.22); color: #4338CA; }
+        body[data-theme="light"] .status-badge-tr { background: rgba(15,23,42,0.05); border-color: rgba(15,23,42,0.12); color: rgba(15,23,42,0.5); }
+        body[data-theme="light"] .status-badge-tr.chofer { background: rgba(217,119,6,0.1); border-color: rgba(217,119,6,0.25); color: #B45309; }
+        body[data-theme="light"] .status-badge-tr.completado { background: rgba(5,150,105,0.1); border-color: rgba(5,150,105,0.25); color: #059669; }
+        body[data-theme="light"] .tr-card:hover { background: rgba(99,102,241,0.05); }
+        body[data-theme="light"] .btn-edit-tr { background: rgba(37,99,235,0.06); border-color: rgba(37,99,235,0.3); color: #2563EB; }
+        body[data-theme="light"] .btn-del-tr { background: rgba(220,38,38,0.06); border-color: rgba(220,38,38,0.3); color: #DC2626; }
+        body[data-theme="light"] .btn-save-tr { background: rgba(5,150,105,0.08); border-color: rgba(5,150,105,0.25); color: #059669; }
+        body[data-theme="light"] .btn-cancel-tr { background: rgba(15,23,42,0.04); border-color: rgba(15,23,42,0.12); color: rgba(15,23,42,0.7); }
+        body[data-theme="light"] .btn-add-prod-tr { background: rgba(99,102,241,0.08); border-color: rgba(99,102,241,0.25); color: #4338CA; }
+        body[data-theme="light"] .btn-rem-prod-tr { background: rgba(220,38,38,0.06); border-color: rgba(220,38,38,0.2); color: #DC2626; }
+        body[data-theme="light"] .btn-pdf-tr { background: rgba(37,99,235,0.06); border-color: rgba(37,99,235,0.2); color: #2563EB; }
+        body[data-theme="light"] .btn-print-tr { background: rgba(5,150,105,0.08); border-color: rgba(5,150,105,0.2); color: #059669; }
+        body[data-theme="light"] .btn-excel-tr { background: rgba(5,150,105,0.08); border-color: rgba(5,150,105,0.2); color: #059669; }
+        body[data-theme="light"] .btn-mark-driver-tr { background: rgba(217,119,6,0.08); border-color: rgba(217,119,6,0.25); color: #B45309; }
+        body[data-theme="light"] .btn-mark-driver-tr.done { background: rgba(5,150,105,0.08); border-color: rgba(5,150,105,0.2); color: #059669; }
+        body[data-theme="light"] .btn-mark-client-tr { background: rgba(5,150,105,0.08); border-color: rgba(5,150,105,0.25); color: #059669; }
+        body[data-theme="light"] .img-thumb-tr { border: 1px solid rgba(15,23,42,0.12); }
+        body[data-theme="light"] .btn-camera-tr { background: rgba(5,150,105,0.08); border-color: rgba(5,150,105,0.2); color: #059669; }
+        body[data-theme="light"] .btn-capture-tr { background: rgba(37,99,235,0.08); border-color: rgba(37,99,235,0.2); color: #2563EB; }
       `}</style>
 
       <div className="max-w-4xl mx-auto px-4 py-8">

@@ -3,6 +3,7 @@ import { normalizeSearch } from "../utils/normalizeSearch";
 import ArrowBackButton from "../components/ArrowBackButton";
 import { api } from "../services/http";
 import { FiChevronLeft, FiChevronRight } from "react-icons/fi";
+import { useTheme } from "../context/ThemeContext";
 interface MovementDetail {
   // Despacho
   cliente?: string;
@@ -47,6 +48,8 @@ const IconDown = () => (
 );
 
 const StockMovements = () => {
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<string>("");
   const [productSearch, setProductSearch] = useState<string>("");
@@ -61,6 +64,10 @@ const StockMovements = () => {
   const [selectedClient, setSelectedClient] = useState<string>("");
   const [clientSearch, setClientSearch] = useState<string>("");
   const [showClientDropdown, setShowClientDropdown] = useState(false);
+  const [suppliersList, setSuppliersList] = useState<{ id: number; name: string }[]>([]);
+  const [selectedSupplier, setSelectedSupplier] = useState<string>("");
+  const [supplierSearch, setSupplierSearch] = useState<string>("");
+  const [showSupplierDropdown, setShowSupplierDropdown] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 15;
 
@@ -75,6 +82,13 @@ const StockMovements = () => {
     api
       .get<{ id: number; name: string }[]>("/clients")
       .then((res) => setClientsList(res.data))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    api
+      .get<{ id: number; name: string }[]>("/suppliers")
+      .then((res) => setSuppliersList(res.data))
       .catch(() => {});
   }, []);
 
@@ -98,9 +112,24 @@ const StockMovements = () => {
     setShowClientDropdown(false);
   };
 
-    const handleClearClient = () => {
+  const handleClearClient = () => {
     setSelectedClient("");
     setClientSearch("");
+  };
+
+  const filteredSuppliers = suppliersList.filter((s) =>
+    normalizeSearch(s.name).includes(normalizeSearch(supplierSearch))
+  );
+
+  const handleSelectSupplier = (name: string) => {
+    setSelectedSupplier(name);
+    setSupplierSearch(name);
+    setShowSupplierDropdown(false);
+  };
+
+  const handleClearSupplier = () => {
+    setSelectedSupplier("");
+    setSupplierSearch("");
   };
 
   const handleSearch = async () => {
@@ -114,6 +143,7 @@ const StockMovements = () => {
     try {
       const params: Record<string, string> = { product: selectedProduct };
       if (selectedClient) params.client = selectedClient;
+      if (selectedSupplier) params.supplier = selectedSupplier;
       if (dateFrom) params.date_from = dateFrom;
       if (dateTo) params.date_to = dateTo;
 
@@ -161,8 +191,8 @@ const StockMovements = () => {
     const Chip = ({ label, value }: { label: string; value?: string }) =>
       value ? (
         <span className="sm-meta-chip">
-          <span style={{ color: "rgba(255,255,255,0.35)" }}>{label}</span>
-          <strong style={{ color: "rgba(255,255,255,0.85)", fontWeight: 500 }}>{value}</strong>
+          <span style={{ color: isDark ? "rgba(255,255,255,0.35)" : "rgba(15,23,42,0.45)" }}>{label}</span>
+          <strong style={{ color: isDark ? "rgba(255,255,255,0.85)" : "rgba(15,23,42,0.85)", fontWeight: 500 }}>{value}</strong>
         </span>
       ) : null;
 
@@ -211,7 +241,7 @@ const StockMovements = () => {
   return (
     <div
       className="min-h-screen"
-      style={{ background: "#080C14", color: "white", fontFamily: "'DM Sans', sans-serif" }}
+      style={{ background: isDark ? "#080C14" : "#F4F6FD", color: isDark ? "white" : "#0F172A", fontFamily: "'DM Sans', sans-serif" }}
     >
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
@@ -408,11 +438,38 @@ const StockMovements = () => {
           margin: 0 0 12px;
         }
 
+        .sm-mobile-card {
+          border-radius: 12px;
+          padding: 12px 14px;
+          background: rgba(30,40,80,0.3);
+          border: 1px solid rgba(99,102,241,0.15);
+          border-left-width: 3px;
+        }
+        .sm-mobile-card.entrada { border-left-color: rgba(52,211,153,0.65); }
+        .sm-mobile-card.salida { border-left-color: rgba(248,113,113,0.65); }
+        .sm-mobile-card-top {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          flex-wrap: wrap;
+        }
+        .sm-mobile-card-fecha {
+          font-size: 11px;
+          color: rgba(255,255,255,0.4);
+          margin: 6px 0 10px;
+        }
+
         .sm-metrics-grid {
           display: grid;
           grid-template-columns: repeat(3, minmax(0,1fr));
-          gap: 12px;
+          gap: 8px;
           margin-bottom: 20px;
+        }
+        @media (max-width: 480px) {
+          .sm-metrics-grid { gap: 6px; }
+          .sm-metric { padding: 10px 10px; }
+          .sm-metric-value { font-size: 18px; }
         }
         .sm-metric {
           border-radius: 12px;
@@ -535,6 +592,120 @@ const StockMovements = () => {
           to   { opacity: 1; transform: translateY(0); }
         }
         .sm-fade-in { animation: sm-fade-in .25s ease both; }
+
+        /* ─── Modo claro ─── */
+        body[data-theme="light"] .sm-glass {
+          background: #FFFFFF;
+          border: 1px solid rgba(99,102,241,0.18);
+        }
+        body[data-theme="light"] .sm-input {
+          background: #FFFFFF;
+          border: 1px solid rgba(15,23,42,0.12);
+          color: #0F172A;
+        }
+        body[data-theme="light"] .sm-input::placeholder { color: rgba(15,23,42,0.3); }
+        body[data-theme="light"] .sm-input:focus {
+          border-color: rgba(99,102,241,0.6);
+          box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
+        }
+        body[data-theme="light"] .sm-select {
+          background: #FFFFFF;
+          border: 1px solid rgba(15,23,42,0.12);
+          color: rgba(15,23,42,0.75);
+        }
+        body[data-theme="light"] .sm-select option {
+          background: #FFFFFF;
+          color: #0F172A;
+        }
+        body[data-theme="light"] .sm-field-label {
+          color: rgba(15,23,42,0.5);
+        }
+        body[data-theme="light"] .sm-dropdown-list {
+          background: #FFFFFF;
+          border: 1px solid rgba(99,102,241,0.25);
+          box-shadow: 0 16px 40px rgba(15,23,42,0.15);
+        }
+        body[data-theme="light"] .sm-dropdown-item {
+          color: rgba(15,23,42,0.75);
+          border-bottom: 1px solid rgba(15,23,42,0.06);
+        }
+        body[data-theme="light"] .sm-dropdown-item:hover {
+          background: rgba(99,102,241,0.1);
+          color: #0F172A;
+        }
+        body[data-theme="light"] .sm-clear-btn {
+          background: rgba(15,23,42,0.06);
+          color: rgba(15,23,42,0.5);
+        }
+        body[data-theme="light"] .sm-clear-btn:hover {
+          background: rgba(15,23,42,0.12);
+          color: #0F172A;
+        }
+        body[data-theme="light"] .sm-table-wrap {
+          border: 1px solid rgba(99,102,241,0.18);
+          background: #FFFFFF;
+        }
+        body[data-theme="light"] .sm-table thead th {
+          color: rgba(15,23,42,0.5);
+          border-bottom: 1px solid rgba(99,102,241,0.18);
+        }
+        body[data-theme="light"] .sm-table tbody td {
+          border-bottom: 1px solid rgba(15,23,42,0.06);
+        }
+        body[data-theme="light"] .sm-table tbody tr:hover {
+          background: rgba(99,102,241,0.05);
+        }
+        body[data-theme="light"] .sm-td-fecha {
+          color: rgba(15,23,42,0.5);
+        }
+        body[data-theme="light"] .sm-results-count {
+          color: rgba(15,23,42,0.4);
+        }
+        body[data-theme="light"] .sm-mobile-card {
+          background: #FFFFFF;
+          border: 1px solid rgba(99,102,241,0.15);
+        }
+        body[data-theme="light"] .sm-mobile-card-fecha {
+          color: rgba(15,23,42,0.4);
+        }
+        body[data-theme="light"] .sm-metric-neutral {
+          background: rgba(15,23,42,0.03);
+          border: 1px solid rgba(15,23,42,0.08);
+        }
+        body[data-theme="light"] .sm-card {
+          background: #FFFFFF;
+          border: 1px solid rgba(99,102,241,0.18);
+        }
+        body[data-theme="light"] .sm-card:hover {
+          background: rgba(99,102,241,0.04);
+        }
+        body[data-theme="light"] .sm-meta-chip {
+          background: rgba(15,23,42,0.03);
+          border: 1px solid rgba(15,23,42,0.08);
+        }
+        body[data-theme="light"] .sm-detail-row {
+          border-top: 1px solid rgba(15,23,42,0.06);
+        }
+        body[data-theme="light"] .sm-divider {
+          border-top: 1px solid rgba(15,23,42,0.08);
+        }
+        body[data-theme="light"] .sm-empty {
+          background: #FFFFFF;
+          border: 1px solid rgba(99,102,241,0.18);
+        }
+        body[data-theme="light"] .sm-page-btn {
+          background: rgba(15,23,42,0.03);
+          border: 1px solid rgba(15,23,42,0.1);
+          color: rgba(15,23,42,0.6);
+        }
+        body[data-theme="light"] .sm-page-btn:hover:not(:disabled) {
+          background: rgba(99,102,241,0.1);
+          border-color: rgba(99,102,241,0.25);
+          color: #0F172A;
+        }
+        body[data-theme="light"] .sm-page-ellipsis {
+          color: rgba(15,23,42,0.3);
+        }
       `}</style>
 
         <div style={{ maxWidth: 1180, margin: "0 auto", padding: "32px 20px" }}>
@@ -551,7 +722,7 @@ const StockMovements = () => {
           >
             Movimientos de Stock
           </h1>
-          <p style={{ fontSize: 13, color: "rgba(255,255,255,0.3)", margin: 0 }}>
+          <p style={{ fontSize: 13, color: isDark ? "rgba(255,255,255,0.3)" : "rgba(15,23,42,0.5)", margin: 0 }}>
             Trazabilidad por producto y cliente
           </p>
         </div>
@@ -593,7 +764,7 @@ const StockMovements = () => {
           </div>
 
           {/* Fechas */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: 12 }}>
             <div>
               <label className="sm-field-label">Desde (opcional)</label>
               <input
@@ -659,6 +830,51 @@ const StockMovements = () => {
             )}
           </div>
 
+          {/* Proveedor */}
+          <div style={{ position: "relative" }}>
+            <label className="sm-field-label">Proveedor (opcional)</label>
+            <div className="sm-search-wrap">
+              <input
+                type="text"
+                className="sm-input"
+                placeholder="Todos los proveedores (escribe para buscar)..."
+                value={supplierSearch}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setSupplierSearch(val);
+                  setSelectedSupplier("");
+                  setShowSupplierDropdown(true);
+                }}
+                onFocus={() => setShowSupplierDropdown(true)}
+                onBlur={() => setTimeout(() => setShowSupplierDropdown(false), 150)}
+              />
+              {supplierSearch && (
+                <button
+                  type="button"
+                  className="sm-clear-btn"
+                  onClick={handleClearSupplier}
+                  title="Ver todos los proveedores"
+                  aria-label="Limpiar filtro de proveedor"
+                >
+                  ×
+                </button>
+              )}
+            </div>
+            {showSupplierDropdown && supplierSearch && filteredSuppliers.length > 0 && (
+              <ul className="sm-dropdown-list">
+                {filteredSuppliers.map((s) => (
+                  <li
+                    key={s.id}
+                    className="sm-dropdown-item"
+                    onMouseDown={() => handleSelectSupplier(s.name)}
+                  >
+                    {s.name}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
           {/* Error */}
           {error && (
             <p style={{ fontSize: 12, color: "#FCA5A5", margin: 0 }}>{error}</p>
@@ -683,7 +899,7 @@ const StockMovements = () => {
             {/* Métricas */}
             <div className="sm-metrics-grid">
               <div className="sm-metric sm-metric-neutral">
-                <p className="sm-metric-label" style={{ color: "rgba(255,255,255,0.35)" }}>Movimientos</p>
+                <p className="sm-metric-label" style={{ color: isDark ? "rgba(255,255,255,0.35)" : "rgba(15,23,42,0.5)" }}>Movimientos</p>
                 <p className="sm-metric-value">{movements.length}</p>
               </div>
               <div className="sm-metric sm-metric-entrada">
@@ -717,7 +933,7 @@ const StockMovements = () => {
                   {Math.min(currentPage * ITEMS_PER_PAGE, movements.length)} de {movements.length} movimientos · más reciente primero
                 </p>
 
-                <div className="sm-table-wrap">
+                <div className="sm-table-wrap hidden md:block">
                   <table className="sm-table">
                     <thead>
                       <tr>
@@ -756,8 +972,39 @@ const StockMovements = () => {
                           </tr>
                         );
                       })}
-                    </tbody>
+                                        </tbody>
                   </table>
+                </div>
+
+                {/* Vista móvil: tarjetas apiladas, sin scroll horizontal */}
+                <div className="md:hidden flex flex-col gap-3">
+                  {pagedMovements.map((m, i) => {
+                    const esEntrada = m.tipo === "entrada";
+                    return (
+                      <div key={i} className={`sm-mobile-card ${esEntrada ? "entrada" : "salida"}`}>
+                        <div className="sm-mobile-card-top">
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <span className={`sm-icon-circle ${esEntrada ? "entrada" : "salida"}`} style={{ width: 24, height: 24 }}>
+                              {esEntrada ? <IconUp /> : <IconDown />}
+                            </span>
+                            <span style={{ fontSize: 14, fontWeight: 500, color: "rgba(255,255,255,0.9)" }}>
+                              {m.origen}
+                            </span>
+                            <span className={`sm-badge ${esEntrada ? "entrada" : "salida"}`}>
+                              {esEntrada ? "entrada" : "salida"}
+                            </span>
+                          </div>
+                          <span className="sm-td-cantidad" style={{ color: esEntrada ? "#6EE7B7" : "#FCA5A5" }}>
+                            {esEntrada ? "+" : "-"}{m.cantidad.toLocaleString("es-CL")} {m.unidad}
+                          </span>
+                        </div>
+                        <p className="sm-mobile-card-fecha">{new Date(m.fecha).toLocaleString("es-CL")}</p>
+                        <div className="sm-td-detalle" style={{ maxWidth: "none" }}>
+                          {renderDetalleCell(m)}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
 
                 {totalPages > 1 && (

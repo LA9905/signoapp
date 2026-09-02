@@ -260,6 +260,65 @@ const ClientSelector: React.FC<ClientSelectorProps> = ({ value, onChange }) => {
           position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
           color: rgba(255,255,255,0.25); pointer-events: none; font-size: 10px;
         }
+
+        /* ─── Modo claro ─── */
+        body[data-theme="light"] .sel-input {
+          background: #FFFFFF;
+          border: 1px solid rgba(15,23,42,0.12);
+          color: #0F172A;
+        }
+        body[data-theme="light"] .sel-input::placeholder { color: rgba(15,23,42,0.3); }
+        body[data-theme="light"] .sel-input:focus {
+          border-color: rgba(99,102,241,0.6);
+          box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
+        }
+        body[data-theme="light"] .sel-select {
+          background: #FFFFFF;
+          border: 1px solid rgba(15,23,42,0.12);
+          color: rgba(15,23,42,0.8);
+        }
+        body[data-theme="light"] .sel-select option {
+          background: #FFFFFF;
+          color: #0F172A;
+        }
+        body[data-theme="light"] .sel-icon-btn-cancel {
+          background: rgba(15,23,42,0.04);
+          border-color: rgba(15,23,42,0.12);
+          color: rgba(15,23,42,0.55);
+        }
+        body[data-theme="light"] .sel-icon-btn-cancel:hover {
+          background: rgba(15,23,42,0.08);
+          color: #0F172A;
+        }
+        body[data-theme="light"] .sel-btn-new {
+          color: #4338CA;
+        }
+        body[data-theme="light"] .sel-btn-save-new {
+          color: #059669;
+        }
+        body[data-theme="light"] .sel-btn-cancel-new {
+          background: rgba(15,23,42,0.04);
+          border-color: rgba(15,23,42,0.12);
+          color: rgba(15,23,42,0.55);
+        }
+        body[data-theme="light"] .sel-btn-cancel-new:hover {
+          background: rgba(15,23,42,0.08);
+          color: #0F172A;
+        }
+        body[data-theme="light"] .sel-label {
+          color: rgba(15,23,42,0.5);
+        }
+        body[data-theme="light"] .sel-edit-input {
+          background: #FFFFFF;
+          color: #0F172A;
+        }
+        body[data-theme="light"] .sel-edit-input::placeholder { color: rgba(15,23,42,0.3); }
+        body[data-theme="light"] .sel-search-icon {
+          color: rgba(15,23,42,0.3);
+        }
+        body[data-theme="light"] .sel-select-arrow {
+          color: rgba(15,23,42,0.35);
+        }
       `}</style>
 
       <div className="sel-wrap" style={{ display: "flex", flexDirection: "column", gap: "10px" }}>

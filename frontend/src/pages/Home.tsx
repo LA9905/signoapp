@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
+import { useTheme } from "../context/ThemeContext";
 import {
   Truck,
   FileText,
@@ -16,11 +17,13 @@ import {
   Zap,
   Globe,
   Star,
+  Sun,
+  Moon,
 } from "lucide-react";
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-[#080C14] text-white overflow-x-hidden font-sans">
+      <div className="page-shell min-h-screen bg-[#080C14] text-white overflow-x-hidden font-sans">
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
         
@@ -78,6 +81,21 @@ export default function Home() {
           border-color: rgba(255,255,255,0.25);
         }
 
+        .nav-shell {
+          background: rgba(8,12,20,0.55);
+          backdrop-filter: blur(16px);
+          -webkit-backdrop-filter: blur(16px);
+        }
+        .nav-shell-scrolled {
+          background: rgba(8,12,20,0.9);
+          backdrop-filter: blur(24px);
+          -webkit-backdrop-filter: blur(24px);
+          border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        .footer-surface {
+          background: #060A11;
+        }
+
         @keyframes float {
           0%, 100% { transform: translateY(0px); }
           50% { transform: translateY(-8px); }
@@ -106,6 +124,44 @@ export default function Home() {
           -webkit-text-fill-color: transparent;
           background-clip: text;
         }
+
+        /* ─── Modo claro ─── */
+        body[data-theme="light"] .card-glass {
+          background: rgba(99,102,241,0.05);
+          border: 1px solid rgba(99,102,241,0.14);
+          box-shadow: 0 1px 3px rgba(15,23,42,0.04);
+        }
+        body[data-theme="light"] .card-glass:hover {
+          background: rgba(99,102,241,0.08);
+          border-color: rgba(59,130,246,0.35);
+        }
+        body[data-theme="light"] .badge-pill {
+          background: rgba(59,130,246,0.08);
+          border: 1px solid rgba(59,130,246,0.25);
+          color: #2563EB;
+        }
+        body[data-theme="light"] .stat-card {
+          background: linear-gradient(135deg, rgba(59,130,246,0.06), rgba(99,102,241,0.04));
+          border: 1px solid rgba(59,130,246,0.18);
+        }
+        body[data-theme="light"] .btn-ghost {
+          border: 1px solid rgba(15,23,42,0.15);
+          color: #0F172A;
+        }
+        body[data-theme="light"] .btn-ghost:hover {
+          background: rgba(15,23,42,0.05);
+          border-color: rgba(15,23,42,0.3);
+        }
+        body[data-theme="light"] .nav-shell {
+          background: rgba(244,246,253,0.8);
+        }
+        body[data-theme="light"] .nav-shell-scrolled {
+          background: rgba(244,246,253,0.97);
+          border-bottom: 1px solid rgba(15,23,42,0.08);
+        }
+        body[data-theme="light"] .footer-surface {
+          background: #EEF1FA;
+        }
       `}</style>
 
       <NavBar />
@@ -124,6 +180,8 @@ export default function Home() {
 /* ─── NAV ─── */
 export function NavBar({ hideRegister, hideLogin }: { hideRegister?: boolean; hideLogin?: boolean } = {}) {
   const [scrolled, setScrolled] = useState(false);
+  const { theme, toggleTheme } = useTheme();
+  const darkMode = theme === "dark";
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
@@ -132,8 +190,8 @@ export function NavBar({ hideRegister, hideLogin }: { hideRegister?: boolean; hi
   }, []);
 
   return (
-    <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-      scrolled ? "bg-[#080C14]/90 backdrop-blur-xl border-b border-white/5 shadow-xl shadow-black/20" : ""
+    <nav className={`nav-shell fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+      scrolled ? "nav-shell-scrolled shadow-xl shadow-black/20" : ""
     }`}>
       <div className="mx-auto max-w-7xl flex items-center justify-between px-6 py-4">
         <Link to="/" className="flex items-center gap-3 group">
@@ -150,6 +208,15 @@ export function NavBar({ hideRegister, hideLogin }: { hideRegister?: boolean; hi
         </div>
 
         <div className="flex items-center gap-3">
+          <button
+            onClick={toggleTheme}
+            aria-label="Cambiar tema"
+            type="button"
+            className="btn-ghost rounded-xl p-2.5 text-white/70 hover:text-white transition-colors"
+          >
+            {darkMode ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
+
           {!hideLogin && (
             <Link to="/login" className="btn-ghost rounded-xl px-4 py-2 text-sm font-medium">
               Iniciar sesión
@@ -617,7 +684,7 @@ function WhatsAppFloat() {
 /* ─── FOOTER ─── */
 export function Footer() {
   return (
-    <footer className="border-t border-white/5 bg-[#060A11]">
+    <footer className="footer-surface border-t border-white/5">
       <div className="mx-auto max-w-7xl px-6 py-10 flex flex-col md:flex-row items-start justify-between gap-8">
         <div>
           <div className="flex items-center gap-3 mb-3">

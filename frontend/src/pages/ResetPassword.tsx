@@ -1,9 +1,12 @@
 import { useState, type ChangeEvent, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../services/http";
+import { useTheme } from "../context/ThemeContext";
 
 const ResetPassword: React.FC = () => {
   const navigate = useNavigate();
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
   const [form, setForm] = useState<{ email: string; code: string; new_password: string; confirm_password: string }>({
     email: "",
     code: "",
@@ -37,9 +40,9 @@ const ResetPassword: React.FC = () => {
   };
 
   return (
-    <div
+        <div
       className="min-h-screen"
-      style={{ background: "#080C14", color: "white", fontFamily: "'DM Sans', sans-serif" }}
+      style={{ background: isDark ? "#080C14" : "#F4F6FD", color: isDark ? "white" : "#0F172A", fontFamily: "'DM Sans', sans-serif" }}
     >
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
@@ -147,6 +150,32 @@ const ResetPassword: React.FC = () => {
           flex-direction: column;
           justify-content: center;
         }
+
+        /* ─── Modo claro ─── */
+        body[data-theme="light"] .rp-glass {
+          background: #FFFFFF;
+          border: 1px solid rgba(99,102,241,0.18);
+          box-shadow: 0 4px 24px rgba(15,23,42,0.06);
+        }
+        body[data-theme="light"] .rp-input {
+          background: #FFFFFF;
+          border: 1px solid rgba(15,23,42,0.12);
+          color: #0F172A;
+        }
+        body[data-theme="light"] .rp-input::placeholder { color: rgba(15,23,42,0.3); }
+        body[data-theme="light"] .rp-input:focus {
+          border-color: rgba(99,102,241,0.6);
+          box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
+        }
+        body[data-theme="light"] .rp-field-label {
+          color: rgba(15,23,42,0.5);
+        }
+        body[data-theme="light"] .rp-field-hint {
+          color: rgba(15,23,42,0.4);
+        }
+        body[data-theme="light"] .rp-divider {
+          border-top: 1px solid rgba(15,23,42,0.08);
+        }
       `}</style>
 
       <div className="rp-container">
@@ -175,7 +204,7 @@ const ResetPassword: React.FC = () => {
           >
             Cambiar contraseña
           </h1>
-          <p style={{ fontSize: 13, color: "rgba(255,255,255,0.3)", margin: 0, lineHeight: 1.6 }}>
+          <p style={{ fontSize: 13, color: isDark ? "rgba(255,255,255,0.3)" : "rgba(15,23,42,0.5)", margin: 0, lineHeight: 1.6 }}>
             Ingresa tu correo, el código recibido y tu nueva contraseña.
           </p>
         </div>

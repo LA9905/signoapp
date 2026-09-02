@@ -7,6 +7,7 @@ import { FiDownload, FiPackage, FiSearch, FiFilter, FiArrowLeft } from "react-ic
 import { api } from "../services/http";
 import { me } from "../services/authService";
 import * as XLSX from "xlsx";
+import { useTheme } from "../context/ThemeContext";
 
 interface Product {
   id: number;
@@ -63,6 +64,8 @@ type AdjustState = Record<number, { mode: AdjustMode; value: string }>;
 type StockDraftState = Record<number, string | undefined>;
 
 const ProductList = () => {
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
   const [products, setProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -306,7 +309,7 @@ const ProductList = () => {
   const totalStock = filtered.reduce((sum, p) => sum + (p.stock ?? 0), 0);
 
   return (
-    <div className="bg-[#0A0D13] text-white min-h-[100dvh]" style={{ fontFamily: "'DM Mono', 'Fira Code', monospace" }}>
+    <div className="page-shell bg-[#0A0D13] text-white min-h-[100dvh]" style={{ fontFamily: "'DM Mono', 'Fira Code', monospace" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Barlow:wght@400;500;600;700;800&display=swap');
 
@@ -360,6 +363,8 @@ const ProductList = () => {
 
         .adj-btn {
           width: 28px; height: 28px;
+          padding: 0;
+          line-height: 1;
           display: flex; align-items: center; justify-content: center;
           border-radius: 6px;
           border: 1px solid rgba(255,255,255,0.3);
@@ -373,8 +378,10 @@ const ProductList = () => {
         .adj-btn-sub:hover { background: rgba(248,113,113,0.15); border-color: rgba(248,113,113,0.4); color: #F87171; }
         .adj-btn-add:hover { background: rgba(52,211,153,0.15); border-color: rgba(52,211,153,0.4); color: #34D399; }
 
-        icon-btn {
+        .icon-btn {
           width: 28px; height: 28px;
+          padding: 0;
+          line-height: 0;
           display: flex; align-items: center; justify-content: center;
           border-radius: 7px;
           border: 1px solid rgba(255,255,255,0.3); /* Borde más visible */
@@ -383,6 +390,16 @@ const ProductList = () => {
           transition: all 0.15s;
           cursor: pointer;
           flex-shrink: 0;
+        }
+        .icon-btn svg {
+          display: block;
+          flex-shrink: 0;
+        }
+
+        @media (max-width: 420px) {
+          .adj-btn { width: 24px; height: 24px; font-size: 13px; }
+          .icon-btn { width: 24px; height: 24px; }
+          .icon-btn svg { width: 12px; height: 12px; }
         }
 
         .icon-btn:hover { background: rgba(255,255,255,0.65); color: white; border-color: rgba(255,255,255,0.65); }
@@ -449,6 +466,110 @@ const ProductList = () => {
           }
         }
 
+        /* ─── Modo claro ─── */
+        body[data-theme="light"] .glass {
+          background: #FFFFFF;
+          border: 1px solid rgba(15,23,42,0.08);
+          box-shadow: 0 1px 3px rgba(15,23,42,0.04);
+        }
+        body[data-theme="light"] .glass-hover:hover {
+          background: rgba(99,102,241,0.04);
+          border-color: rgba(15,23,42,0.14);
+        }
+        body[data-theme="light"] .input-dark {
+          background: #FFFFFF;
+          border: 1px solid rgba(15,23,42,0.12);
+          color: #0F172A;
+        }
+        body[data-theme="light"] .input-dark::placeholder { color: rgba(15,23,42,0.3); }
+        body[data-theme="light"] .input-dark:focus {
+          border-color: rgba(59,130,246,0.6);
+          box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
+        }
+        body[data-theme="light"] .select-dark {
+          background: #FFFFFF;
+          border: 1px solid rgba(15,23,42,0.12);
+          color: rgba(15,23,42,0.75);
+        }
+        body[data-theme="light"] .select-dark option {
+          background: #FFFFFF;
+          color: #0F172A;
+        }
+        body[data-theme="light"] .cat-header {
+          color: rgba(15,23,42,0.7);
+        }
+        body[data-theme="light"] .cat-tag {
+          background: rgba(59,130,246,0.08);
+          color: #2563EB;
+          border: 1px solid rgba(59,130,246,0.2);
+        }
+        body[data-theme="light"] .row-product:hover {
+          background: rgba(15,23,42,0.02);
+        }
+        body[data-theme="light"] .icon-btn {
+          background: rgba(15,23,42,0.03);
+          border: 1px solid rgba(15,23,42,0.15);
+          color: rgba(15,23,42,0.7);
+        }
+        body[data-theme="light"] .icon-btn:hover {
+          background: rgba(15,23,42,0.5);
+          color: #FFFFFF;
+          border-color: rgba(15,23,42,0.5);
+        }
+        body[data-theme="light"] .icon-btn-edit {
+          color: #2563EB;
+          border-color: rgba(37,99,235,0.4);
+          background: rgba(37,99,235,0.06);
+        }
+        body[data-theme="light"] .icon-btn-edit:hover {
+          background: rgba(37,99,235,0.15);
+          border-color: #2563EB;
+          color: #2563EB;
+        }
+        body[data-theme="light"] .icon-btn-del {
+          color: #DC2626;
+          border-color: rgba(220,38,38,0.4);
+          background: rgba(220,38,38,0.06);
+        }
+        body[data-theme="light"] .icon-btn-del:hover {
+          background: rgba(220,38,38,0.15);
+          border-color: #DC2626;
+          color: #DC2626;
+        }
+        body[data-theme="light"] .icon-btn-save {
+          color: #059669;
+          border-color: rgba(5,150,105,0.35);
+          background: rgba(5,150,105,0.06);
+        }
+        body[data-theme="light"] .icon-btn-save:hover {
+          background: rgba(5,150,105,0.14);
+          border-color: #059669;
+          color: #059669;
+        }
+        body[data-theme="light"] .adj-btn {
+          border: 1px solid rgba(15,23,42,0.25);
+          color: rgba(15,23,42,0.75);
+          background: rgba(15,23,42,0.03);
+        }
+        body[data-theme="light"] .adj-btn-sub:hover {
+          background: rgba(220,38,38,0.12);
+          border-color: rgba(220,38,38,0.4);
+          color: #DC2626;
+        }
+        body[data-theme="light"] .adj-btn-add:hover {
+          background: rgba(5,150,105,0.12);
+          border-color: rgba(5,150,105,0.4);
+          color: #059669;
+        }
+        body[data-theme="light"] .stock-ok { color: #059669; }
+        body[data-theme="light"] .stock-low { color: #D97706; }
+        body[data-theme="light"] .stock-zero { color: #DC2626; }
+        body[data-theme="light"] .scrollbar-thin::-webkit-scrollbar-thumb {
+          background: rgba(15,23,42,0.2);
+        }
+        body[data-theme="light"] .border-white\/\[0\.045\] {
+          border-color: rgba(15,23,42,0.08);
+        }
       `}</style>
 
             <div 
@@ -601,9 +722,9 @@ const ProductList = () => {
                           </span>
                         </div>
 
-                          <div className="flex items-center justify-between gap-3">
+                          <div className="flex items-center justify-between gap-1 sm:gap-3">
                           {/* Stock controls */}
-                          <div className="flex items-center gap-2 flex-shrink-0">
+                          <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0 min-w-0">
                             {canEditStock && (!adj || adj.mode !== "sub") && (
                               <button className="adj-btn adj-btn-sub" title="Restar" onClick={() => beginAdjust(product.id, "sub")}>−</button>
                             )}
@@ -612,7 +733,7 @@ const ProductList = () => {
                                 autoFocus
                                 inputMode="decimal"
                                 type="number"
-                                className="input-dark font-mono w-20 px-3 py-1.5 rounded-xl text-sm text-right"
+                                className="input-dark font-mono w-14 sm:w-20 px-1.5 sm:px-3 py-1.5 rounded-xl text-xs sm:text-sm text-right"
                                 value={adj.value}
                                 onChange={(e) => setAdjust((prev) => ({ ...prev, [product.id]: { ...prev[product.id], value: e.target.value } }))}
                                 onBlur={() => commitAdjust(product)}
@@ -623,14 +744,14 @@ const ProductList = () => {
                               <input
                                 type="text"
                                 inputMode="decimal"
-                                className={`input-dark font-mono w-24 px-3 py-1.5 rounded-xl text-sm text-right ${stockColorClass}`}
+                                className={`input-dark font-mono w-16 sm:w-24 px-1.5 sm:px-3 py-1.5 rounded-xl text-xs sm:text-sm text-right ${stockColorClass}`}
                                 value={stockValue}
                                 onChange={(e) => setStockDraft(product.id, e.target.value)}
                                 onBlur={() => commitSetStock(product)}
                               />
                             ) : (
-                              <span className={`stock-chip font-mono w-24 text-right inline-block ${stockColorClass}`}>
-                                Stock: {stockValue}
+                              <span className={`stock-chip font-mono w-16 sm:w-24 text-right inline-block ${stockColorClass}`} style={{ fontSize: "11px" }}>
+                                <span className="hidden sm:inline">Stock: </span>{stockValue}
                               </span>
                             )}
 
@@ -642,7 +763,7 @@ const ProductList = () => {
                                 autoFocus
                                 inputMode="decimal"
                                 type="number"
-                                className="input-dark font-mono w-20 px-3 py-1.5 rounded-xl text-sm text-right"
+                                className="input-dark font-mono w-14 sm:w-20 px-1.5 sm:px-3 py-1.5 rounded-xl text-xs sm:text-sm text-right"
                                 value={adj.value}
                                 onChange={(e) => setAdjust((prev) => ({ ...prev, [product.id]: { ...prev[product.id], value: e.target.value } }))}
                                 onBlur={() => commitAdjust(product)}
@@ -651,7 +772,7 @@ const ProductList = () => {
                           </div>
 
                           {/* Action buttons */}
-                          <div className="flex items-center gap-2 flex-shrink-0">
+                          <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
                             <button className="icon-btn icon-btn-edit" onClick={() => startEdit(product)}>
                               <FaRegEdit size={14} />
                             </button>
@@ -693,7 +814,7 @@ const ProductList = () => {
                         {/* Auditoría (creación / edición) + imagen del producto — solo visible al editar */}
                         <div
                           className="rounded-xl p-3 flex flex-col sm:flex-row gap-4"
-                          style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}
+                          style={{ background: isDark ? "rgba(255,255,255,0.02)" : "rgba(15,23,42,0.02)", border: isDark ? "1px solid rgba(255,255,255,0.06)" : "1px solid rgba(15,23,42,0.08)" }}
                         >
                           <div className="flex-1 min-w-0 space-y-1.5 font-mono text-xs text-white/40">
                             <p>

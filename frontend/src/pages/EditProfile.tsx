@@ -3,11 +3,14 @@ import { useNavigate } from "react-router-dom";
 import { api } from "../services/http";
 import ArrowBackButton from "../components/ArrowBackButton";
 import { deleteAccount } from "../services/authService";
+import { useTheme } from "../context/ThemeContext";
 
 type Profile = { id: number; name: string; email: string; avatar_url?: string | null; gender?: "m" | "f" | null };
 
 const EditProfile: React.FC = () => {
   const navigate = useNavigate();
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
   const [profile, setProfile] = useState<Profile | null>(null);
 
   const [name, setName] = useState("");
@@ -128,7 +131,7 @@ const EditProfile: React.FC = () => {
   return (
     <div
       className="min-h-screen"
-      style={{ background: "#080C14", color: "white", fontFamily: "'DM Sans', sans-serif" }}
+      style={{ background: isDark ? "#080C14" : "#F4F6FD", color: isDark ? "white" : "#0F172A", fontFamily: "'DM Sans', sans-serif" }}
     >
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
@@ -294,6 +297,50 @@ const EditProfile: React.FC = () => {
           display: grid;
           gap: 16px;
         }
+
+        /* ─── Modo claro ─── */
+        body[data-theme="light"] .ep-glass {
+          background: #FFFFFF;
+          border: 1px solid rgba(99,102,241,0.18);
+          box-shadow: 0 4px 24px rgba(15,23,42,0.06);
+        }
+        body[data-theme="light"] .ep-input {
+          background: #FFFFFF;
+          border: 1px solid rgba(15,23,42,0.12);
+          color: #0F172A;
+        }
+        body[data-theme="light"] .ep-input::placeholder { color: rgba(15,23,42,0.3); }
+        body[data-theme="light"] .ep-input:focus {
+          border-color: rgba(99,102,241,0.6);
+          box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
+        }
+        body[data-theme="light"] .ep-select {
+          background: #FFFFFF;
+          border: 1px solid rgba(15,23,42,0.12);
+          color: rgba(15,23,42,0.75);
+        }
+        body[data-theme="light"] .ep-select option {
+          background: #FFFFFF;
+          color: #0F172A;
+        }
+        body[data-theme="light"] .ep-field-label {
+          color: rgba(15,23,42,0.5);
+        }
+        body[data-theme="light"] .ep-btn-ghost {
+          background: rgba(15,23,42,0.04);
+          border: 1px solid rgba(15,23,42,0.12);
+          color: rgba(15,23,42,0.65);
+        }
+        body[data-theme="light"] .ep-btn-ghost:hover {
+          background: rgba(15,23,42,0.08);
+          color: #0F172A;
+        }
+        body[data-theme="light"] .ep-divider {
+          border-top: 1px solid rgba(15,23,42,0.08);
+        }
+        body[data-theme="light"] .ep-hint {
+          color: rgba(15,23,42,0.4);
+        }
       `}</style>
 
       <div className="ep-container">
@@ -311,7 +358,7 @@ const EditProfile: React.FC = () => {
           >
             Editar Perfil
           </h1>
-          <p style={{ fontSize: 13, color: "rgba(255,255,255,0.3)", margin: 0 }}>
+          <p style={{ fontSize: 13, color: isDark ? "rgba(255,255,255,0.3)" : "rgba(15,23,42,0.5)", margin: 0 }}>
             Actualiza tu información personal
           </p>
         </div>
@@ -321,8 +368,8 @@ const EditProfile: React.FC = () => {
         {msg && <div className="ep-msg-success ep-fade-in">{msg}</div>}
 
         {!profile ? (
-          <div style={{ display: "flex", alignItems: "center", gap: 12, justifyContent: "center", padding: "64px 0", color: "rgba(255,255,255,0.3)", fontSize: 14 }}>
-            <div style={{ width: 20, height: 20, border: "2px solid rgba(255,255,255,0.1)", borderTopColor: "#6366F1", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+          <div style={{ display: "flex", alignItems: "center", gap: 12, justifyContent: "center", padding: "64px 0", color: isDark ? "rgba(255,255,255,0.3)" : "rgba(15,23,42,0.4)", fontSize: 14 }}>
+            <div style={{ width: 20, height: 20, border: isDark ? "2px solid rgba(255,255,255,0.1)" : "2px solid rgba(15,23,42,0.12)", borderTopColor: "#6366F1", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
             Cargando perfil...
           </div>
         ) : step === "edit" ? (
@@ -337,7 +384,7 @@ const EditProfile: React.FC = () => {
                   className="ep-avatar-ring"
                 />
                 <div>
-                  <p style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.8)", marginBottom: 8 }}>
+                  <p style={{ fontSize: 13, fontWeight: 600, color: isDark ? "rgba(255,255,255,0.8)" : "rgba(15,23,42,0.85)", marginBottom: 8 }}>
                     Foto de perfil
                   </p>
                   <label className="ep-avatar-upload">
@@ -397,7 +444,7 @@ const EditProfile: React.FC = () => {
 
                 {/* Contraseña */}
                 <div>
-                  <label className="ep-field-label">Nueva contraseña <span style={{ color: "rgba(255,255,255,0.2)", fontWeight: 400, textTransform: "none", fontSize: 11 }}>(opcional)</span></label>
+                  <label className="ep-field-label">Nueva contraseña <span style={{ color: isDark ? "rgba(255,255,255,0.2)" : "rgba(15,23,42,0.3)", fontWeight: 400, textTransform: "none", fontSize: 11 }}>(opcional)</span></label>
                   <div style={{ position: "relative" }}>
                     <input
                       type={showPassword ? "text" : "password"}
@@ -489,11 +536,11 @@ const EditProfile: React.FC = () => {
               <div className="ep-step-icon">📬</div>
               <h2
                 className="ep-font-display"
-                style={{ fontSize: 18, fontWeight: 700, marginBottom: 6 }}
+                style={{ fontSize: 18, fontWeight: 700, marginBottom: 6, color: isDark ? "white" : "#0F172A" }}
               >
                 Revisa tu correo
               </h2>
-              <p style={{ fontSize: 13, color: "rgba(255,255,255,0.35)", marginBottom: 24 }}>
+              <p style={{ fontSize: 13, color: isDark ? "rgba(255,255,255,0.35)" : "rgba(15,23,42,0.5)", marginBottom: 24 }}>
                 Ingresa el código de verificación que enviamos a tu correo para confirmar los cambios.
               </p>
 
@@ -526,10 +573,10 @@ const EditProfile: React.FC = () => {
         ) : (
           <div className="ep-glass ep-fade-in" style={{ padding: "32px 24px", textAlign: "center" }}>
             <div style={{ fontSize: 40, marginBottom: 12 }}>✅</div>
-            <h2 className="ep-font-display" style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>
+            <h2 className="ep-font-display" style={{ fontSize: 20, fontWeight: 700, marginBottom: 8, color: isDark ? "white" : "#0F172A" }}>
               ¡Perfil actualizado!
             </h2>
-            <p style={{ fontSize: 13, color: "rgba(255,255,255,0.35)", marginBottom: 24 }}>
+            <p style={{ fontSize: 13, color: isDark ? "rgba(255,255,255,0.35)" : "rgba(15,23,42,0.5)", marginBottom: 24 }}>
               Tus cambios han sido guardados correctamente.
             </p>
             <button

@@ -3,6 +3,7 @@ import { normalizeSearch } from "../utils/normalizeSearch";
 import { detectUnit } from "../utils/detectUnit";
 import { FaRegEdit, FaTrashAlt, FaSave, FaTimes } from "react-icons/fa";
 import { FiSearch, FiPlus } from "react-icons/fi";
+import { useTheme } from "../context/ThemeContext";
 
 interface Producto {
   id: string;
@@ -29,6 +30,8 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
   existingProductos,
   showHoras = false,
 }) => {
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
   const [newProduct, setNewProduct] = useState<Producto>({
     id: "",
     name: "",
@@ -312,6 +315,64 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
           .prd-row-grid .prd-select-wrap { flex: 1 !important; }
           .prd-row-grid .prd-btn-add { width: auto !important; }
         }
+
+        /* ─── Modo claro ─── */
+        body[data-theme="light"] .prd-input {
+          background: #FFFFFF;
+          border: 1px solid rgba(15,23,42,0.12);
+          color: #0F172A;
+        }
+        body[data-theme="light"] .prd-input::placeholder { color: rgba(15,23,42,0.3); }
+        body[data-theme="light"] .prd-input:focus {
+          border-color: rgba(99,102,241,0.6);
+          box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
+        }
+        body[data-theme="light"] .prd-input-plain {
+          background: #FFFFFF;
+          border: 1px solid rgba(15,23,42,0.12);
+          color: #0F172A;
+        }
+        body[data-theme="light"] .prd-input-plain:focus {
+          border-color: rgba(99,102,241,0.6);
+          box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
+        }
+        body[data-theme="light"] .prd-select {
+          background: #FFFFFF;
+          border: 1px solid rgba(15,23,42,0.12);
+          color: rgba(15,23,42,0.8);
+        }
+        body[data-theme="light"] .prd-select option {
+          background: #FFFFFF;
+          color: #0F172A;
+        }
+        body[data-theme="light"] .prd-item-row {
+          background: rgba(99,102,241,0.03);
+          border: 1px solid rgba(99,102,241,0.12);
+        }
+        body[data-theme="light"] .prd-item-row:hover {
+          border-color: rgba(99,102,241,0.3);
+        }
+        body[data-theme="light"] .prd-icon-btn-cancel {
+          background: rgba(15,23,42,0.04);
+          border-color: rgba(15,23,42,0.12);
+          color: rgba(15,23,42,0.55);
+        }
+        body[data-theme="light"] .prd-icon-btn-cancel:hover {
+          background: rgba(15,23,42,0.08);
+          color: #0F172A;
+        }
+        body[data-theme="light"] .prd-btn-add {
+          color: #059669;
+        }
+        body[data-theme="light"] .prd-btn-new {
+          color: #4338CA;
+        }
+        body[data-theme="light"] .prd-search-icon {
+          color: rgba(15,23,42,0.3);
+        }
+        body[data-theme="light"] .prd-select-arrow {
+          color: rgba(15,23,42,0.35);
+        }
       `}</style>
 
       <div className="prd-wrap">
@@ -362,8 +423,8 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
                         className="prd-input-plain"
                         style={{
                           flex: "1 1 100%",
-                          background: "rgba(255,255,255,0.02)",
-                          color: "rgba(255,255,255,0.35)",
+                          background: isDark ? "rgba(255,255,255,0.02)" : "rgba(15,23,42,0.02)",
+                          color: isDark ? "rgba(255,255,255,0.35)" : "rgba(15,23,42,0.45)",
                           userSelect: "none",
                           display: "block",
                         }}

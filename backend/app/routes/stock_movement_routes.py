@@ -25,6 +25,7 @@ def get_stock_movements():
     try:
         product_name = normalize_search(request.args.get("product") or "")
         client_name  = normalize_search(request.args.get("client") or "")
+        supplier_name = normalize_search(request.args.get("supplier") or "")
         date_from_str = (request.args.get("date_from") or "").strip()
         date_to_str = (request.args.get("date_to") or "").strip()
 
@@ -60,19 +61,20 @@ def get_stock_movements():
         if date_to_utc:
             dispatch_q = dispatch_q.filter(Dispatch.fecha < date_to_utc)
 
-        for dp, d in dispatch_q.all():
-            movements.append({
-                "tipo": "salida",
-                "origen": "Despacho",
-                "fecha": to_local(d.fecha).isoformat(timespec="seconds"),
-                "cantidad": dp.cantidad,
-                "unidad": dp.unidad,
-                "detalle": {
-                    "cliente": d.client_name,
-                    "orden": d.orden,
-                    "factura": d.factura_numero or "",
-                },
-            })
+        if not supplier_name:
+            for dp, d in dispatch_q.all():
+                movements.append({
+                    "tipo": "salida",
+                    "origen": "Despacho",
+                    "fecha": to_local(d.fecha).isoformat(timespec="seconds"),
+                    "cantidad": dp.cantidad,
+                    "unidad": dp.unidad,
+                    "detalle": {
+                        "cliente": d.client_name,
+                        "orden": d.orden,
+                        "factura": d.factura_numero or "",
+                    },
+                })
 
         # ── 2. CONSUMO INTERNO (salida) ──
         internal_q = db.session.query(InternalConsumptionProduct, InternalConsumption).join(
@@ -84,7 +86,7 @@ def get_stock_movements():
         if date_to_utc:
             internal_q = internal_q.filter(InternalConsumption.fecha < date_to_utc)
 
-        if not client_name:
+        if not client_name and not supplier_name:
             for ip, ic in internal_q.all():
                 movements.append({
                     "tipo": "salida",
@@ -106,6 +108,8 @@ def get_stock_movements():
         ).join(Supplier, Receipt.supplier_id == Supplier.id).filter(
             normalize_db_column(ReceiptProduct.nombre) == product_name
         )
+        if supplier_name:
+            receipt_q = receipt_q.filter(normalize_db_column(Supplier.name) == supplier_name)
         if date_from_utc:
             receipt_q = receipt_q.filter(Receipt.fecha >= date_from_utc)
         if date_to_utc:
@@ -136,7 +140,7 @@ def get_stock_movements():
         if date_to_utc:
             production_q = production_q.filter(Production.fecha < date_to_utc)
 
-        if not client_name:
+        if not client_name and not supplier_name:
             for pp, prod, op in production_q.all():
                 movements.append({
                     "tipo": "entrada",
@@ -160,20 +164,21 @@ def get_stock_movements():
         if date_to_utc:
             cn_q = cn_q.filter(CreditNote.fecha < date_to_utc)
 
-        for cnp, cn in cn_q.all():
-            movements.append({
-                "tipo": "entrada",
-                "origen": "Nota de Crédito",
-                "fecha": to_local(cn.fecha).isoformat(timespec="seconds"),
-                "cantidad": cnp.cantidad,
-                "unidad": cnp.unidad,
-                "detalle": {
-                    "cliente": cn.client_name,
-                    "orden": cn.order_number,
-                    "factura": cn.invoice_number,
-                    "nota_credito": cn.credit_note_number,
-                },
-            })
+        if not supplier_name:
+            for cnp, cn in cn_q.all():
+                movements.append({
+                    "tipo": "entrada",
+                    "origen": "Nota de Crédito",
+                    "fecha": to_local(cn.fecha).isoformat(timespec="seconds"),
+                    "cantidad": cnp.cantidad,
+                    "unidad": cnp.unidad,
+                    "detalle": {
+                        "cliente": cn.client_name,
+                        "orden": cn.order_number,
+                        "factura": cn.invoice_number,
+                        "nota_credito": cn.credit_note_number,
+                    },
+                })
 
         # Ordenar por fecha descendente: los movimientos más recientes
         # aparecen primero, para no tener que desplazarse hasta el final
