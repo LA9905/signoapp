@@ -224,6 +224,8 @@ const Dashboard: React.FC = () => {
     { title: "Guardar Consumo Interno", route: "/create-internal" },
     { title: "Seguimiento de Registros de Consumos Internos", route: "/internal-tracking" },
     { title: "Récords de Producción de cada producto", route: "/product-records" },
+    { title: "Guardar Cambios de Productos", route: "/create-product-change" },
+    { title: "Seguimiento de Cambios de Productos", route: "/product-change-tracking" },
   ];
 
   if (isLimited) {
