@@ -22,6 +22,8 @@ import ReceiveSupplier from "./pages/ReceiveSupplier";
 import SupplierTracking from "./pages/SupplierTracking"; 
 import CreateInternalConsumption from "./pages/CreateInternalConsumption";
 import InternalTracking from "./pages/InternalTracking";
+import CreateProductChange from "./pages/CreateProductChange";
+import ProductChangeTracking from "./pages/ProductChangeTracking";
 import OperatorList from "./pages/OperatorList";
 import CreateProduction from "./pages/CreateProduction";
 import ProductionTracking from "./pages/ProductionTracking";
@@ -173,6 +175,25 @@ const App: React.FC = () => {
             </ProtectedShell>
           }
         />
+
+
+        <Route
+          path="/create-product-change"
+          element={
+            <ProtectedShell>
+              <CreateProductChange />
+            </ProtectedShell>
+          }
+        />
+        <Route
+          path="/product-change-tracking"
+          element={
+            <ProtectedShell>
+              <ProductChangeTracking />
+            </ProtectedShell>
+          }
+        />
+        
 
         <Route
         path="/operators"
