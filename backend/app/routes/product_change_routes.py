@@ -39,6 +39,12 @@ def create_product_change():
         if not productos:
             return jsonify({"error": "Debes agregar al menos un producto"}), 400
 
+        tipos_presentes = {p.get("tipo") for p in productos}
+        if "entra" not in tipos_presentes or "sale" not in tipos_presentes:
+            return jsonify({
+                "error": "Debes registrar al menos un producto que entra (se queda) y al menos un producto que sale (se lleva)"
+            }), 400
+
         user_id = get_jwt_identity()
 
         fecha_str = (data.get("fecha") or "").strip()
@@ -222,18 +228,30 @@ def update_product_change(id):
             c.fecha = to_utc_naive(datetime.combine(chosen_date, hora_actual))
 
         if "productos" in data and isinstance(data["productos"], list):
+            nuevos_productos = data["productos"]
+
+            if not nuevos_productos:
+                return jsonify({"error": "Debes agregar al menos un producto"}), 400
+
+            for p in nuevos_productos:
+                if not all(k in p for k in ("nombre", "cantidad", "unidad", "tipo")):
+                    return jsonify({"error": "Cada producto requiere nombre, cantidad, unidad y tipo"}), 400
+                if p["tipo"] not in ("entra", "sale"):
+                    return jsonify({"error": "El tipo de producto debe ser 'entra' o 'sale'"}), 400
+
+            tipos_presentes = {p["tipo"] for p in nuevos_productos}
+            if "entra" not in tipos_presentes or "sale" not in tipos_presentes:
+                return jsonify({
+                    "error": "Debes mantener al menos un producto que entra (se queda) y al menos un producto que sale (se lleva)"
+                }), 400
+
             # Revertir el efecto de stock de los productos actuales
             for item in c.productos:
                 _apply_stock_delta(item.nombre, item.cantidad, item.tipo, sign=-1)
 
             current_user = get_jwt_identity()
             new_rows = []
-            for p in data["productos"]:
-                if not all(k in p for k in ("nombre", "cantidad", "unidad", "tipo")):
-                    return jsonify({"error": "Cada producto requiere nombre, cantidad, unidad y tipo"}), 400
-                if p["tipo"] not in ("entra", "sale"):
-                    return jsonify({"error": "El tipo de producto debe ser 'entra' o 'sale'"}), 400
-
+            for p in nuevos_productos:
                 nombre = (p["nombre"] or "").strip()
                 nombre_key = normalize_product_name(nombre)
                 exists = next((pr for pr in Product.query.all() if normalize_product_name(pr.name) == nombre_key), None)

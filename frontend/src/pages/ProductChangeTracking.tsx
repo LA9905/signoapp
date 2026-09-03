@@ -195,7 +195,7 @@ const ProductChangeTracking = () => {
     if (!draft) return;
 
     if (draft.productos.length === 0) {
-      setValidationError("Debes tener al menos un producto (el que se queda o el que se lleva).");
+      setValidationError("Debes tener al menos un producto que se queda y al menos un producto que se lleva.");
       return;
     }
     for (const p of draft.productos) {
@@ -211,6 +211,11 @@ const ProductChangeTracking = () => {
         setValidationError(`El producto "${p.nombre}" tiene cantidad 0 o vacía.`);
         return;
       }
+    }
+    const tiposPresentes = new Set(draft.productos.map((p) => p.tipo));
+    if (!tiposPresentes.has("entra") || !tiposPresentes.has("sale")) {
+      setValidationError("Debes mantener al menos un producto que se queda (entra) y al menos un producto que se lleva (sale). No puedes eliminar todos los productos de una sección.");
+      return;
     }
 
     setIsLoading(true);
