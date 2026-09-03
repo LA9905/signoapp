@@ -206,29 +206,31 @@ const Dashboard: React.FC = () => {
   }, []);
 
   let menuItems = [
-    { title: "Crear despacho", route: "/CreateDispatch" },
     { title: "Agregar productos", route: "/add-product" },
     { title: "Listado de productos", route: "/products" },
-    { title: "Choferes", route: "/drivers" },
-    { title: "Centros de Costos", route: "/clients" },
+    { title: "Búsqueda de Movimientos de Stock por Producto", route: "/stock-movements" },
+    { title: "Crear despacho", route: "/CreateDispatch" },
     { title: "Seguimiento de despachos", route: "/tracking" },
+    { title: "Centros de Costos", route: "/clients" },
     { title: "Recepción de Proveedores", route: "/receive-supplier" },
-    { title: "Recepciones registradas", route: "/supplier-tracking" },
+    { title: "Seguimiento de Recepciones registradas", route: "/supplier-tracking" },
     { title: "Proveedores", route: "/suppliers" },
-    { title: "Operarios", route: "/operators" },
     { title: "Ingreso de Producción", route: "/create-production" },
-    { title: "Registros de Producción", route: "/production-tracking" },
-    { title: "Récords de Producción", route: "/product-records" },
+    { title: "Seguimiento de Registros de Producción", route: "/production-tracking" },
+    { title: "Operarios", route: "/operators" },
     { title: "Crear Nota de Crédito", route: "/create-credit-note" },
     { title: "Seguimiento de Notas de Crédito", route: "/credit-note-tracking" },
-    { title: "Consumo Interno", route: "/create-internal" },
-    { title: "Registros de Consumos Internos", route: "/internal-tracking" },
-    { title: "Búsqueda de Movimientos de Stock por Producto", route: "/stock-movements" },
+    { title: "Choferes", route: "/drivers" },
+    { title: "Guardar Consumo Interno", route: "/create-internal" },
+    { title: "Seguimiento de Registros de Consumos Internos", route: "/internal-tracking" },
+    { title: "Récords de Producción de cada producto", route: "/product-records" },
+    { title: "Guardar Cambios de Productos", route: "/create-product-change" },
+    { title: "Seguimiento de Cambios de Productos", route: "/product-change-tracking" },
   ];
 
   if (isLimited) {
     menuItems = [{ title: "Seguimiento de despachos", route: "/tracking" }];
-    } else if (isOperatorLimited) {
+  } else if (isOperatorLimited) {
     menuItems = [
       { title: "Registros de Producción", route: "/production-tracking" },
       { title: "Récords de Producción", route: "/product-records" },
@@ -271,16 +273,25 @@ const Dashboard: React.FC = () => {
           background: rgba(255,255,255,0.04);
           border: 1px solid rgba(255,255,255,0.09);
           border-left: 3px solid rgba(99,102,241,0.6);
-          border-radius: 14px;
-          padding: 14px 16px 14px 15px;
-          font-size: 13px;
+          border-radius: 10px;
+          padding: 8px 8px 8px 9px;
+          font-size: 10.5px;
           font-weight: 500;
           color: rgba(255,255,255,0.9);
           text-align: left;
           cursor: pointer;
           transition: background .15s, border-color .15s, color .15s, transform .1s;
           font-family: 'DM Sans', sans-serif;
-          line-height: 1.4;
+          line-height: 1.25;
+          min-height: 0;
+        }
+        @media (min-width: 640px) {
+          .dash-menu-btn {
+            border-radius: 14px;
+            padding: 14px 16px 14px 15px;
+            font-size: 13px;
+            line-height: 1.4;
+          }
         }
         .dash-menu-btn:hover {
           background: rgba(99,102,241,0.1);
@@ -434,7 +445,7 @@ const Dashboard: React.FC = () => {
         {/* ── Menu grid ── */}
         <div className="mb-10 fade-in" style={{ animationDelay: "0.05s" }}>
           <div className="section-divider">Accesos rápidos</div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-3 gap-2 sm:gap-3">
             {menuItems.map((item, idx) => (
               <button
                 key={item.route}

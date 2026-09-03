@@ -14,12 +14,27 @@ const MESES = [
   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
 ];
 
-const TUTORIALES = [
-  "Cómo crear un despacho",
-  "Cómo registrar producción",
-  "Cómo agregar un producto",
-  "Cómo recibir de proveedores",
-  "Cómo crear una nota de crédito",
+const TUTORIALES: { title: string; video: string }[] = [
+  { title: "Cómo agregar un producto", video: "" },
+  { title: "Cómo ver el listado de productos", video: "" },
+  { title: "Cómo buscar movimientos de stock por producto", video: "" },
+  { title: "Cómo crear un despacho", video: "" },
+  { title: "Cómo hacer seguimiento de despachos", video: "" },
+  { title: "Cómo gestionar centros de costos", video: "" },
+  { title: "Cómo recibir de proveedores", video: "" },
+  { title: "Cómo ver recepciones registradas", video: "" },
+  { title: "Cómo gestionar proveedores", video: "" },
+  { title: "Cómo registrar ingreso de producción", video: "" },
+  { title: "Cómo ver registros de producción", video: "" },
+  { title: "Cómo gestionar operarios", video: "" },
+  { title: "Cómo crear una nota de crédito", video: "" },
+  { title: "Cómo hacer seguimiento de notas de crédito", video: "" },
+  { title: "Cómo gestionar choferes", video: "" },
+  { title: "Cómo registrar consumo interno", video: "" },
+  { title: "Cómo ver registros de consumos internos", video: "" },
+  { title: "Cómo ver récords de producción", video: "" },
+  { title: "Cómo guardar cambios de productos", video: "" },
+  { title: "Cómo hacer seguimiento de cambios de productos", video: "" },
 ];
 
 const REFRESH_MS = 3 * 60 * 1000; // refresco automático, solo para secciones abiertas
@@ -36,6 +51,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, isLimited = false })
   const [expanded, setExpanded] = useState(false);
   const { theme, toggleTheme } = useTheme();
   const isDark = theme === "dark";
+  const [activeVideo, setActiveVideo] = useState<{ title: string; video: string } | null>(null);
   const [year, setYear] = useState(new Date().getFullYear());
   const [month, setMonth] = useState(new Date().getMonth() + 1);
 
@@ -294,6 +310,13 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, isLimited = false })
           border: 1px solid rgba(255,255,255,0.12); padding: 1px 7px; border-radius: 99px;
           white-space: nowrap;
         }
+        .sb-tuto-item.has-video { cursor: pointer; transition: background .15s, border-color .15s; }
+        .sb-tuto-item.has-video:hover { background: rgba(99,102,241,0.12); border-color: rgba(99,102,241,0.3); }
+        .sb-tuto-item span.ready {
+          margin-left: auto; font-size: 10px; font-weight: 600; color: #34D399;
+          border: 1px solid rgba(52,211,153,0.35); background: rgba(52,211,153,0.1);
+          padding: 1px 7px; border-radius: 99px; white-space: nowrap;
+        }
         .sb-panel.expanded .sb-tutoriales-grid {
           display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px;
         }
@@ -442,6 +465,31 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, isLimited = false })
         }
         .sb-theme-btn:hover { background: rgba(99,102,241,0.12); border-color: rgba(99,102,241,0.3); }
 
+        .sb-video-overlay {
+          position: fixed; inset: 0; z-index: 1300;
+          background: rgba(0,0,0,0.75); backdrop-filter: blur(4px);
+          display: flex; align-items: center; justify-content: center; padding: 16px;
+        }
+        .sb-video-modal {
+          width: 100%; max-width: 720px;
+          background: #0B0F1A; border: 1px solid rgba(99,102,241,0.25);
+          border-radius: 16px; overflow: hidden;
+          box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+        }
+        .sb-video-modal-header {
+          display: flex; align-items: center; justify-content: space-between;
+          padding: 12px 16px; font-size: 13px; font-weight: 600; color: white;
+          border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+        .sb-video-close {
+          width: 28px; height: 28px; border-radius: 8px;
+          display: flex; align-items: center; justify-content: center;
+          background: rgba(248,113,113,0.15); border: 1px solid rgba(248,113,113,0.4);
+          color: #FCA5A5; cursor: pointer; padding: 0; flex-shrink: 0;
+        }
+        .sb-video-close svg { display: block; stroke: currentColor !important; }
+        .sb-video-player { width: 100%; display: block; max-height: 70vh; background: #000; }
+
         /* ─── Modo claro ─── */
         body[data-theme="light"] .sb-panel {
           background: #FFFFFF;
@@ -499,6 +547,24 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, isLimited = false })
         body[data-theme="light"] .sb-tuto-item span.soon {
           color: rgba(15,23,42,0.35);
           border: 1px solid rgba(15,23,42,0.15);
+        }
+        body[data-theme="light"] .sb-tuto-item.has-video:hover {
+          background: rgba(99,102,241,0.08);
+          border-color: rgba(99,102,241,0.3);
+        }
+        body[data-theme="light"] .sb-tuto-item span.ready {
+          color: #059669;
+          border: 1px solid rgba(5,150,105,0.3);
+          background: rgba(5,150,105,0.08);
+        }
+        body[data-theme="light"] .sb-video-modal {
+          background: #FFFFFF;
+          border: 1px solid rgba(99,102,241,0.2);
+          box-shadow: 0 20px 60px rgba(15,23,42,0.2);
+        }
+        body[data-theme="light"] .sb-video-modal-header {
+          color: #0F172A;
+          border-bottom: 1px solid rgba(15,23,42,0.08);
         }
         body[data-theme="light"] .sb-loading {
           color: rgba(15,23,42,0.4);
@@ -582,10 +648,19 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, isLimited = false })
                 </div>
                 <div className="sb-tutoriales-grid">
                   {TUTORIALES.map((t) => (
-                    <div className="sb-tuto-item" key={t}>
+                    <div
+                      className={`sb-tuto-item ${t.video ? "has-video" : ""}`}
+                      key={t.title}
+                      onClick={() => t.video && setActiveVideo(t)}
+                      role={t.video ? "button" : undefined}
+                    >
                       <FiPlayCircle size={14} />
-                      {t}
-                      <span className="soon">Próximamente</span>
+                      {t.title}
+                      {t.video ? (
+                        <span className="ready">Ver video</span>
+                      ) : (
+                        <span className="soon">Próximamente</span>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -754,6 +829,31 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, isLimited = false })
                 monthLabel={monthLabel}
                 onClose={() => setDetailUserId(null)}
               />
+            )}
+
+            {activeVideo && (
+              <div className="sb-video-overlay" onClick={() => setActiveVideo(null)}>
+                <div className="sb-video-modal" onClick={(e) => e.stopPropagation()}>
+                  <div className="sb-video-modal-header">
+                    <span>{activeVideo.title}</span>
+                    <button
+                      className="sb-video-close"
+                      onClick={() => setActiveVideo(null)}
+                      type="button"
+                      aria-label="Cerrar video"
+                    >
+                      <FiX size={16} />
+                    </button>
+                  </div>
+                  <video
+                    key={activeVideo.video}
+                    src={`/tutoriales/${activeVideo.video}`}
+                    controls
+                    autoPlay
+                    className="sb-video-player"
+                  />
+                </div>
+              </div>
             )}
           </aside>
         </>

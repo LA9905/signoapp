@@ -124,6 +124,7 @@ def create_app():
             operator_activity_model,
             production_model,
             credit_note_model,
+            product_change_model,
 
         )
         env = os.getenv("FLASK_ENV") or os.getenv("ENV") or "production"
@@ -142,6 +143,7 @@ def create_app():
     from .routes.supplier_routes import supplier_bp
     from .routes.receipt_routes import receipt_bp
     from .routes.internal_consumption_routes import internal_bp
+    from .routes.product_change_routes import product_change_bp
     from .routes.operator_routes import operator_bp
     from .routes.production_routes import production_bp
     from .routes.operator_performance_routes import performance_bp
@@ -162,6 +164,7 @@ def create_app():
     app.register_blueprint(supplier_bp, url_prefix="/api")
     app.register_blueprint(receipt_bp, url_prefix="/api")
     app.register_blueprint(internal_bp, url_prefix="/api")
+    app.register_blueprint(product_change_bp, url_prefix="/api")
     app.register_blueprint(operator_bp, url_prefix="/api")
     app.register_blueprint(production_bp, url_prefix="/api")
     app.register_blueprint(performance_bp, url_prefix="/api")
