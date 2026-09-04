@@ -7,6 +7,7 @@ import { FiEdit2, FiTrash2, FiSave, FiX, FiPlus, FiMinus, FiDownload, FiSearch, 
 import ArrowBackButton from "../components/ArrowBackButton";
 import { api } from "../services/http";
 import * as XLSX from "xlsx";
+import { useTheme } from "../context/ThemeContext";
 
 interface ProductChangeSummary {
   id: number;
@@ -38,6 +39,8 @@ type SearchState = {
 };
 
 const ProductChangeTracking = () => {
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
   const [changes, setChanges] = useState<ProductChangeSummary[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
@@ -612,10 +615,10 @@ const ProductChangeTracking = () => {
                                       onBlur={() => setTimeout(() => setSuggestions((prev) => ({ ...prev, [idx]: [] })), 150)}
                                     />
                                     {suggestions[idx]?.length > 0 && dropdownPos[idx] && createPortal(
-                                      <ul style={{ position: "absolute", top: dropdownPos[idx].top, left: dropdownPos[idx].left, width: dropdownPos[idx].width, zIndex: 99999, background: "#0F172A", border: "2px solid #6366F1", borderRadius: "16px", overflow: "auto", maxHeight: "240px", boxShadow: "0 25px 50px -12px rgb(0 0 0 / 0.95)", fontSize: "14px" }}>
+                                      <ul style={{ position: "absolute", top: dropdownPos[idx].top, left: dropdownPos[idx].left, width: dropdownPos[idx].width, zIndex: 99999, background: isDark ? "#0F172A" : "#FFFFFF", border: isDark ? "2px solid #6366F1" : "2px solid #A5B4FC", borderRadius: "16px", overflow: "auto", maxHeight: "240px", boxShadow: isDark ? "0 25px 50px -12px rgb(0 0 0 / 0.95)" : "0 25px 50px -12px rgba(15,23,42,0.25)", fontSize: "14px" }}>
                                         {suggestions[idx].map((sug, i) => (
-                                          <li key={i} style={{ padding: "12px 16px", cursor: "pointer", color: "white", borderBottom: "1px solid rgba(255,255,255,0.1)" }}
-                                            onMouseEnter={(e) => (e.currentTarget.style.background = "#1E40AF")}
+                                          <li key={i} style={{ padding: "12px 16px", cursor: "pointer", color: isDark ? "white" : "#0F172A", borderBottom: isDark ? "1px solid rgba(255,255,255,0.1)" : "1px solid rgba(15,23,42,0.08)" }}
+                                            onMouseEnter={(e) => (e.currentTarget.style.background = isDark ? "#1E40AF" : "#EEF2FF")}
                                             onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                                             onMouseDown={() => { updateRow(idx, { nombre: sug, unidad: detectUnit(sug) }); setSuggestions((prev) => ({ ...prev, [idx]: [] })); }}
                                           >{sug}</li>
@@ -657,14 +660,14 @@ const ProductChangeTracking = () => {
 
       {validationError && (
         <div className="fixed inset-0 flex items-center justify-center z-50 px-4" style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}>
-          <div className="rounded-2xl p-6 max-w-md w-full fade-in" style={{ background: "#111827", border: "1px solid rgba(248,113,113,0.2)" }}>
+          <div className="rounded-2xl p-6 max-w-md w-full fade-in" style={{ background: isDark ? "#111827" : "#FFFFFF", border: isDark ? "1px solid rgba(248,113,113,0.2)" : "1px solid rgba(220,38,38,0.25)" }}>
             <div className="flex items-center gap-2 mb-3">
               <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: "rgba(248,113,113,0.15)" }}>
                 <span className="text-red-400 flex"><FiX size={14} /></span>
               </div>
               <h3 className="font-display font-semibold text-red-400">Error al guardar</h3>
             </div>
-            <p className="text-sm text-white/55 mb-5 leading-relaxed">{validationError}</p>
+            <p className="text-sm mb-5 leading-relaxed" style={{ color: isDark ? "rgba(255,255,255,0.55)" : "rgba(15,23,42,0.65)" }}>{validationError}</p>
             <button className="w-full py-2.5 rounded-xl text-sm font-semibold text-white" style={{ background: "linear-gradient(135deg, #4F46E5, #6366F1)" }} onClick={() => setValidationError(null)}>
               Entendido, voy a corregirlo
             </button>
