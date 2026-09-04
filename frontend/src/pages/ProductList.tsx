@@ -3,10 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { flushSync } from "react-dom";
 import { normalizeSearch } from "../utils/normalizeSearch";
 import { FaRegEdit, FaTrashAlt, FaSave, FaTimes } from "react-icons/fa";
-import { FiDownload, FiPackage, FiSearch, FiFilter, FiArrowLeft } from "react-icons/fi";
+import { FiDownload, FiPackage, FiSearch, FiFilter, FiArrowLeft, FiCamera, FiRefreshCw } from "react-icons/fi";
 import { api } from "../services/http";
 import { me } from "../services/authService";
 import * as XLSX from "xlsx";
+import Webcam from "react-webcam";
 import { useTheme } from "../context/ThemeContext";
 
 interface Product {
@@ -75,6 +76,9 @@ const ProductList = () => {
   const [editImagePreview, setEditImagePreview] = useState<string | null>(null);
   const [editRemoveImage, setEditRemoveImage] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [showEditCamera, setShowEditCamera] = useState(false);
+  const [editFacingMode, setEditFacingMode] = useState<"environment" | "user">("environment");
+  const editWebcamRef = useRef<Webcam>(null);
   const [loading, setLoading] = useState(false);
   const [canEditStock, setCanEditStock] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState<string>("");
@@ -147,6 +151,7 @@ const ProductList = () => {
     setEditImageFile(null);
     setEditImagePreview(p.image_url ?? null);
     setEditRemoveImage(false);
+    setShowEditCamera(false);
     saveScrollPosition();
   };
 
@@ -157,6 +162,7 @@ const ProductList = () => {
     setEditImageFile(null);
     setEditImagePreview(null);
     setEditRemoveImage(false);
+    setShowEditCamera(false);
   };
 
   const handleEditImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -172,6 +178,25 @@ const ProductList = () => {
     setEditImageFile(null);
     setEditRemoveImage(true);
     setEditImagePreview(null);
+  };
+
+  const captureEditPhoto = () => {
+    const imageSrc = editWebcamRef.current?.getScreenshot();
+    if (imageSrc) {
+      fetch(imageSrc)
+        .then((res) => res.blob())
+        .then((blob) => {
+          const file = new File([blob], `product_photo_${Date.now()}.jpg`, { type: "image/jpeg" });
+          setEditImageFile(file);
+          setEditRemoveImage(false);
+          setEditImagePreview(URL.createObjectURL(file));
+          setShowEditCamera(false);
+        });
+    }
+  };
+
+  const toggleEditFacingMode = () => {
+    setEditFacingMode((prev) => (prev === "environment" ? "user" : "environment"));
   };
 
   const saveScrollPosition = () => {
@@ -215,6 +240,7 @@ const ProductList = () => {
         setEditImageFile(null);
         setEditImagePreview(null);
         setEditRemoveImage(false);
+        setShowEditCamera(false);
       });
 
       justSavedRef.current = false;
@@ -871,6 +897,15 @@ const ProductList = () => {
                                   Subir
                                   <input type="file" accept="image/*" className="hidden" onChange={handleEditImageChange} />
                                 </label>
+                                <button
+                                  type="button"
+                                  className="icon-btn icon-btn-edit text-xs font-ui flex items-center justify-center gap-1 px-2"
+                                  style={{ width: "auto" }}
+                                  onClick={() => setShowEditCamera((v) => !v)}
+                                >
+                                  <FiCamera size={12} />
+                                  {showEditCamera ? "Cerrar" : "Foto"}
+                                </button>
                                 {editImagePreview && (
                                   <button
                                     type="button"
@@ -883,6 +918,38 @@ const ProductList = () => {
                                 )}
                               </div>
                             </div>
+
+                            {showEditCamera && (
+                              <div className="w-full sm:w-auto">
+                                <Webcam
+                                  audio={false}
+                                  screenshotFormat="image/jpeg"
+                                  ref={editWebcamRef}
+                                  videoConstraints={{ facingMode: editFacingMode }}
+                                  style={{ borderRadius: "10px", width: "100%", maxWidth: "260px", display: "block" }}
+                                />
+                                <div className="flex items-center gap-2 mt-2">
+                                  <button
+                                    type="button"
+                                    onClick={captureEditPhoto}
+                                    className="icon-btn icon-btn-edit text-xs font-ui flex items-center justify-center px-2"
+                                    style={{ width: "auto" }}
+                                  >
+                                    Capturar
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={toggleEditFacingMode}
+                                    className="icon-btn text-xs font-ui flex items-center justify-center gap-1 px-2"
+                                    style={{ width: "auto" }}
+                                    title="Cambiar cámara (frontal/trasera)"
+                                  >
+                                    <FiRefreshCw size={12} />
+                                    {editFacingMode === "environment" ? "Trasera" : "Frontal"}
+                                  </button>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>

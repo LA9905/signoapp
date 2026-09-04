@@ -19,6 +19,9 @@ interface MovementDetail {
   operario?: string;
   // Nota de crédito
   nota_credito?: string;
+  // Cambio de producto
+  persona?: string;
+  comentario?: string;
 }
 
 interface StockMovement {
@@ -232,6 +235,17 @@ const StockMovements = () => {
           <Chip label="Orden" value={d.orden || "—"} />
           <Chip label="Factura" value={d.factura || "—"} />
           <Chip label="N° Nota" value={d.nota_credito || "—"} />
+        </>
+      );
+    }
+    if (m.origen === "Cambio de Producto") {
+      return (
+        <>
+          <Chip label="Persona" value={d.persona || "—"} />
+          {d.cliente && <Chip label="Cliente" value={d.cliente} />}
+          {d.orden && <Chip label="Orden" value={d.orden} />}
+          {d.factura && <Chip label="Factura" value={d.factura} />}
+          {d.comentario && <Chip label="Comentario" value={d.comentario} />}
         </>
       );
     }

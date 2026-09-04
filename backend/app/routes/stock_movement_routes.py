@@ -5,6 +5,7 @@ from app.models.receipt_model import Receipt, ReceiptProduct
 from app.models.production_model import Production, ProductionProduct
 from app.models.credit_note_model import CreditNote, CreditNoteProduct
 from app.models.internal_consumption_model import InternalConsumption, InternalConsumptionProduct
+from app.models.product_change_model import ProductChange, ProductChangeItem
 from app.models.supplier_model import Supplier
 from app.models.operator_model import Operator
 from app.models.user_model import User
@@ -177,6 +178,34 @@ def get_stock_movements():
                         "orden": cn.order_number,
                         "factura": cn.invoice_number,
                         "nota_credito": cn.credit_note_number,
+                    },
+                })
+
+        # ── 6. CAMBIO DE PRODUCTOS (entrada o salida, según el tipo de cada ítem) ──
+        pc_q = db.session.query(ProductChangeItem, ProductChange).join(
+            ProductChange, ProductChangeItem.product_change_id == ProductChange.id
+        ).filter(normalize_db_column(ProductChangeItem.nombre) == product_name)
+        if client_name:
+            pc_q = pc_q.filter(normalize_db_column(ProductChange.cliente) == client_name)
+        if date_from_utc:
+            pc_q = pc_q.filter(ProductChange.fecha >= date_from_utc)
+        if date_to_utc:
+            pc_q = pc_q.filter(ProductChange.fecha < date_to_utc)
+
+        if not supplier_name:
+            for pci, pc in pc_q.all():
+                movements.append({
+                    "tipo": "entrada" if pci.tipo == "entra" else "salida",
+                    "origen": "Cambio de Producto",
+                    "fecha": to_local(pc.fecha).isoformat(timespec="seconds"),
+                    "cantidad": pci.cantidad,
+                    "unidad": pci.unidad,
+                    "detalle": {
+                        "persona": pc.nombre_persona,
+                        "cliente": pc.cliente or "",
+                        "orden": pc.orden_compra or "",
+                        "factura": pc.factura or "",
+                        "comentario": pc.comentario or "",
                     },
                 })
 
