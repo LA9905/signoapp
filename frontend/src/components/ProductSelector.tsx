@@ -1,8 +1,9 @@
-import { useState, type ChangeEvent } from "react";
+import { useState, useRef, type ChangeEvent } from "react";
 import { normalizeSearch } from "../utils/normalizeSearch";
 import { detectUnit } from "../utils/detectUnit";
 import { FaRegEdit, FaTrashAlt, FaSave, FaTimes } from "react-icons/fa";
-import { FiSearch, FiPlus } from "react-icons/fi";
+import { FiSearch, FiPlus, FiCamera, FiRefreshCw } from "react-icons/fi";
+import Webcam from "react-webcam";
 import { useTheme } from "../context/ThemeContext";
 
 interface Producto {
@@ -16,12 +17,12 @@ interface Producto {
   imageFile?: File;
 }
 
-// DESPUÉS
 interface ProductSelectorProps {
   productos: Producto[];
   setProductos: (productos: Producto[]) => void;
   existingProductos: Producto[];
   showHoras?: boolean;
+  allowNewProduct?: boolean;
 }
 
 const ProductSelector: React.FC<ProductSelectorProps> = ({
@@ -29,6 +30,7 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
   setProductos,
   existingProductos,
   showHoras = false,
+  allowNewProduct = true,
 }) => {
   const { theme } = useTheme();
   const isDark = theme === "dark";
@@ -43,6 +45,9 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
   const [selectedCategory, setSelectedCategory] = useState("Otros");
   const [newProductImage, setNewProductImage] = useState<File | null>(null);
   const [newProductImagePreview, setNewProductImagePreview] = useState<string | null>(null);
+  const [showNewProductCamera, setShowNewProductCamera] = useState(false);
+  const [newProductFacingMode, setNewProductFacingMode] = useState<"environment" | "user">("environment");
+  const newProductWebcamRef = useRef<Webcam>(null);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [tmpName, setTmpName] = useState("");
@@ -85,8 +90,9 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
     "Otros",
   ];
 
-    const handleAddProduct = () => {
-      if (newProduct.name && newProduct.cantidad > 0) {
+    const handleAddProduct = (fromNewProductForm: boolean = false) => {
+      const canAdd = fromNewProductForm ? allowNewProduct : Boolean(newProduct.id);
+      if (newProduct.name && newProduct.cantidad > 0 && canAdd) {
         // Solo adjuntamos la imagen si el producto es realmente nuevo (no
         // tenía id de un producto existente); un producto ya existente en
         // el inventario gestiona su imagen desde el módulo de Inventario.
@@ -105,6 +111,7 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
         setNewProductImage(null);
         setNewProductImagePreview(null);
         setShowNewProduct(false);
+        setShowNewProductCamera(false);
       }
     };
 
@@ -143,6 +150,24 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
   const handleRemoveNewProductImage = () => {
     setNewProductImage(null);
     setNewProductImagePreview(null);
+  };
+
+  const captureNewProductPhoto = () => {
+    const imageSrc = newProductWebcamRef.current?.getScreenshot();
+    if (imageSrc) {
+      fetch(imageSrc)
+        .then((res) => res.blob())
+        .then((blob) => {
+          const file = new File([blob], `product_photo_${Date.now()}.jpg`, { type: "image/jpeg" });
+          setNewProductImage(file);
+          setNewProductImagePreview(URL.createObjectURL(file));
+          setShowNewProductCamera(false);
+        });
+    }
+  };
+
+  const toggleNewProductFacingMode = () => {
+    setNewProductFacingMode((prev) => (prev === "environment" ? "user" : "environment"));
   };
 
   const filteredProducts = existingProductos
@@ -585,17 +610,17 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
           )}
           <button
             type="button"
-            onClick={handleAddProduct}
+            onClick={() => handleAddProduct(false)}
             className="prd-btn-add"
-            disabled={!newProduct.name || newProduct.cantidad <= 0}
+            disabled={!newProduct.name || newProduct.cantidad <= 0 || !newProduct.id}
             style={{ flex: "0 0 auto" }}
           >
             <FiPlus size={13} /> Agregar
           </button>
         </div>
 
-        {/* New product creation form */}
-        {!showNewProduct ? (
+        {/* New product creation form (solo si el módulo permite crear productos nuevos) */}
+        {allowNewProduct && (!showNewProduct ? (
           <div>
             <button
               type="button"
@@ -672,45 +697,90 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
             )}
 
             {/* Imagen opcional del producto nuevo */}
-            <div style={{ display: "flex", alignItems: "center", gap: "8px", flex: "1 1 100%" }}>
-              {newProductImagePreview ? (
-                <img
-                  src={newProductImagePreview}
-                  alt="preview"
-                  style={{
-                    width: "40px",
-                    height: "40px",
-                    borderRadius: "8px",
-                    objectFit: "cover",
-                    border: "1px solid rgba(255,255,255,0.1)",
-                    flexShrink: 0,
-                  }}
-                />
-              ) : null}
-              <label
-                className="prd-btn-new"
-                style={{ cursor: "pointer" }}
-              >
-                <FiPlus size={13} /> {newProductImagePreview ? "Cambiar imagen" : "Imagen (opc.)"}
-                <input type="file" accept="image/*" className="hidden" onChange={handleNewProductImageChange} style={{ display: "none" }} />
-              </label>
-              {newProductImagePreview && (
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px", flex: "1 1 100%" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                {newProductImagePreview ? (
+                  <img
+                    src={newProductImagePreview}
+                    alt="preview"
+                    style={{
+                      width: "40px",
+                      height: "40px",
+                      borderRadius: "8px",
+                      objectFit: "cover",
+                      border: "1px solid rgba(255,255,255,0.1)",
+                      flexShrink: 0,
+                    }}
+                  />
+                ) : null}
+                <label
+                  className="prd-btn-new"
+                  style={{ cursor: "pointer" }}
+                >
+                  <FiPlus size={13} /> {newProductImagePreview ? "Cambiar imagen" : "Imagen (opc.)"}
+                  <input type="file" accept="image/*" className="hidden" onChange={handleNewProductImageChange} style={{ display: "none" }} />
+                </label>
                 <button
                   type="button"
-                  className="prd-icon-btn prd-icon-btn-cancel"
-                  title="Quitar imagen"
-                  aria-label="Quitar imagen"
-                  onClick={handleRemoveNewProductImage}
-                  style={{ width: "auto", padding: "6px 10px" }}
+                  className="prd-btn-new"
+                  onClick={() => setShowNewProductCamera((v) => !v)}
                 >
-                  <FaTimes size={12} />
+                  <FiCamera size={13} /> {showNewProductCamera ? "Cerrar cámara" : "Tomar foto"}
                 </button>
+                {newProductImagePreview && (
+                  <button
+                    type="button"
+                    className="prd-icon-btn prd-icon-btn-cancel"
+                    title="Quitar imagen"
+                    aria-label="Quitar imagen"
+                    onClick={handleRemoveNewProductImage}
+                    style={{ width: "auto", padding: "6px 10px" }}
+                  >
+                    <FaTimes size={12} />
+                  </button>
+                )}
+              </div>
+
+              {showNewProductCamera && (
+                <div>
+                  <Webcam
+                    audio={false}
+                    screenshotFormat="image/jpeg"
+                    ref={newProductWebcamRef}
+                    videoConstraints={{ facingMode: newProductFacingMode }}
+                    style={{ borderRadius: "10px", width: "100%", maxWidth: "260px", display: "block" }}
+                  />
+                  <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
+                    <button
+                      type="button"
+                      onClick={captureNewProductPhoto}
+                      className="prd-btn-add"
+                    >
+                      Capturar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={toggleNewProductFacingMode}
+                      style={{
+                        display: "inline-flex", alignItems: "center", gap: "6px",
+                        padding: "8px 12px", borderRadius: "9px", fontSize: "13px", cursor: "pointer",
+                        border: isDark ? "1px solid rgba(255,255,255,0.1)" : "1px solid rgba(15,23,42,0.12)",
+                        background: isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.04)",
+                        color: isDark ? "rgba(255,255,255,0.6)" : "rgba(15,23,42,0.6)",
+                      }}
+                      title="Cambiar cámara (frontal/trasera)"
+                    >
+                      <FiRefreshCw size={12} />
+                      {newProductFacingMode === "environment" ? "Trasera" : "Frontal"}
+                    </button>
+                  </div>
+                </div>
               )}
             </div>
 
             <button
               type="button"
-              onClick={handleAddProduct}
+              onClick={() => handleAddProduct(true)}
               className="prd-btn-add"
               style={{ flex: "0 0 auto" }}
             >
@@ -722,6 +792,7 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
                 setShowNewProduct(false);
                 setNewProductImage(null);
                 setNewProductImagePreview(null);
+                setShowNewProductCamera(false);
               }}
               className="prd-icon-btn prd-icon-btn-cancel"
               style={{ width: "auto", padding: "9px 12px", borderRadius: "9px" }}
@@ -729,7 +800,7 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
               <FaTimes size={13} />
             </button>
           </div>
-        )}
+        ))}
       </div>
     </>
   );

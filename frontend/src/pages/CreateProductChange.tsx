@@ -2,6 +2,7 @@ import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { FiUser, FiBox, FiFileText, FiCheckCircle, FiAlertCircle, FiX, FiRepeat } from "react-icons/fi";
 import ProductSelector from "../components/ProductSelector.tsx";
+import ClientSelector from "../components/ClientSelector.tsx";
 import ArrowBackButton from "../components/ArrowBackButton";
 import { api } from "../services/http";
 import type { AxiosError } from "axios";
@@ -85,8 +86,8 @@ const CreateProductChange = () => {
       setMensaje("El nombre de quien trae/se lleva el producto es requerido");
       return;
     }
-    if (productosEntran.length === 0 && productosSalen.length === 0) {
-      setMensaje("Debes agregar al menos un producto (el que se queda o el que se lleva)");
+    if (productosEntran.length === 0 || productosSalen.length === 0) {
+      setMensaje("Debes agregar al menos un producto que se queda y al menos un producto que se lleva");
       return;
     }
 
@@ -145,10 +146,7 @@ const CreateProductChange = () => {
     }
   };
 
-  const isError =
-    mensaje.toLowerCase().includes("error") ||
-    mensaje.toLowerCase().includes("requerido") ||
-    mensaje.toLowerCase().includes("existe");
+  const isError = !mensaje.toLowerCase().includes("correctamente");
 
   return (
     <div className="page-shell min-h-screen bg-[#080C14] text-white" style={{ fontFamily: "'DM Sans', sans-serif" }}>
@@ -413,13 +411,12 @@ const CreateProductChange = () => {
             <div className="space-y-4">
               <div>
                 <div className="field-label-pc">Cliente</div>
-                <input
-                  name="cliente"
-                  value={form.cliente}
-                  onChange={handleChange}
-                  placeholder="Nombre del cliente (si se conoce)"
-                  className="input-pc"
-                />
+                <div className="input-pc-wrapper">
+                  <ClientSelector
+                    value={form.cliente}
+                    onChange={(value) => setForm({ ...form, cliente: value })}
+                  />
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -467,6 +464,7 @@ const CreateProductChange = () => {
                 productos={productosEntran}
                 setProductos={setProductosEntran}
                 existingProductos={productos}
+                allowNewProduct={false}
               />
             </div>
           </div>
@@ -482,6 +480,7 @@ const CreateProductChange = () => {
                 productos={productosSalen}
                 setProductos={setProductosSalen}
                 existingProductos={productos}
+                allowNewProduct={false}
               />
             </div>
           </div>

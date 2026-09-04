@@ -8,6 +8,7 @@ import SupplierSelector from "../components/SupplierSelector";
 import ArrowBackButton from "../components/ArrowBackButton";
 import { api } from "../services/http";
 import * as XLSX from "xlsx";
+import { useTheme } from "../context/ThemeContext";
 
 interface ReceiptSummary {
   id: number;
@@ -40,6 +41,8 @@ type SearchState = {
 };
 
 const SupplierTracking = () => {
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
   const [receipts, setReceipts] = useState<ReceiptSummary[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
@@ -789,12 +792,12 @@ const SupplierTracking = () => {
                                       left: dropdownPos[idx].left,
                                       width: dropdownPos[idx].width,
                                       zIndex: 99999,
-                                      background: "#0F172A",
-                                      border: "2px solid #6366F1",
+                                      background: isDark ? "#0F172A" : "#FFFFFF",
+                                      border: isDark ? "2px solid #6366F1" : "2px solid #A5B4FC",
                                       borderRadius: "16px",
                                       overflow: "auto",
                                       maxHeight: "240px",
-                                      boxShadow: "0 25px 50px -12px rgb(0 0 0 / 0.95), 0 10px 15px -3px rgb(99 102 241 / 0.5)",
+                                      boxShadow: isDark ? "0 25px 50px -12px rgb(0 0 0 / 0.95), 0 10px 15px -3px rgb(99 102 241 / 0.5)" : "0 25px 50px -12px rgba(15,23,42,0.25), 0 10px 15px -3px rgba(99,102,241,0.15)",
                                       fontSize: "14px",
                                     }}
                                   >
@@ -804,11 +807,11 @@ const SupplierTracking = () => {
                                         style={{
                                           padding: "12px 16px",
                                           cursor: "pointer",
-                                          color: "white",
-                                          borderBottom: "1px solid rgba(255,255,255,0.1)",
+                                          color: isDark ? "white" : "#0F172A",
+                                          borderBottom: isDark ? "1px solid rgba(255,255,255,0.1)" : "1px solid rgba(15,23,42,0.08)",
                                           transition: "background 0.15s",
                                         }}
-                                        onMouseEnter={(e) => (e.currentTarget.style.background = "#1E40AF")}
+                                        onMouseEnter={(e) => (e.currentTarget.style.background = isDark ? "#1E40AF" : "#EEF2FF")}
                                         onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                                         onMouseDown={() => {
                                           updateRow(idx, { nombre: sug, unidad: detectUnit(sug) });
@@ -876,7 +879,7 @@ const SupplierTracking = () => {
         >
           <div
             className="rounded-2xl p-6 max-w-md w-full fade-in"
-            style={{ background: "#111827", border: "1px solid rgba(248,113,113,0.2)" }}
+            style={{ background: isDark ? "#111827" : "#FFFFFF", border: isDark ? "1px solid rgba(248,113,113,0.2)" : "1px solid rgba(220,38,38,0.25)" }}
           >
             <div className="flex items-center gap-2 mb-3">
               <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: "rgba(248,113,113,0.15)" }}>
@@ -884,7 +887,7 @@ const SupplierTracking = () => {
               </div>
               <h3 className="font-display font-semibold text-red-400">Error al guardar</h3>
             </div>
-            <p className="text-sm text-white/55 mb-5 leading-relaxed">{validationError}</p>
+            <p className="text-sm mb-5 leading-relaxed" style={{ color: isDark ? "rgba(255,255,255,0.55)" : "rgba(15,23,42,0.65)" }}>{validationError}</p>
             <button
               className="w-full py-2.5 rounded-xl text-sm font-semibold text-white transition-all"
               style={{ background: "linear-gradient(135deg, #4F46E5, #6366F1)", boxShadow: "0 4px 16px rgba(99,102,241,0.3)" }}

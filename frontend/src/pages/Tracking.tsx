@@ -12,6 +12,7 @@ import { api } from "../services/http";
 import { me } from "../services/authService";
 import * as XLSX from "xlsx";
 import type { MeResp } from "../types";
+import { useTheme } from "../context/ThemeContext";
 
 interface DispatchSummary {
   id: number;
@@ -54,6 +55,8 @@ type SearchState = {
 };
 
 const Tracking = () => {
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
   const [dispatches, setDispatches] = useState<DispatchSummary[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingUser, setIsLoadingUser] = useState(true);
@@ -1222,14 +1225,14 @@ const Tracking = () => {
                                 {suggestions[idx]?.length > 0 && (
                                   <ul
                                     style={{
-                                      background: "rgb(15, 23, 42)",
-                                      border: "2px solid #6366F1",
+                                      background: isDark ? "rgb(15, 23, 42)" : "#FFFFFF",
+                                      border: isDark ? "2px solid #6366F1" : "2px solid #A5B4FC",
                                       borderRadius: "12px",
                                       overflow: "auto",
                                       maxHeight: "200px",
                                       width: "100%",
                                       marginTop: "4px",
-                                      boxShadow: "0 20px 40px -8px rgb(0 0 0 / 0.9)",
+                                      boxShadow: isDark ? "0 20px 40px -8px rgb(0 0 0 / 0.9)" : "0 20px 40px -8px rgba(15,23,42,0.25)",
                                       fontSize: "13px",
                                       isolation: "isolate",
                                       backdropFilter: "none",
@@ -1241,11 +1244,11 @@ const Tracking = () => {
                                         style={{
                                           padding: "10px 14px",
                                           cursor: "pointer",
-                                          color: "white",
-                                          borderBottom: "1px solid rgba(255,255,255,0.07)",
+                                          color: isDark ? "white" : "#0F172A",
+                                          borderBottom: isDark ? "1px solid rgba(255,255,255,0.07)" : "1px solid rgba(15,23,42,0.07)",
                                           transition: "background 0.12s",
                                         }}
-                                        onMouseEnter={(e) => (e.currentTarget.style.background = "#1E40AF")}
+                                        onMouseEnter={(e) => (e.currentTarget.style.background = isDark ? "#1E40AF" : "#EEF2FF")}
                                         onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                                           onMouseDown={() => {
                                             updateRow(idx, { nombre: sug, unidad: detectUnit(sug) });
@@ -1390,7 +1393,7 @@ const Tracking = () => {
         >
           <div
             className="rounded-2xl p-6 max-w-md w-full fade-in"
-            style={{ background: "#111827", border: "1px solid rgba(248,113,113,0.2)" }}
+            style={{ background: isDark ? "#111827" : "#FFFFFF", border: isDark ? "1px solid rgba(248,113,113,0.2)" : "1px solid rgba(220,38,38,0.25)" }}
           >
             <div className="flex items-center gap-2 mb-3">
               <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: "rgba(248,113,113,0.15)" }}>
@@ -1398,7 +1401,7 @@ const Tracking = () => {
               </div>
               <h3 className="font-display font-semibold text-red-400">Error al guardar</h3>
             </div>
-            <p className="text-sm text-white/55 mb-5 leading-relaxed">{validationError}</p>
+            <p className="text-sm mb-5 leading-relaxed" style={{ color: isDark ? "rgba(255,255,255,0.55)" : "rgba(15,23,42,0.65)" }}>{validationError}</p>
             <button
               className="w-full py-2.5 rounded-xl text-sm font-semibold text-white transition-all"
               style={{ background: "linear-gradient(135deg, #4F46E5, #6366F1)", boxShadow: "0 4px 16px rgba(99,102,241,0.3)" }}

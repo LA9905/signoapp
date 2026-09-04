@@ -1,10 +1,11 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import ArrowBackButton from "../components/ArrowBackButton";
 import { api } from "../services/http";
-import { Package, Tag, CheckCircle2, AlertCircle, ChevronDown } from "lucide-react";
+import { Package, Tag, CheckCircle2, AlertCircle, ChevronDown, Camera, RefreshCw } from "lucide-react";
+import Webcam from "react-webcam";
 import { useTheme } from "../context/ThemeContext";
 
 const schema = z.object({
@@ -64,8 +65,11 @@ export default function AddProduct() {
 
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [imageFile, setImageFile] = useState<File | null>(null);
+    const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [showCamera, setShowCamera] = useState(false);
+  const [facingMode, setFacingMode] = useState<"environment" | "user">("environment");
+  const webcamRef = useRef<Webcam>(null);
 
     useEffect(() => {
     if (import.meta.env.PROD) {
@@ -81,9 +85,27 @@ export default function AddProduct() {
     }
   };
 
-  const handleRemoveImage = () => {
+    const handleRemoveImage = () => {
     setImageFile(null);
     setImagePreview(null);
+  };
+
+  const capturePhoto = () => {
+    const imageSrc = webcamRef.current?.getScreenshot();
+    if (imageSrc) {
+      fetch(imageSrc)
+        .then((res) => res.blob())
+        .then((blob) => {
+          const file = new File([blob], `product_photo_${Date.now()}.jpg`, { type: "image/jpeg" });
+          setImageFile(file);
+          setImagePreview(URL.createObjectURL(file));
+          setShowCamera(false);
+        });
+    }
+  };
+
+  const toggleFacingMode = () => {
+    setFacingMode((prev) => (prev === "environment" ? "user" : "environment"));
   };
 
   const onSubmit = async (data: ProductForm) => {
@@ -363,7 +385,7 @@ export default function AddProduct() {
                       <Package size={20} />
                     </div>
                   )}
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 flex-wrap">
                     <label
                       className="text-xs font-medium px-3 py-2 rounded-lg cursor-pointer transition-colors"
                       style={{ background: "rgba(59,130,246,0.12)", border: "1px solid rgba(59,130,246,0.25)", color: "#93C5FD" }}
@@ -371,6 +393,15 @@ export default function AddProduct() {
                       Subir imagen
                       <input type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
                     </label>
+                    <button
+                      type="button"
+                      onClick={() => setShowCamera((v) => !v)}
+                      className="text-xs font-medium px-3 py-2 rounded-lg cursor-pointer transition-colors flex items-center gap-1.5"
+                      style={{ background: "rgba(52,211,153,0.12)", border: "1px solid rgba(52,211,153,0.25)", color: "#6EE7B7" }}
+                    >
+                      <Camera size={13} />
+                      {showCamera ? "Cerrar cámara" : "Tomar foto"}
+                    </button>
                     {imagePreview && (
                       <button
                         type="button"
@@ -382,6 +413,42 @@ export default function AddProduct() {
                     )}
                   </div>
                 </div>
+
+                {showCamera && (
+                  <div className="mt-3">
+                    <Webcam
+                      audio={false}
+                      screenshotFormat="image/jpeg"
+                      ref={webcamRef}
+                      videoConstraints={{ facingMode }}
+                      style={{ borderRadius: "12px", width: "100%", maxWidth: "320px", display: "block" }}
+                    />
+                    <div className="flex items-center gap-2 mt-2">
+                      <button
+                        type="button"
+                        onClick={capturePhoto}
+                        className="text-xs font-medium px-3 py-2 rounded-lg cursor-pointer transition-colors"
+                        style={{ background: "rgba(59,130,246,0.12)", border: "1px solid rgba(59,130,246,0.25)", color: "#93C5FD" }}
+                      >
+                        Capturar foto
+                      </button>
+                      <button
+                        type="button"
+                        onClick={toggleFacingMode}
+                        className="text-xs font-medium px-3 py-2 rounded-lg cursor-pointer transition-colors flex items-center gap-1.5"
+                        style={{
+                          background: isDark ? "rgba(255,255,255,0.05)" : "rgba(15,23,42,0.04)",
+                          border: isDark ? "1px solid rgba(255,255,255,0.12)" : "1px solid rgba(15,23,42,0.12)",
+                          color: isDark ? "rgba(255,255,255,0.7)" : "rgba(15,23,42,0.6)",
+                        }}
+                        title="Cambiar cámara (frontal/trasera)"
+                      >
+                        <RefreshCw size={13} />
+                        {facingMode === "environment" ? "Cámara trasera" : "Cámara frontal"}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Divider */}
