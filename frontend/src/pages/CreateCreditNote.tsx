@@ -641,6 +641,7 @@ const CreateCreditNote = () => {
                 productos={form.productos}
                 setProductos={(prods: Producto[]) => setForm({ ...form, productos: prods })}
                 existingProductos={productos}
+                allowNewProduct={false}
               />
             </div>
           </div>

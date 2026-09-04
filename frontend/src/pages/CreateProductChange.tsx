@@ -464,6 +464,7 @@ const CreateProductChange = () => {
                 productos={productosEntran}
                 setProductos={setProductosEntran}
                 existingProductos={productos}
+                allowNewProduct={false}
               />
             </div>
           </div>
@@ -479,6 +480,7 @@ const CreateProductChange = () => {
                 productos={productosSalen}
                 setProductos={setProductosSalen}
                 existingProductos={productos}
+                allowNewProduct={false}
               />
             </div>
           </div>

@@ -16,12 +16,12 @@ interface Producto {
   imageFile?: File;
 }
 
-// DESPUÉS
 interface ProductSelectorProps {
   productos: Producto[];
   setProductos: (productos: Producto[]) => void;
   existingProductos: Producto[];
   showHoras?: boolean;
+  allowNewProduct?: boolean;
 }
 
 const ProductSelector: React.FC<ProductSelectorProps> = ({
@@ -29,6 +29,7 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
   setProductos,
   existingProductos,
   showHoras = false,
+  allowNewProduct = true,
 }) => {
   const { theme } = useTheme();
   const isDark = theme === "dark";
@@ -85,8 +86,9 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
     "Otros",
   ];
 
-    const handleAddProduct = () => {
-      if (newProduct.name && newProduct.cantidad > 0) {
+    const handleAddProduct = (fromNewProductForm: boolean = false) => {
+      const canAdd = fromNewProductForm ? allowNewProduct : Boolean(newProduct.id);
+      if (newProduct.name && newProduct.cantidad > 0 && canAdd) {
         // Solo adjuntamos la imagen si el producto es realmente nuevo (no
         // tenía id de un producto existente); un producto ya existente en
         // el inventario gestiona su imagen desde el módulo de Inventario.
@@ -585,17 +587,17 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
           )}
           <button
             type="button"
-            onClick={handleAddProduct}
+            onClick={() => handleAddProduct(false)}
             className="prd-btn-add"
-            disabled={!newProduct.name || newProduct.cantidad <= 0}
+            disabled={!newProduct.name || newProduct.cantidad <= 0 || !newProduct.id}
             style={{ flex: "0 0 auto" }}
           >
             <FiPlus size={13} /> Agregar
           </button>
         </div>
 
-        {/* New product creation form */}
-        {!showNewProduct ? (
+        {/* New product creation form (solo si el módulo permite crear productos nuevos) */}
+        {allowNewProduct && (!showNewProduct ? (
           <div>
             <button
               type="button"
@@ -710,7 +712,7 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
 
             <button
               type="button"
-              onClick={handleAddProduct}
+              onClick={() => handleAddProduct(true)}
               className="prd-btn-add"
               style={{ flex: "0 0 auto" }}
             >
@@ -729,7 +731,7 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
               <FaTimes size={13} />
             </button>
           </div>
-        )}
+        ))}
       </div>
     </>
   );
