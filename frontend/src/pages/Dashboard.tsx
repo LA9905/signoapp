@@ -420,7 +420,13 @@ const Dashboard: React.FC = () => {
         }
       `}</style>
 
-      <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} isLimited={isLimited || isOperatorLimited} />
+      <Sidebar
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
+        isLimited={isLimited || isOperatorLimited}
+        isDriverLimited={isLimited}
+        isOperatorLimited={isOperatorLimited}
+      />
 
       <NavbarUser avatarUrl={avatarUrl} onMenuClick={() => setIsSidebarOpen(true)} />
       <DashboardAnniversaryBanner />
