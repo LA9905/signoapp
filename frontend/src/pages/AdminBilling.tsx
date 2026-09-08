@@ -90,19 +90,19 @@ const AdminBilling = () => {
     }
   };
 
-  const handleSetOperatorLink = async (userId: number, operatorIdStr: string) => {
+    const handleSetOperatorLink = async (userId: number, operatorIdStr: string) => {
     try {
       if (!operatorIdStr) {
-        await setEmployeeLink({ user_id: userId, role: "none" });
+        await setEmployeeLink({ user_id: userId, role: "none", target_role: "operator" });
         setUsers(prev => prev.map(x => x.id === userId
-          ? { ...x, linked_operator_id: null, linked_operator_name: null, linked_driver_id: null, linked_driver_name: null }
+          ? { ...x, linked_operator_id: null, linked_operator_name: null }
           : x));
       } else {
         const operatorId = Number(operatorIdStr);
         await setEmployeeLink({ user_id: userId, role: "operator", operator_id: operatorId });
         const opName = operators.find(o => o.id === operatorId)?.name || null;
         setUsers(prev => prev.map(x => x.id === userId
-          ? { ...x, linked_operator_id: operatorId, linked_operator_name: opName, linked_driver_id: null, linked_driver_name: null }
+          ? { ...x, linked_operator_id: operatorId, linked_operator_name: opName }
           : x));
       }
       setMsg("Vínculo de operario actualizado.");
@@ -111,19 +111,19 @@ const AdminBilling = () => {
     }
   };
 
-  const handleSetDriverLink = async (userId: number, driverIdStr: string) => {
+    const handleSetDriverLink = async (userId: number, driverIdStr: string) => {
     try {
       if (!driverIdStr) {
-        await setEmployeeLink({ user_id: userId, role: "none" });
+        await setEmployeeLink({ user_id: userId, role: "none", target_role: "driver" });
         setUsers(prev => prev.map(x => x.id === userId
-          ? { ...x, linked_driver_id: null, linked_driver_name: null, linked_operator_id: null, linked_operator_name: null }
+          ? { ...x, linked_driver_id: null, linked_driver_name: null }
           : x));
       } else {
         const driverId = Number(driverIdStr);
         await setEmployeeLink({ user_id: userId, role: "driver", driver_id: driverId });
         const drName = drivers.find(d => d.id === driverId)?.name || null;
         setUsers(prev => prev.map(x => x.id === userId
-          ? { ...x, linked_driver_id: driverId, linked_driver_name: drName, linked_operator_id: null, linked_operator_name: null }
+          ? { ...x, linked_driver_id: driverId, linked_driver_name: drName }
           : x));
       }
       setMsg("Vínculo de chofer actualizado.");
