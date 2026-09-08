@@ -1,6 +1,5 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 
-// Utilidad básica para verificar expiración del JWT sin librerías externas
 function isTokenExpired(token: string): boolean {
   try {
     const payload = JSON.parse(atob(token.split(".")[1]));

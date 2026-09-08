@@ -50,7 +50,8 @@ AUTO_DELIVERY_DRIVER_NAMES = {
     "andri alvarez",
     "frank flores",
     "encomienda",
-    "fernando chalbaud"
+    "fernando chalbaud",
+    "aldair menacho"
 }
 
 

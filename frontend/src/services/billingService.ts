@@ -59,6 +59,7 @@ export const getDriversList = () =>
 export const setEmployeeLink = (payload: {
   user_id: number;
   role: "operator" | "driver" | "none";
+  target_role?: "operator" | "driver";
   operator_id?: number;
   driver_id?: number;
 }) => api.post("/billing/set-employee-link", payload);

@@ -45,9 +45,11 @@ interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
   isLimited?: boolean;
+  isDriverLimited?: boolean;
+  isOperatorLimited?: boolean;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, isLimited = false }) => {
+const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, isLimited = false, isDriverLimited = false, isOperatorLimited = false }) => {
   const [expanded, setExpanded] = useState(false);
   const { theme, toggleTheme } = useTheme();
   const isDark = theme === "dark";
@@ -162,6 +164,22 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, isLimited = false })
   };
 
   const monthLabel = `${MESES[month - 1]} ${year}`;
+
+  // Tutoriales visibles según el tipo de usuario. Un usuario normal (ni
+  // chofer ni operario) ve todos. Un usuario chofer y/o operario solo ve
+  // el o los tutoriales relevantes para su rol — si es ambos, ve los
+  // tutoriales de ambos roles combinados.
+  const DRIVER_TUTORIAL_TITLES = ["Cómo hacer seguimiento de despachos"];
+  const OPERATOR_TUTORIAL_TITLES = ["Cómo ver registros de producción", "Cómo ver récords de producción"];
+
+  const visibleTutorials = (() => {
+    if (!isDriverLimited && !isOperatorLimited) return TUTORIALES;
+    const allowedTitles = [
+      ...(isDriverLimited ? DRIVER_TUTORIAL_TITLES : []),
+      ...(isOperatorLimited ? OPERATOR_TUTORIAL_TITLES : []),
+    ];
+    return TUTORIALES.filter((t) => allowedTitles.includes(t.title));
+  })();
 
   return (
     <>
@@ -647,7 +665,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, isLimited = false })
                   <FiVideo size={13} /> Tutoriales
                 </div>
                 <div className="sb-tutoriales-grid">
-                  {TUTORIALES.map((t) => (
+                  {visibleTutorials.map((t) => (
                     <div
                       className={`sb-tuto-item ${t.video ? "has-video" : ""}`}
                       key={t.title}

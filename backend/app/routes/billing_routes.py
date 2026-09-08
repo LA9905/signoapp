@@ -264,11 +264,8 @@ def set_notification_prefs():
 @jwt_required()
 def set_employee_link():
     """
-    Vincula (o desvincula) a un usuario con un Operario o un Chofer
-    existente, con un clic desde el panel de administración. Un usuario
-    solo puede ser UNA cosa a la vez (operario, chofer, o ninguno) —
-    vincularlo a uno limpia automáticamente el otro. Cualquier admin
-    (gestor o principal) puede hacer esto.
+    Vincular (o desvincular) a un usuario con un Operario y/o un Chofer
+    existente, con un clic desde el panel de administración.
     """
     uid = get_jwt_identity()
     viewer = User.query.get(uid)
@@ -288,9 +285,19 @@ def set_employee_link():
     if not target:
         return jsonify({"msg": "Usuario no encontrado"}), 404
 
+    # 'target_role' indica cuál vínculo desvincular cuando role == "none"
+    # ("operator" o "driver"). Por compatibilidad hacia atrás, si no se
+    # envía, se desvinculan ambos.
+    target_role = (data.get("target_role") or "").strip().lower()
+
     if role == "none":
-        target.linked_operator_id = None
-        target.linked_driver_id = None
+        if target_role == "operator":
+            target.linked_operator_id = None
+        elif target_role == "driver":
+            target.linked_driver_id = None
+        else:
+            target.linked_operator_id = None
+            target.linked_driver_id = None
 
     elif role == "operator":
         operator_id = data.get("operator_id")
@@ -304,7 +311,6 @@ def set_employee_link():
         if other:
             return jsonify({"msg": f"Ese operario ya está vinculado al usuario {other.email}"}), 409
         target.linked_operator_id = operator_id
-        target.linked_driver_id = None  # un usuario es operario O chofer, no ambos
 
     elif role == "driver":
         driver_id = data.get("driver_id")
@@ -317,7 +323,6 @@ def set_employee_link():
         if other:
             return jsonify({"msg": f"Ese chofer ya está vinculado al usuario {other.email}"}), 409
         target.linked_driver_id = driver_id
-        target.linked_operator_id = None
 
     db.session.commit()
     return jsonify({

@@ -144,7 +144,6 @@ const Dashboard: React.FC = () => {
         }
       };
       fetchDriverDetail();
-      return;
     }
 
     if (isOperatorLimited) {
@@ -165,25 +164,26 @@ const Dashboard: React.FC = () => {
         }
       };
       fetchOperatorDetail();
-      return;
     }
 
-    const fetchChartData = async () => {
-      try {
-        const res = await api.get("/dispatches/monthly", {
-          params: {
-            year: selectedYear,
-            month: selectedMonth,
-          },
-        });
-        setChartData(res.data || []);
-        setErrorMessage(null);
-      } catch (err) {
-        setChartData([]);
-        setErrorMessage("Error al cargar los datos del gráfico. Verifica los parámetros o intenta de nuevo.");
-      }
-    };
-    fetchChartData();
+    if (!isLimited && !isOperatorLimited) {
+      const fetchChartData = async () => {
+        try {
+          const res = await api.get("/dispatches/monthly", {
+            params: {
+              year: selectedYear,
+              month: selectedMonth,
+            },
+          });
+          setChartData(res.data || []);
+          setErrorMessage(null);
+        } catch (err) {
+          setChartData([]);
+          setErrorMessage("Error al cargar los datos del gráfico. Verifica los parámetros o intenta de nuevo.");
+        }
+      };
+      fetchChartData();
+    }
   }, [selectedYear, selectedMonth, isLimited, isOperatorLimited, isLoadingUser]);
 
   useEffect(() => {
@@ -228,7 +228,13 @@ const Dashboard: React.FC = () => {
     { title: "Seguimiento de Cambios de Productos", route: "/product-change-tracking" },
   ];
 
-  if (isLimited) {
+  if (isLimited && isOperatorLimited) {
+    menuItems = [
+      { title: "Seguimiento de despachos", route: "/tracking" },
+      { title: "Registros de Producción", route: "/production-tracking" },
+      { title: "Récords de Producción", route: "/product-records" },
+    ];
+  } else if (isLimited) {
     menuItems = [{ title: "Seguimiento de despachos", route: "/tracking" }];
   } else if (isOperatorLimited) {
     menuItems = [
@@ -414,7 +420,13 @@ const Dashboard: React.FC = () => {
         }
       `}</style>
 
-      <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} isLimited={isLimited || isOperatorLimited} />
+      <Sidebar
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
+        isLimited={isLimited || isOperatorLimited}
+        isDriverLimited={isLimited}
+        isOperatorLimited={isOperatorLimited}
+      />
 
       <NavbarUser avatarUrl={avatarUrl} onMenuClick={() => setIsSidebarOpen(true)} />
       <DashboardAnniversaryBanner />
@@ -465,7 +477,13 @@ const Dashboard: React.FC = () => {
             <div>
               <div className="section-divider" style={{ marginBottom: "2px" }}>Actividad</div>
               <p style={{ fontSize: "16px", fontWeight: 500, color: isDark ? "rgba(255,255,255,0.85)" : "rgba(15,23,42,0.85)" }}>
-                {isLimited ? "Mi rendimiento del mes" : isOperatorLimited ? "Mi producción del mes" : "Despachos del mes"}
+                {isLimited && isOperatorLimited
+                  ? "Mi actividad del mes"
+                  : isLimited
+                  ? "Mi rendimiento del mes"
+                  : isOperatorLimited
+                  ? "Mi producción del mes"
+                  : "Despachos del mes"}
               </p>
             </div>
             <div className="flex gap-2 flex-wrap">
@@ -498,8 +516,14 @@ const Dashboard: React.FC = () => {
             <p style={{ color: "#F87171", fontSize: "13px", marginBottom: "12px" }}>{errorMessage}</p>
           )}
 
-          {isLimited ? (
-            loadingDriverDetail ? (
+          {isLimited && (
+            <div style={isOperatorLimited ? { marginBottom: 28 } : undefined}>
+              {isOperatorLimited && (
+                <p style={{ fontSize: 13, fontWeight: 600, color: isDark ? "rgba(255,255,255,0.7)" : "rgba(15,23,42,0.7)", marginBottom: 10 }}>
+                  Como chofer
+                </p>
+              )}
+              {loadingDriverDetail ? (
               <p style={{ color: isDark ? "rgba(255,255,255,0.3)" : "rgba(15,23,42,0.4)", fontSize: "13px" }}>Cargando tus métricas…</p>
             ) : driverDetail ? (
               <>
@@ -582,14 +606,23 @@ const Dashboard: React.FC = () => {
                     />
                   </div>
                 )}
-              </>
-) : (
+                </>
+            ) : (
               <p style={{ color: isDark ? "rgba(255,255,255,0.25)" : "rgba(15,23,42,0.4)", fontSize: "13px" }}>
                 No se encontraron métricas para tu usuario.
               </p>
-            )
-          ) : isOperatorLimited ? (
-            loadingOperatorDetail ? (
+            )}
+            </div>
+          )}
+
+          {isOperatorLimited && (
+            <div>
+              {isLimited && (
+                <p style={{ fontSize: 13, fontWeight: 600, color: isDark ? "rgba(255,255,255,0.7)" : "rgba(15,23,42,0.7)", marginBottom: 10 }}>
+                  Como operario
+                </p>
+              )}
+              {loadingOperatorDetail ? (
               <p style={{ color: isDark ? "rgba(255,255,255,0.3)" : "rgba(15,23,42,0.4)", fontSize: "13px" }}>Cargando tus métricas…</p>
             ) : operatorDetail ? (
               <>
@@ -711,12 +744,14 @@ const Dashboard: React.FC = () => {
               <p style={{ color: isDark ? "rgba(255,255,255,0.25)" : "rgba(15,23,42,0.4)", fontSize: "13px" }}>
                 No se encontraron métricas para tu usuario.
               </p>
-            )
-          ) : (
+            )}
+            </div>
+          )}
+
+          {!isLimited && !isOperatorLimited && (
             <ChartMonthlyOrders dataPoints={chartData} />
           )}
         </div>
-
       </div>
     </div>
   );
