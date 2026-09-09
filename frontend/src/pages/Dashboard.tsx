@@ -3,6 +3,7 @@ import type { AxiosResponse } from "axios";
 import { Bar } from "react-chartjs-2";
 import NavbarUser from "../components/NavbarUser";
 import DashboardAnniversaryBanner from "../components/DashboardAnniversaryBanner";
+import ProductChangesTutorialsModal from "../components/ProductChangesTutorialsModal";
 import ChartMonthlyOrders from "../components/ChartMonthlyOrders";
 import { useNavigate } from "react-router-dom";
 import { api } from "../services/http";
@@ -430,6 +431,11 @@ const Dashboard: React.FC = () => {
 
       <NavbarUser avatarUrl={avatarUrl} onMenuClick={() => setIsSidebarOpen(true)} />
       <DashboardAnniversaryBanner />
+
+      <ProductChangesTutorialsModal
+        isLimited={isLimited}
+        isOperatorLimited={isOperatorLimited}
+      />
 
       <div className="max-w-5xl mx-auto px-4 py-8">
 
