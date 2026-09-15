@@ -4,6 +4,7 @@ import { Bar } from "react-chartjs-2";
 import NavbarUser from "../components/NavbarUser";
 import DashboardAnniversaryBanner from "../components/DashboardAnniversaryBanner";
 import ProductChangesTutorialsModal from "../components/ProductChangesTutorialsModal";
+import AnniversaryEvolutionModal from "../components/AnniversaryEvolutionModal";
 import ChartMonthlyOrders from "../components/ChartMonthlyOrders";
 import { useNavigate } from "react-router-dom";
 import { api } from "../services/http";
@@ -433,6 +434,11 @@ const Dashboard: React.FC = () => {
       <DashboardAnniversaryBanner />
 
       <ProductChangesTutorialsModal
+        isLimited={isLimited}
+        isOperatorLimited={isOperatorLimited}
+      />
+
+      <AnniversaryEvolutionModal
         isLimited={isLimited}
         isOperatorLimited={isOperatorLimited}
       />
