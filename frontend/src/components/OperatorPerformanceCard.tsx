@@ -34,7 +34,7 @@ const CLASIFICACION_INFO: Record<string, { label: string; color: string }> = {
   extraordinaria: { label: "Extraordinaria", color: "#C084FC" },
   muy_alta: { label: "Muy Alta", color: "#34D399" },
   alta: { label: "Alta", color: "#60A5FA" },
-  regular_alta: { label: "Regular", color: "#FDE68A" },
+  regular_alta: { label: "Regular  a Alta", color: "#FDE68A" },
   regular: { label: "Regular", color: "#FBBF24" },
   baja: { label: "Baja", color: "#FB923C" },
   muy_baja: { label: "Muy Baja", color: "#F87171" },
