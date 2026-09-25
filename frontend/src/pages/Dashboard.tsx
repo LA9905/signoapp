@@ -78,16 +78,16 @@ interface OperatorPerformanceDetail {
   explicacion: string;
 }
 
-const OPERATOR_CLASIFICACION_INFO: Record<string, { label: string; color: string }> = {
-  extraordinaria: { label: "Extraordinaria", color: "#C084FC" },
-  muy_alta: { label: "Muy Alta", color: "#34D399" },
-  alta: { label: "Alta", color: "#60A5FA" },
-  regular_alta: { label: "Regular a Alta", color: "#FDE68A" },
-  regular: { label: "Regular", color: "#FBBF24" },
-  baja: { label: "Baja", color: "#FB923C" },
-  muy_baja: { label: "Muy Baja", color: "#F87171" },
-  critica: { label: "Crítica", color: "#DC2626" },
-  sin_datos: { label: "Sin datos", color: "rgba(255,255,255,0.25)" },
+const OPERATOR_CLASIFICACION_INFO: Record<string, { label: string; color: string; colorLight: string }> = {
+  extraordinaria: { label: "Extraordinaria", color: "#C084FC", colorLight: "#7C3AED" },
+  muy_alta:      { label: "Muy Alta",       color: "#34D399", colorLight: "#059669" },
+  alta:          { label: "Alta",           color: "#60A5FA", colorLight: "#2563EB" },
+  regular_alta:  { label: "Regular a Alta", color: "#FDE68A", colorLight: "#EAB308" },
+  regular:       { label: "Regular",        color: "#FBBF24", colorLight: "#FBBF24" },
+  baja:          { label: "Baja",           color: "#FB923C", colorLight: "#EA580C" },
+  muy_baja:      { label: "Muy Baja",       color: "#F87171", colorLight: "#DC2626" },
+  critica:       { label: "Crítica",        color: "#DC2626", colorLight: "#B91C1C" },
+  sin_datos:     { label: "Sin datos",      color: "rgba(255,255,255,0.25)", colorLight: "rgba(15,23,42,0.35)" },
 };
 
 // color fijo por producto, el principal siempre índigo).
@@ -654,9 +654,10 @@ const Dashboard: React.FC = () => {
                 </div>
 
                 {(() => {
-                  const info =
+                  const infoBase =
                     OPERATOR_CLASIFICACION_INFO[operatorDetail.resumen.clasificacion] ||
                     OPERATOR_CLASIFICACION_INFO.sin_datos;
+                  const color = isDark ? infoBase.color : infoBase.colorLight;
                   return (
                     <div
                       style={{
@@ -666,13 +667,18 @@ const Dashboard: React.FC = () => {
                         fontWeight: 700,
                         padding: "4px 14px",
                         borderRadius: "99px",
-                        border: `1px solid ${info.color}55`,
-                        background: `${info.color}18`,
-                        color: info.color,
+                        border: `1px solid ${color}55`,
+                        background: `${color}18`,
+                        color:
+                          !isDark &&
+                          (operatorDetail.resumen.clasificacion === "regular" ||
+                            operatorDetail.resumen.clasificacion === "regular_alta")
+                            ? "#92400E"
+                            : color,
                         marginBottom: "16px",
                       }}
                     >
-                      Producción: {info.label}
+                      Producción: {infoBase.label}
                     </div>
                   );
                 })()}
