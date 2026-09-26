@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { FiMenu, FiSun, FiMoon } from "react-icons/fi";
 import { useTheme } from "../context/ThemeContext";
+import NotificationBell from "./NotificationBell";
 
 interface NavbarUserProps {
   avatarUrl: string | null;
@@ -41,8 +42,8 @@ const NavbarUser: React.FC<NavbarUserProps> = ({ avatarUrl, onMenuClick }) => {
         justifyContent: "space-between",
         background: darkMode ? "rgba(8,12,20,0.95)" : "rgba(255,255,255,0.95)",
         borderBottom: darkMode ? "1px solid rgba(99,102,241,0.18)" : "1px solid rgba(15,23,42,0.1)",
-        padding: "10px 16px",
-        gap: "10px",
+        padding: "8px 10px",
+        gap: "6px",
         width: "100%",
         position: "sticky",
         top: 0,
@@ -52,15 +53,7 @@ const NavbarUser: React.FC<NavbarUserProps> = ({ avatarUrl, onMenuClick }) => {
       }}
     >
       {/* Menú + Logo + nombre */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "10px",
-          minWidth: 0,
-          flexShrink: 1,
-        }}
-      >
+      <div style={{ display: "flex", alignItems: "center", gap: "6px", minWidth: 0, flexShrink: 1, overflow: "hidden" }}>
         <button
           onClick={onMenuClick}
           aria-label="Abrir menú"
@@ -88,7 +81,7 @@ const NavbarUser: React.FC<NavbarUserProps> = ({ avatarUrl, onMenuClick }) => {
           src="/SignoApp.svg"
           alt="Logo SignoApp"
           style={{
-            height: "40px",
+            height: "32px",
             width: "auto",
             flexShrink: 0,
           }}
@@ -96,12 +89,15 @@ const NavbarUser: React.FC<NavbarUserProps> = ({ avatarUrl, onMenuClick }) => {
 
         <span
           style={{
-            fontSize: "clamp(16px, 3vw, 20px)",
+            fontSize: "clamp(13px, 3.2vw, 20px)",
             fontWeight: 700,
             color: darkMode ? "white" : "#0F172A",
             whiteSpace: "nowrap",
             fontFamily: "'Syne', sans-serif",
             letterSpacing: "-0.01em",
+            flexShrink: 1,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
           }}
         >
           SignoApp
@@ -111,22 +107,27 @@ const NavbarUser: React.FC<NavbarUserProps> = ({ avatarUrl, onMenuClick }) => {
       {/* Botón de perfil */}
       <div
         style={{
-          position: "relative",
+          display: "flex",
+          alignItems: "center",
+          gap: "4px",
+          flexShrink: 0,
           minWidth: 0,
-          flexShrink: 1,
         }}
-        ref={dropdownRef}
       >
+        <NotificationBell />
+
+        <div style={{ position: "relative", minWidth: 0, flexShrink: 1 }} ref={dropdownRef}>
         <button
           onClick={() => setOpen(!open)}
           style={{
             display: "flex",
             alignItems: "center",
-            gap: "8px",
+            gap: "5px",
             background: "rgba(255,255,255,0.05)",
             border: "1px solid rgba(255,255,255,0.1)",
             borderRadius: "40px",
-            padding: "5px 10px 5px 5px",
+            padding: "3px 6px 3px 3px",
+            maxWidth: "100%",
             cursor: "pointer",
             transition: "background .15s, border-color .15s",
             outline: "none",
@@ -144,8 +145,8 @@ const NavbarUser: React.FC<NavbarUserProps> = ({ avatarUrl, onMenuClick }) => {
             src={avatarUrl || "/avatar3.png"}
             alt="Perfil"
             style={{
-              width: "30px",
-              height: "30px",
+              width: "28px",
+              height: "28px",
               borderRadius: "50%",
               objectFit: "cover",
               border: "2px solid rgba(99,102,241,0.4)",
@@ -160,7 +161,7 @@ const NavbarUser: React.FC<NavbarUserProps> = ({ avatarUrl, onMenuClick }) => {
               fontWeight: 500,
               fontSize: "14px",
               color: darkMode ? "rgba(255,255,255,0.85)" : "rgba(15,23,42,0.85)",
-              maxWidth: "clamp(90px, 18vw, 180px)",
+              maxWidth: "clamp(52px, 14vw, 180px)",
               overflow: "hidden",
               textOverflow: "ellipsis",
               whiteSpace: "nowrap",
@@ -301,6 +302,7 @@ const NavbarUser: React.FC<NavbarUserProps> = ({ avatarUrl, onMenuClick }) => {
       )}
       </div>
     </div>
+  </div>
   );
 };
 

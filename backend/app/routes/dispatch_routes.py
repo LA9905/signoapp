@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify, current_app
 from app import db
 from app.models.dispatch_model import Dispatch, DispatchProduct, DispatchImage
 from app.models.dispatch_edit_model import DispatchEditLog
+from app.utils.notifications import notify_dispatch_edit, create_notification
 from app.models.client_model import Client
 from app.models.driver_model import Driver
 from app.models.user_model import User
@@ -416,10 +417,12 @@ def update_dispatch(dispatch_id):
 
         # Estado original adicional, para el historial de ediciones (rendimiento
         # del equipo de logística): qué se corrigió respecto a como se creó
-        # originalmente el despacho (orden, chofer o productos).
+        # originalmente el despacho (orden, chofer, productos o clientes).
         orig_orden = d.orden
         orig_chofer_id = d.chofer_id
+        orig_cliente_name = d.client_name
         orig_productos_set = {
+        
             (p.nombre.strip(), round(float(p.cantidad or 0), 4), p.unidad)
             for p in d.productos
         }
@@ -575,10 +578,28 @@ def update_dispatch(dispatch_id):
         # qué se tuvo que corregir en este despacho respecto a como fue
         # creado originalmente.
         motivos_edicion = []
+        change_details = []
+
         if "orden" in data and data["orden"] and data["orden"] != orig_orden:
             motivos_edicion.append("orden")
+            change_details.append(
+                f"la OC cambió de '{orig_orden}' a '{data['orden']}'"
+            )
+
+        if "cliente" in data and data.get("cliente") and d.client_name != orig_cliente_name:
+            motivos_edicion.append("cliente")
+            change_details.append(
+                f"el Centro de Costo cambió de '{orig_cliente_name}' a '{d.client_name}'"
+            )
+
         if "chofer" in data and data["chofer"] and int(data["chofer"]) != orig_chofer_id:
             motivos_edicion.append("chofer")
+            old_ch = Driver.query.get(orig_chofer_id)
+            old_ch_name = old_ch.name if old_ch else "—"
+            change_details.append(
+                f"el chofer cambió de '{old_ch_name}' a '{d.chofer_name}'"
+            )
+
         if "productos" in data and isinstance(data["productos"], list):
             nuevo_productos_set = {
                 ((p["nombre"] or "").strip(), round(float(p["cantidad"] or 0), 4), p["unidad"])
@@ -586,6 +607,18 @@ def update_dispatch(dispatch_id):
             }
             if nuevo_productos_set != orig_productos_set:
                 motivos_edicion.append("productos")
+                old_map = {(n, u): c for (n, c, u) in orig_productos_set}
+                new_map = {(n, u): c for (n, c, u) in nuevo_productos_set}
+                for (n, u), c in new_map.items():
+                    if (n, u) not in old_map:
+                        change_details.append(f"se agregó el producto '{n}' ({c} {u})")
+                    elif old_map[(n, u)] != c:
+                        change_details.append(
+                            f"el producto '{n}' cambió de cantidad {old_map[(n, u)]} a {c} {u}"
+                        )
+                for (n, u), c in old_map.items():
+                    if (n, u) not in new_map:
+                        change_details.append(f"se eliminó el producto '{n}' ({c} {u})")
 
         if motivos_edicion:
             db.session.add(
@@ -596,6 +629,12 @@ def update_dispatch(dispatch_id):
                     motivos=";".join(motivos_edicion),
                 )
             )
+
+        # Notifica al creador
+        if change_details:
+            editor = User.query.get(user_id)
+            editor_name = editor.name if editor else None
+            notify_dispatch_edit(d, d.created_by, change_details, editor_name)
 
         db.session.commit()
         
