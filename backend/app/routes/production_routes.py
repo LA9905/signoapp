@@ -13,7 +13,9 @@ from flask_cors import CORS
 from collections import defaultdict
 from app.routes.product_routes import normalize_product_name, normalize_search, normalize_db_column
 from app.models.operator_activity_model import OperatorActivity
-from app.utils.performance import invalidate_performance_caches
+from app.utils.performance import invalidate_performance_caches, evaluar_operador, current_record_for_product, normalizar_nombre
+from app.utils.notifications import create_notification
+from datetime import date
 
 production_bp = Blueprint("productions", __name__)
 CORS(
@@ -69,6 +71,51 @@ def _parse_horas_producto(value):
     except (TypeError, ValueError):
         return None
     return horas if horas > 0 else None
+
+
+def _notify_operator_after_production(operator_id: int):
+    hoy = date.today()
+    resumen = evaluar_operador(operator_id, hoy.year, hoy.month)
+    users = User.query.filter_by(linked_operator_id=operator_id).all()
+    if not users:
+        return
+
+    clasif = resumen.get("clasificacion") or ""
+    low = {"regular", "baja", "muy_baja", "critica"}
+    if clasif in low:
+        prod = resumen.get("producto_principal") or "—"
+        ratio = resumen.get("ratio")
+        pct = f"{round(ratio * 100)}%" if ratio is not None else "—"
+        title = f"Producción {clasif.replace('_', ' ')} en {prod}"
+        body = (
+            f"Tu rendimiento en el producto {prod} está en nivel {clasif.replace('_', ' ')} "
+            f"({pct} respecto al récord). Sube tu producción para no afectar tu rendimiento "
+            f"individual. La administración puede tomar medidas si la producción baja de forma constante."
+        )
+        for u in users:
+            create_notification(u.id, "operator_low", title, body, meta={
+                "operator_id": operator_id,
+                "producto": prod,
+                "clasificacion": clasif,
+                "ratio": ratio,
+            })
+
+    # Récord: revisar detalle_unidades donde ratio >= 1.0 y fuente permite “nuevo/empató”
+    for det in resumen.get("detalle_unidades") or []:
+        r = det.get("ratio")
+        if r is not None and r >= 1.0:
+            nombre = det.get("nombre")
+            title = f"¡Récord o empataste el récord en {nombre}!"
+            body = (
+                f"Alcanzaste o superaste el récord del producto {nombre} "
+                f"({det.get('produccion_por_hora')} /h). ¡Felicitaciones!"
+            )
+            for u in users:
+                create_notification(u.id, "operator_record", title, body, meta={
+                    "producto": nombre,
+                    "rate": det.get("produccion_por_hora"),
+                })
+    db.session.commit()
 
 
 @production_bp.route("/productions", methods=["POST"])
@@ -159,6 +206,7 @@ def create_production():
 
         db.session.commit()
         invalidate_performance_caches()
+        _notify_operator_after_production(operator.id)
         return jsonify(new_production.to_dict()), 201
     except Exception as e:
         db.session.rollback()
@@ -374,6 +422,7 @@ def update_production(production_id):
             
         db.session.commit()
         invalidate_performance_caches()
+        _notify_operator_after_production(operator.id)
 
         creator = User.query.get(production.created_by)
         return jsonify({

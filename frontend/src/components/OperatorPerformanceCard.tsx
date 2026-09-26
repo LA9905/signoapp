@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import { Doughnut } from "react-chartjs-2";
 import "chart.js/auto";
 import { FiCamera, FiClock, FiEye } from "react-icons/fi";
+import { useTheme } from "../context/ThemeContext";
 import { api } from "../services/http";
 
 export interface OperatorPerformance {
@@ -30,16 +31,16 @@ export interface OperatorPerformance {
   mes_en_curso?: boolean;
 }
 
-const CLASIFICACION_INFO: Record<string, { label: string; color: string }> = {
-  extraordinaria: { label: "Extraordinaria", color: "#C084FC" },
-  muy_alta: { label: "Muy Alta", color: "#34D399" },
-  alta: { label: "Alta", color: "#60A5FA" },
-  regular_alta: { label: "Regular", color: "#FDE68A" },
-  regular: { label: "Regular", color: "#FBBF24" },
-  baja: { label: "Baja", color: "#FB923C" },
-  muy_baja: { label: "Muy Baja", color: "#F87171" },
-  critica: { label: "Crítica", color: "#DC2626" },
-  sin_datos: { label: "Sin datos", color: "rgba(255,255,255,0.25)" },
+const CLASIFICACION_INFO: Record<string, { label: string; color: string; colorLight: string }> = {
+  extraordinaria: { label: "Extraordinaria", color: "#C084FC", colorLight: "#7C3AED" },
+  muy_alta:      { label: "Muy Alta",       color: "#34D399", colorLight: "#059669" },
+  alta:          { label: "Alta",           color: "#60A5FA", colorLight: "#2563EB" },
+  regular_alta:  { label: "Regular a Alta", color: "#FDE68A", colorLight: "#d1c304" },
+  regular:       { label: "Regular",        color: "#FBBF24", colorLight: "#F59E0B" },
+  baja:          { label: "Baja",           color: "#FB923C", colorLight: "#EA580C" },
+  muy_baja:      { label: "Muy Baja",       color: "#F87171", colorLight: "#DC2626" },
+  critica:       { label: "Crítica",        color: "#DC2626", colorLight: "#B91C1C" },
+  sin_datos:     { label: "Sin datos",      color: "rgba(255,255,255,0.25)", colorLight: "rgba(15,23,42,0.35)" },
 };
 
 // new Date().toISOString() devuelve la fecha en UTC
@@ -67,7 +68,11 @@ const OperatorPerformanceCard: React.FC<Props> = ({ op, monthLabel, onChanged, o
   const [savingActivity, setSavingActivity] = useState(false);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
-  const info = CLASIFICACION_INFO[op.clasificacion] || CLASIFICACION_INFO.sin_datos;
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
+
+  const infoBase = CLASIFICACION_INFO[op.clasificacion] || CLASIFICACION_INFO.sin_datos;
+  const color = isDark ? infoBase.color : infoBase.colorLight;
 
   // Número mostrado: el ratio REAL, sin comprimir — coincide siempre con
   // el promedio que se ve en "Ver detalle".
@@ -79,7 +84,7 @@ const OperatorPerformanceCard: React.FC<Props> = ({ op, monthLabel, onChanged, o
     datasets: [
       {
         data: [pctRing, Math.max(100 - pctRing, 0)],
-        backgroundColor: [info.color, "rgba(255,255,255,0.06)"],
+        backgroundColor: [color, isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.08)"],
         borderWidth: 0,
         cutout: "72%",
       },
@@ -164,7 +169,7 @@ const OperatorPerformanceCard: React.FC<Props> = ({ op, monthLabel, onChanged, o
         <div className="opc-chart-wrap">
           <Doughnut data={data} options={options} />
           <div className="opc-chart-center">
-            <span style={{ color: info.color }}>
+            <span style={{ color }}>
               {pctDisplay !== null ? `${pctDisplay}%` : "—"}
             </span>
           </div>
@@ -174,8 +179,18 @@ const OperatorPerformanceCard: React.FC<Props> = ({ op, monthLabel, onChanged, o
       <div className="opc-name">{op.name}</div>
       <div className="opc-month">{monthLabel}</div>
 
-      <div className="opc-badge" style={{ color: info.color, borderColor: `${info.color}55`, background: `${info.color}18` }}>
-        {info.label}
+      <div
+        className="opc-badge"
+        style={{
+          color:
+            !isDark && (op.clasificacion === "regular" || op.clasificacion === "regular_alta")
+              ? "#92400E"
+              : color,
+          borderColor: `${color}55`,
+          background: `${color}18`,
+        }}
+      >
+        {infoBase.label}
       </div>
 
       <div className="opc-bono">
