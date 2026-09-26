@@ -10,6 +10,7 @@ MOTIVO_LABELS = {
     "orden": "Orden de compra incorrecta",
     "productos": "Productos incorrectos o incompletos",
     "chofer": "Chofer incorrecto",
+    "cliente": "Centro de costo incorrecto",
 }
 
 

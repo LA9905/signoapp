@@ -125,6 +125,7 @@ def create_app():
             production_model,
             credit_note_model,
             product_change_model,
+            notification_model,
 
         )
         env = os.getenv("FLASK_ENV") or os.getenv("ENV") or "production"
@@ -152,6 +153,7 @@ def create_app():
     from .routes.credit_note_routes import credit_note_bp
     from .routes.stock_movement_routes import stock_movement_bp
     from .routes.survey_routes import survey_api_bp, survey_public_bp
+    from .routes.notification_routes import notification_bp
 
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
     app.register_blueprint(product_bp, url_prefix="/api")
@@ -174,6 +176,7 @@ def create_app():
     app.register_blueprint(stock_movement_bp, url_prefix="/api")
     app.register_blueprint(survey_api_bp)        # → /api/survey/submit
     app.register_blueprint(survey_public_bp)     # → /encuesta/abcd1234
+    app.register_blueprint(notification_bp, url_prefix="/api")
 
     app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=10)
 
