@@ -190,7 +190,7 @@ const NotificationsFeatureModal = ({ isLimited, isOperatorLimited }: RoleProps) 
 
   useEffect(() => {
     if (!visible) return;
-    const id = setInterval(() => setSlide((s) => (s + 1) % slides.length), 10000);
+    const id = setInterval(() => setSlide((s) => (s + 1) % slides.length), 90000);
     return () => clearInterval(id);
   }, [visible, slides.length]);
 
