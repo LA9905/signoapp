@@ -75,13 +75,7 @@ CORS(
 def create_dispatch():
     user_id = get_jwt_identity()
     current_user = User.query.get(user_id)
-    limited_emails = [
-        "claudiogarbarino1966@gmail.com",
-        "alfonsomachado64@gmail.com",
-        "jerrykalet@gmail.com",
-        "cocachaucono@gmail.com"
-    ]
-    if current_user.email.lower() in [email.lower() for email in limited_emails]:
+    if current_user.linked_driver_id is not None:
         return jsonify({"error": "No autorizado para crear despachos"}), 403
 
     try:
@@ -399,8 +393,7 @@ def get_dispatch_details(dispatch_id):
 def update_dispatch(dispatch_id):
     user_id = get_jwt_identity()
     current_user = User.query.get(user_id)
-    limited_emails = ["claudiogarbarino1966@gmail.com", "alfonsomachado64@gmail.com", "jerrykalet@gmail.com", "cocachaucono@gmail.com"]
-    if current_user.email.lower() in [email.lower() for email in limited_emails]:
+    if current_user.linked_driver_id is not None:
         return jsonify({"error": "No autorizado para editar despachos"}), 403
 
     try:

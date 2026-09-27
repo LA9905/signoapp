@@ -2,9 +2,11 @@ from flask import current_app
 from flask_mail import Message
 from app import mail
 import uuid
+import os
 
-SURVEY_SENDER = ("SignoApp - Encuesta", "acceso.signoapp@gmail.com")
-REPLY_TO = "acceso.signoapp@gmail.com"
+SURVEY_NOTIFY_EMAIL = os.environ.get("SURVEY_NOTIFY_EMAIL", "")
+SURVEY_SENDER = ("SignoApp - Encuesta", SURVEY_NOTIFY_EMAIL)
+REPLY_TO = SURVEY_NOTIFY_EMAIL
 
 
 def send_survey_email(to_email: str, user_name: str | None = None, token: str | None = None):
