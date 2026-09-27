@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { normalizeSearch } from "../utils/normalizeSearch";
 import ArrowBackButton from "../components/ArrowBackButton";
 import { api } from "../services/http";
@@ -73,6 +73,7 @@ const StockMovements = () => {
   const [showSupplierDropdown, setShowSupplierDropdown] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 15;
+  const resultsListRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     api
@@ -94,6 +95,12 @@ const StockMovements = () => {
       .then((res) => setSuppliersList(res.data))
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+  if (searched && resultsListRef.current) {
+    resultsListRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [currentPage]);
 
   const filteredProducts = products
   .filter((p) => normalizeSearch(p.name).includes(normalizeSearch(productSearch)))
@@ -942,7 +949,7 @@ const StockMovements = () => {
               </div>
             ) : (
               <>
-                <p className="sm-results-count">
+                <p className="sm-results-count" ref={resultsListRef}>
                   Mostrando {(currentPage - 1) * ITEMS_PER_PAGE + 1}–
                   {Math.min(currentPage * ITEMS_PER_PAGE, movements.length)} de {movements.length} movimientos · más reciente primero
                 </p>

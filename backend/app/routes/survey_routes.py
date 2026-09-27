@@ -1,10 +1,12 @@
 from flask import Blueprint, request, jsonify, render_template_string, current_app
-from ..models.survey_model import SurveyResponse
-from .. import db
-from ..utils.survey_mailer import send_survey_email
-from ..models.user_model import User
+from flask_jwt_extended import jwt_required, get_jwt_identity
 from datetime import datetime
 from zoneinfo import ZoneInfo
+import uuid
+from .. import db
+from ..models.survey_model import SurveyResponse
+from ..models.user_model import User
+from ..utils.survey_campaigns import active_campaign
 
 # Blueprint para rutas API (/api/survey/...)
 survey_api_bp = Blueprint("survey_api", __name__, url_prefix="/api/survey")
@@ -12,12 +14,40 @@ survey_api_bp = Blueprint("survey_api", __name__, url_prefix="/api/survey")
 # Blueprint para la página pública de la encuesta (/encuesta/<token>)
 survey_public_bp = Blueprint("survey_public", __name__)
 
+def _notify_admin(response: SurveyResponse):
+    try:
+        from app.utils.mailer import _send
+        body = f"""
+Nueva respuesta de encuesta ({response.campaign_key})
+
+Nombre: {response.name or 'Anónimo'}
+Correo: {response.email or 'No proporcionado'}
+
+UI: responsiva={response.responsiva} colores={response.estilo_colores} claridad={response.claridad_ui} intuitiva={response.intuitiva}
+Producto: necesidades={response.cubre_necesidades} API={response.api_estabilidad} velocidad={response.velocidad_carga}
+Equipo: atención={response.equipo_atencion} errores={response.equipo_errores} responsabilidad={response.equipo_responsabilidad}
+Novedades={response.novedades_informadas} Satisfacción={response.satisfaccion_general}
+
+Estilo: {response.estilo_sugerencia or '-'}
+Faltantes: {response.necesidades_faltantes or '-'}
+Ideas tech: {response.ideas_tecnologia or '-'}
+Errores actuales: {response.errores_actuales or '-'}
+Comentarios: {response.comentarios_generales or '-'}
+"""
+        _send("Nueva respuesta de encuesta SignoApp", ["acceso.signoapp@gmail.com"], body)
+    except Exception as e:
+        current_app.logger.error(f"Error enviando notificación de encuesta: {e}")
+
 @survey_public_bp.route("/encuesta/<token>", methods=["GET"])
 def survey_form(token):
     response = SurveyResponse.query.filter_by(token=token).first()
     if not response:
-        # Creamos uno vacío solo para que el token sea válido una vez
-        response = SurveyResponse(token=token)
+        camp = active_campaign()
+        response = SurveyResponse(
+            token=token,
+            campaign_key=camp["key"] if camp else "legacy",
+            completed=False,
+        )
         db.session.add(response)
         db.session.commit()
 
@@ -130,6 +160,49 @@ def survey_form(token):
     """
     return render_template_string(html.replace("{{token}}", token))
 
+@survey_api_bp.route("/status", methods=["GET"])
+@jwt_required()
+def survey_status():
+    camp = active_campaign()
+    if not camp:
+        return jsonify({"show": False})
+
+    uid = int(get_jwt_identity())
+    done = SurveyResponse.query.filter_by(
+        user_id=uid, campaign_key=camp["key"], completed=True
+    ).first()
+    if done:
+        return jsonify({"show": False})
+
+    # También si completó por correo con el mismo email
+    user = User.query.get(uid)
+    if user and user.email:
+        done_email = (
+            SurveyResponse.query.filter_by(campaign_key=camp["key"], completed=True)
+            .filter(SurveyResponse.email == user.email)
+            .first()
+        )
+        if done_email:
+            return jsonify({"show": False})
+
+    title = (
+        f"Encuesta de aniversario – Año {camp['year_number']} de SignoApp"
+        if camp["is_anniversary"]
+        else "Encuesta de satisfacción – SignoApp"
+    )
+    intro = (
+        "Cumplimos un año de uso continuo. Tu feedback sobre este periodo nos ayuda a priorizar mejoras."
+        if camp["is_anniversary"]
+        else "Queremos conocer tu experiencia reciente con SignoApp para seguir mejorando."
+    )
+    return jsonify({
+        "show": True,
+        "campaign_key": camp["key"],
+        "is_anniversary": camp["is_anniversary"],
+        "title": title,
+        "intro": intro,
+    })
+
 @survey_api_bp.route("/submit", methods=["POST"])
 def submit_survey():
     data = request.json
@@ -152,37 +225,71 @@ def submit_survey():
     response.velocidad_carga = data.get("velocidad_carga")
     response.comentarios_generales = data.get("comentarios_generales")
 
+    response.claridad_ui = data.get("claridad_ui")
+    response.intuitiva = data.get("intuitiva")
+    response.equipo_atencion = data.get("equipo_atencion")
+    response.equipo_errores = data.get("equipo_errores")
+    response.equipo_responsabilidad = data.get("equipo_responsabilidad")
+    response.novedades_informadas = data.get("novedades_informadas")
+    response.satisfaccion_general = data.get("satisfaccion_general")
+    response.ideas_tecnologia = data.get("ideas_tecnologia")
+    response.errores_actuales = data.get("errores_actuales")
+
+    response.completed = True
+    response.completed_at = datetime.now(ZoneInfo("UTC"))
+    camp = active_campaign()
+    if camp and (not response.campaign_key or response.campaign_key == "legacy"):
+        response.campaign_key = camp["key"]
+
     db.session.commit()
+    _notify_admin(response)
+    return jsonify({"msg": "Gracias!"})
 
-    # Enviar notificación por correo al admin
-    try:
-        from app.utils.mailer import _send
-        body = f"""
-        Nueva respuesta de encuesta recibida!
+@survey_api_bp.route("/submit-app", methods=["POST"])
+@jwt_required()
+def submit_survey_app():
+    data = request.json or {}
+    camp = active_campaign()
+    if not camp:
+        return jsonify({"msg": "No hay encuesta activa"}), 400
 
-        Nombre: {response.name or 'Anónimo'}
-        Correo: {response.email or 'No proporcionado'}
-        Fecha: {response.created_at.strftime("%d/%m/%Y %H:%M")}
+    uid = int(get_jwt_identity())
+    user = User.query.get(uid)
 
-        1. Responsiva (móvil/tablet):         {response.responsiva or '-'} / 5
-        2. Estilo y colores:                  {response.estilo_colores or '-'} / 5
-        3. Cubre necesidades diarias:        {response.cubre_necesidades or '-'} / 5
-        4. Estabilidad API:                   {response.api_estabilidad or '-'} / 5
-        5. Velocidad de carga:                {response.velocidad_carga or '-'} / 5
+    existing = SurveyResponse.query.filter_by(
+        user_id=uid, campaign_key=camp["key"], completed=True
+    ).first()
+    if existing:
+        return jsonify({"msg": "Ya respondiste esta encuesta"}), 400
 
-        ── Sugerencias de diseño y colores ──
-        {response.estilo_sugerencia or 'Ninguna'}
-
-        ── Funcionalidades que faltan o mejorar ──
-        {response.necesidades_faltantes or 'Ninguna'}
-
-        ── Comentarios adicionales ──
-        {response.comentarios_generales or 'Ninguno'}
-
-        Gracias por seguir mejorando SignoApp con nosotros
-        """
-        _send("Nueva respuesta de encuesta SignoApp", ["acceso.signoapp@gmail.com"], body)
-    except Exception as e:
-        current_app.logger.error(f"Error enviando notificación de encuesta: {e}")
-
+    token = str(uuid.uuid4())
+    r = SurveyResponse(
+        token=token,
+        user_id=uid,
+        campaign_key=camp["key"],
+        completed=True,
+        completed_at=datetime.now(ZoneInfo("UTC")),
+        name=data.get("name") or (user.name if user else None),
+        email=data.get("email") or (user.email if user else None),
+        responsiva=data.get("responsiva"),
+        estilo_colores=data.get("estilo_colores"),
+        claridad_ui=data.get("claridad_ui"),
+        intuitiva=data.get("intuitiva"),
+        cubre_necesidades=data.get("cubre_necesidades"),
+        api_estabilidad=data.get("api_estabilidad"),
+        velocidad_carga=data.get("velocidad_carga"),
+        equipo_atencion=data.get("equipo_atencion"),
+        equipo_errores=data.get("equipo_errores"),
+        equipo_responsabilidad=data.get("equipo_responsabilidad"),
+        novedades_informadas=data.get("novedades_informadas"),
+        satisfaccion_general=data.get("satisfaccion_general"),
+        estilo_sugerencia=data.get("estilo_sugerencia"),
+        necesidades_faltantes=data.get("necesidades_faltantes"),
+        ideas_tecnologia=data.get("ideas_tecnologia"),
+        errores_actuales=data.get("errores_actuales"),
+        comentarios_generales=data.get("comentarios_generales"),
+    )
+    db.session.add(r)
+    db.session.commit()
+    _notify_admin(r)  # extraé el bloque de email al admin a una función
     return jsonify({"msg": "Gracias!"})
