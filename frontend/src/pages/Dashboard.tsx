@@ -12,6 +12,8 @@ import { me } from "../services/authService";
 import type { MeResp } from "../types";
 import Sidebar from "../components/Sidebar";
 import { useTheme } from "../context/ThemeContext";
+import NotificationsFeatureModal from "../components/NotificationsFeatureModal";
+import SurveyModal from "../components/SurveyModal";
 
 interface DriverDiaDetalle {
   fecha: string;
@@ -442,6 +444,13 @@ const Dashboard: React.FC = () => {
         isLimited={isLimited}
         isOperatorLimited={isOperatorLimited}
       />
+
+      <NotificationsFeatureModal
+        isLimited={isLimited}
+        isOperatorLimited={isOperatorLimited}
+      />
+
+      <SurveyModal />
 
       <div className="max-w-5xl mx-auto px-4 py-8">
 
