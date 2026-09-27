@@ -6,13 +6,13 @@ from flask import Flask, send_from_directory, request, jsonify, current_app
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager, verify_jwt_in_request, get_jwt_identity
-from flask_mail import Mail, Message
+from flask_mail import Mail
 from flask_migrate import Migrate
 from dotenv import load_dotenv
 from apscheduler.schedulers.background import BackgroundScheduler
-from werkzeug.serving import is_running_from_reloader
 import cloudinary
 import cloudinary.uploader
+
 
 
 db = SQLAlchemy()
@@ -111,6 +111,7 @@ def create_app():
             credit_note_model,
             product_change_model,
             notification_model,
+            survey_model,
 
         )
         env = os.getenv("FLASK_ENV") or os.getenv("ENV") or "production"
@@ -362,27 +363,63 @@ def create_app():
 
             current_app.logger.info("[ENCUESTA] Envío masivo completado")
 
-    # PROGRAMAR para el 10 de diciembre 2025, 12:00 Chile
-    survey_date_cl = datetime(2025, 12, 10, 12, 0, tzinfo=ZoneInfo("America/Santiago"))
-    survey_date_utc = survey_date_cl.astimezone(ZoneInfo("UTC"))
+    def survey_email_reminders(app):
+        with app.app_context():
+            import uuid
+            from app.models.survey_model import SurveyResponse
+            from app.utils.survey_campaigns import active_campaign, days_since_start, EMAIL_EVERY_DAYS
+            from app.utils.survey_mailer import send_survey_reminder
+            from app.models.user_model import User
+            camp = active_campaign()
+            if not camp:
+                return
+            if days_since_start(camp) > 30:
+                return
+            users = User.query.filter(User.email.isnot(None)).all()
+            for u in users:
+                if SurveyResponse.query.filter_by(user_id=u.id, campaign_key=camp["key"], completed=True).first():
+                    continue
+                # fila invitación o last_email
+                inv = SurveyResponse.query.filter_by(user_id=u.id, campaign_key=camp["key"]).first()
+                if not inv:
+                    inv = SurveyResponse(token=str(uuid.uuid4()), user_id=u.id, campaign_key=camp["key"], completed=False)
+                    db.session.add(inv)
+                    db.session.flush()
+                if inv.last_email_sent_at:
+                    delta = datetime.now(ZoneInfo("UTC")) - inv.last_email_sent_at.replace(tzinfo=ZoneInfo("UTC"))
+                    if delta.days < EMAIL_EVERY_DAYS:
+                        continue
+                try:
+                    send_survey_reminder(u.email, u.name, inv.token, camp["is_anniversary"], camp["year_number"])
+                    inv.last_email_sent_at = datetime.now(ZoneInfo("UTC"))
+                    db.session.commit()
+                except Exception as e:
+                    app.logger.error(e)
+
+    # 1 oct 2026 10:30 Chile — solo log / opcional primer mail
+
+    # Recordatorios cada 4 días 10:30 Chile
+    def survey_launch_log():
+        with app.app_context():
+            current_app.logger.info("[ENCUESTA] Ventana de campaña 2026-10 activa (modal in-app + recordatorios)")
 
     scheduler.add_job(
-        enviar_encuesta_masiva,
-        'date',
-        run_date=survey_date_utc,
-        id='survey_december_2025',
-        replace_existing=True
+        survey_launch_log,
+        "date",
+        run_date=datetime(2026, 10, 1, 10, 30, tzinfo=ZoneInfo("America/Santiago")),
+        id="survey_launch_2026_10",
+        replace_existing=True,
     )
 
-    # FUNCIÓN DE PRUEBA LOCAL (solo a tu correo)
-    # @app.route("/api/send-test-survey", methods=["GET"])
-    # def send_test_survey_now():
-    #     """Envía la encuesta de prueba a alejandroarraga99@gmail.com AHORA MISMO"""
-    #     try:
-    #         from app.utils.survey_mailer import send_survey_email
-    #         send_survey_email("alejandroarraga99@gmail.com", "Alejandro")
-    #         return jsonify({"msg": "Encuesta de prueba enviada a alejandroarraga99@gmail.com"}), 200
-    #     except Exception as e:
-    #         return jsonify({"error": str(e)}), 500
-        
+    scheduler.add_job(
+        lambda: survey_email_reminders(app),
+        "cron",
+        day="*/4",
+        hour=10,
+        minute=30,
+        timezone="America/Santiago",
+        id="survey_reminders",
+        replace_existing=True,
+    )
+   
     return app
