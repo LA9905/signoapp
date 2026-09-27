@@ -12,6 +12,7 @@ import { me } from "../services/authService";
 import type { MeResp } from "../types";
 import Sidebar from "../components/Sidebar";
 import { useTheme } from "../context/ThemeContext";
+import NotificationsFeatureModal from "../components/NotificationsFeatureModal";
 
 interface DriverDiaDetalle {
   fecha: string;
@@ -439,6 +440,11 @@ const Dashboard: React.FC = () => {
       />
 
       <AnniversaryEvolutionModal
+        isLimited={isLimited}
+        isOperatorLimited={isOperatorLimited}
+      />
+
+      <NotificationsFeatureModal
         isLimited={isLimited}
         isOperatorLimited={isOperatorLimited}
       />
