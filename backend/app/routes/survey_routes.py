@@ -1,3 +1,4 @@
+import os
 from flask import Blueprint, request, jsonify, render_template_string, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from datetime import datetime
@@ -34,7 +35,11 @@ Ideas tech: {response.ideas_tecnologia or '-'}
 Errores actuales: {response.errores_actuales or '-'}
 Comentarios: {response.comentarios_generales or '-'}
 """
-        _send("Nueva respuesta de encuesta SignoApp", ["acceso.signoapp@gmail.com"], body)
+        notify_email = os.environ.get("SURVEY_NOTIFY_EMAIL")
+        if not notify_email:
+            current_app.logger.error("SURVEY_NOTIFY_EMAIL no está configurado")
+            return
+        _send("Nueva respuesta de encuesta SignoApp", [notify_email], body)
     except Exception as e:
         current_app.logger.error(f"Error enviando notificación de encuesta: {e}")
 
@@ -116,7 +121,7 @@ def survey_form(token):
         </div>
 
         <div class="footer">
-            © 2025 SignoApp – Todas las respuestas llegan a acceso.signoapp@gmail.com
+            © 2025 SignoApp. Todos los derechos reservados.
         </div>
     </div>
 
