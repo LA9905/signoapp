@@ -2,7 +2,7 @@ import { useEffect, useState, type CSSProperties } from "react";
 import { FiX, FiChevronLeft, FiChevronRight, FiBell, FiCheck, FiCheckCircle } from "react-icons/fi";
 import { useTheme } from "../context/ThemeContext";
 
-/** Campaña hasta el miércoles 30 de septiembre 2026 (inclusive). */
+/** Campaña hasta el miércoles 30 de septiembre 2026. */
 const CAMPAIGN_END = "2026-09-30";
 const STORAGE_LAST_SHOWN = "notif_feature_modal_last_shown";
 const STORAGE_EVER_SEEN = "notif_feature_modal_ever_seen";
@@ -201,7 +201,6 @@ const NotificationsFeatureModal = ({ isLimited, isOperatorLimited }: RoleProps) 
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
 
   const close = () => {
@@ -209,7 +208,7 @@ const NotificationsFeatureModal = ({ isLimited, isOperatorLimited }: RoleProps) 
       localStorage.setItem(STORAGE_LAST_SHOWN, todayStr());
       localStorage.setItem(STORAGE_EVER_SEEN, "1");
     } catch {
-      /* */
+
     }
     setVisible(false);
   };
