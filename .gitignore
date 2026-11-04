@@ -36,3 +36,15 @@ dist-ssr
 
 # Migrations cache
 backend/migrations/versions/__pycache__/
+
+**/venv/**
+
+# Python
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Entornos
+.env.local
+.env.production
