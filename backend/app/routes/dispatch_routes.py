@@ -50,10 +50,31 @@ AUTO_DELIVERY_DRIVER_NAMES = {
     "luis miguel méndez",
     "andri alvarez",
     "frank flores",
-    "encomienda",
     "fernando chalbaud",
     "aldair menacho"
 }
+
+# Choferes esporádicos: si el cambio es HACIA uno de estos, no se notifica como error
+SPORADIC_DRIVER_NAMES = {
+    "retira cliente",
+    "encomienda",
+    "pelicano",
+    "don luis mendez",
+    "don cesar mendez",
+    "luis miguel mendez",
+    "andri alvarez",
+    "frank flores",
+    "fernando chalbaud",
+    "aldair menacho",
+}
+
+
+def _normalize_driver_name(name: str) -> str:
+    return " ".join((name or "").strip().split()).lower()
+
+
+def is_sporadic_driver(name: str) -> bool:
+    return _normalize_driver_name(name) in SPORADIC_DRIVER_NAMES
 
 
 def is_auto_delivery_driver(name: str) -> bool:
@@ -585,13 +606,30 @@ def update_dispatch(dispatch_id):
                 f"el Centro de Costo cambió de '{orig_cliente_name}' a '{d.client_name}'"
             )
 
-        if "chofer" in data and data["chofer"] and int(data["chofer"]) != orig_chofer_id:
-            motivos_edicion.append("chofer")
-            old_ch = Driver.query.get(orig_chofer_id)
-            old_ch_name = old_ch.name if old_ch else "—"
-            change_details.append(
-                f"el chofer cambió de '{old_ch_name}' a '{d.chofer_name}'"
-            )
+        if "chofer" in data and data["chofer"]:
+            new_chofer_id = int(data["chofer"])
+            if new_chofer_id != orig_chofer_id:
+                old_ch = Driver.query.get(orig_chofer_id)
+                old_ch_name = (old_ch.name if old_ch else "") or ""
+                new_ch_name = d.chofer_name or ""
+
+                # Normalizar para comparar
+                old_norm = _normalize_driver_name(old_ch_name)
+                new_norm = _normalize_driver_name(new_ch_name)
+
+                # No notificar si:
+                # 1. El nombre es exactamente el mismo (aunque el ID haya cambiado)
+                # 2. El nuevo chofer es esporádico
+                # 3. El nombre anterior estaba vacío y el nuevo es esporádico
+                if (
+                    old_norm != new_norm
+                    and new_norm
+                    and not is_sporadic_driver(new_ch_name)
+                ):
+                    motivos_edicion.append("chofer")
+                    change_details.append(
+                        f"el chofer cambió de '{old_ch_name or '—'}' a '{new_ch_name}'"
+                    )
 
         if "productos" in data and isinstance(data["productos"], list):
             nuevo_productos_set = {
