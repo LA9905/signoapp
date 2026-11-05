@@ -37,13 +37,15 @@ const Drivers = () => {
     e.preventDefault();
     const trimmed = name.trim();
     if (!trimmed) return;
+    if (!window.confirm(`¿Estás seguro que quieres crear el chofer "${trimmed}"?`)) return;
     try {
       setSubmitting(true);
       await api.post<Driver>("/drivers", { name: trimmed });
       setName("");
       fetchDrivers();
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error adding driver:", err);
+      alert(err?.response?.data?.error || "No se pudo agregar el chofer");
     } finally {
       setSubmitting(false);
     }
@@ -66,6 +68,7 @@ const Drivers = () => {
       alert("El nombre no puede estar vacío.");
       return;
     }
+    if (!window.confirm(`¿Estás seguro que quieres guardar la edición de este nombre a "${newName}"?`)) return;
     try {
       setSavingEdit(true);
       const resp = await api.put<Driver>(`/drivers/${id}`, { name: newName });
@@ -81,7 +84,7 @@ const Drivers = () => {
   };
 
   const deleteDriver = async (id: number) => {
-    if (!window.confirm("¿Eliminar este chofer? Esta acción es permanente.")) return;
+    if (!window.confirm("¿Estás seguro que quieres eliminar este chofer? Esta acción es permanente.")) return;
     try {
       await api.delete(`/drivers/${id}`);
       setDrivers((prev) => prev.filter((d) => d.id !== id));
