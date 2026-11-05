@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 from app import db
 from app.models.driver_model import Driver
-from app.models.dispatch_model import Dispatch  # ← para verificar referencias
+from app.models.dispatch_model import Dispatch
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from sqlalchemy.exc import IntegrityError
 
@@ -10,7 +10,6 @@ driver_bp = Blueprint('drivers', __name__)
 @driver_bp.route('/drivers', methods=['GET'])
 @jwt_required()
 def list_drivers():
-    # Opcional: ordenar por nombre
     drivers = Driver.query.order_by(Driver.name.asc()).all()
     return jsonify([driver.to_dict() for driver in drivers]), 200
 
@@ -25,6 +24,11 @@ def create_driver():
         name = data.get("name").strip()
         if not name:
             return jsonify({"error": "El nombre no puede ser vacío"}), 400
+
+        # Evitar nombres duplicados
+        existing = Driver.query.filter(db.func.lower(Driver.name) == name.lower()).first()
+        if existing:
+            return jsonify({"error": "Ya existe un chofer con ese nombre"}), 409
 
         user = get_jwt_identity()
         new_driver = Driver(name=name, created_by=user)
@@ -46,6 +50,15 @@ def update_driver(driver_id):
             return jsonify({"error": "El campo 'name' es requerido"}), 400
 
         driver = Driver.query.get_or_404(driver_id)
+
+        # Evitar renombrar a un nombre que ya existe en otro chofer
+        existing = Driver.query.filter(
+            db.func.lower(Driver.name) == name.lower(),
+            Driver.id != driver_id
+        ).first()
+        if existing:
+            return jsonify({"error": "Ya existe un chofer con ese nombre"}), 409
+
         driver.name = name
         db.session.commit()
         return jsonify(driver.to_dict()), 200

@@ -38,14 +38,15 @@ const DriverSelector: React.FC<DriverSelectorProps> = ({ value, onChange }) => {
   const handleCreate = async () => {
     const nombre = newName.trim();
     if (!nombre) return;
+    if (!window.confirm(`¿Estás seguro que quieres crear el chofer "${nombre}"?`)) return;
     try {
       const created = await createDriver(nombre);
       onChange(String(created.id));
       setShowNew(false);
       setNewName("");
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert("No se pudo registrar el chofer");
+      alert(err?.response?.data?.error || "No se pudo registrar el chofer");
     }
   };
 
@@ -64,6 +65,7 @@ const DriverSelector: React.FC<DriverSelectorProps> = ({ value, onChange }) => {
     if (!selected) return;
     const nombre = editName.trim();
     if (!nombre) return;
+    if (!window.confirm(`¿Estás seguro que quieres guardar la edición de este nombre a "${nombre}"?`)) return;
     try {
       const updated = await updateDriver(selected.id, nombre);
       onChange(String(updated.id));
@@ -76,7 +78,7 @@ const DriverSelector: React.FC<DriverSelectorProps> = ({ value, onChange }) => {
 
   const removeSelected = async () => {
     if (!selected) return;
-    if (!window.confirm(`¿Eliminar el chofer "${selected.name}"?`)) return;
+    if (!window.confirm(`¿Estás seguro que quieres eliminar el chofer "${selected.name}"? Esta acción es permanente.`)) return;
     try {
       await deleteDriver(selected.id);
       if (String(selected.id) === value) onChange("");
